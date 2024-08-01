@@ -69,7 +69,7 @@ function makeRequest(url, method, data) {
       path: parsedUrl.pathname,
       method,
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': data ? 'application/json' : '',
         'Content-Length': data ? Buffer.byteLength(data) : 0,
         'x-api-key': process.env.SPACECAT_API_KEY,
         'x-import-api-key': process.env.IMPORT_API_KEY,
@@ -86,7 +86,7 @@ function makeRequest(url, method, data) {
         if (res.statusCode >= 200 && res.statusCode < 300) {
           resolve(JSON.parse(body));
         } else {
-          reject(new Error(`Request failed with status code ${res.statusCode}: ${body}`));
+          reject(new Error(`Request failed with status code ${res.statusCode}. x-error header: ${res.headers['x-error']}, Body: ${body}`));
         }
       });
     });
@@ -111,10 +111,14 @@ async function pollJobStatus(jobId) {
       const jobStatus = await makeRequest(url, 'GET');
       if (jobStatus.status !== 'RUNNING') {
         console.log('Job completed:', jobStatus);
+
+        // Print the job result's downloadUrl
+        const jobResult = await makeRequest(`${url}/result`, 'POST');
+        console.log(`Download the import archive: ${jobResult.downloadUrl}`);
         break;
       }
       console.log('Job status:', jobStatus.status);
-      await new Promise((resolve) => setTimeout(resolve, 5000)); // Wait for 5 seconds before polling again
+      await new Promise((resolve) => setTimeout(resolve, 5000)); // Wait before polling again
     } catch (error) {
       console.error('Error polling job status:', error);
       break;
