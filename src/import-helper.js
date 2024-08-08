@@ -12,15 +12,22 @@
 
 const https = require('https');
 const { URL } = require('url');
+const prepareImportScript = require("./bundler");
 
 /**
  * Run the import job and begin polling for the result. Logs progress & result to the console.
  * @param {Array<string>} urls - Array of URLs to import
  * @param {object} options - Optional object with import options
+ * @param {string} importJsPath - Optional path to the custom import.js file
  * @param {boolean} stage - Set to true if stage APIs should be used
  * @returns {Promise<void>}
  */
-async function runImportJobAndPoll(urls, options, stage = false) {
+async function runImportJobAndPoll( {
+  urls,
+  importJsPath,
+  options, importJsBundle,
+  stage = false
+} ) {
   // Determine the base URL
   const baseURL = stage
     ? 'https://spacecat.experiencecloud.live/api/ci/tools/import/jobs'
@@ -94,13 +101,22 @@ async function runImportJobAndPoll(urls, options, stage = false) {
 
   // Main function to start the job
   async function startJob() {
-    const requestBody = JSON.stringify({
+    const requestBody = {
       urls,
-      ...(options ? { options } : {}) // Conditionally include options, if provided
-    });
+    };
+
+    if (options) {
+      // Conditionally include options, when provided
+      requestBody.options = options;
+    }
+
+    if (importJsPath) {
+      // Conditionally include the custom (bundled) import.js, when provided
+      requestBody.importScript = prepareImportScript(importJsPath);
+    }
 
     try {
-      const jobResponse = await makeRequest(baseURL, 'POST', requestBody);
+      const jobResponse = await makeRequest(baseURL, 'POST', JSON.stringify(requestBody));
       console.log('Job started:', jobResponse);
       await pollJobStatus(jobResponse.id);
     } catch (error) {

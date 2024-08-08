@@ -12,13 +12,13 @@
  */
 
 const fs = require('fs');
-
 const runImportJobAndPoll = require('./import-helper');
 
 // Parse command-line arguments
 const args = process.argv.slice(2);
 let urlsPath = '';
 let optionsString = '';
+let importJsPath = null;
 let stage = false;
 
 args.forEach((arg, index) => {
@@ -26,6 +26,8 @@ args.forEach((arg, index) => {
     urlsPath = args[index + 1];
   } else if (arg === '--options' && args[index + 1]) {
     optionsString = args[index + 1];
+  } else if (arg === '--importjs' && args[index + 1]) {
+    importJsPath = args[index + 1];
   } else if (arg === '--stage') {
     stage = true;
   }
@@ -33,7 +35,7 @@ args.forEach((arg, index) => {
 
 // Ensure required arguments are provided and environment variables are set
 if (!urlsPath) {
-  console.error('Usage: node import-helper.js --urls <path/to/urls.txt> [--options <options>] [--stage]');
+  console.error('Usage: node import-helper.js --urls <path/to/urls.txt> [--options <options>] [--importjs <path/to/import.js>] [--stage]');
   process.exit(1);
 }
 
@@ -57,6 +59,10 @@ if (optionsString) {
 }
 
 // Run the import job
-runImportJobAndPoll(urls, options, stage).then(() => {
-  console.log('Done.');
-});
+runImportJobAndPoll({ urls, options, importJsPath, stage } )
+  .then(() => {
+    console.log('Done.');
+  }).catch((error) => {
+    console.error(`Error: ${error.message}`);
+    process.exit(1);
+  });

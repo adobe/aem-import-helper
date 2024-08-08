@@ -2,12 +2,15 @@
   "name": "aem-import-helper",
   "version": "0.1.0",
   "description": "Helper tool for running large import jobs with AEM Import as a Service.",
-  "main": "import-helper.js",
+  "main": "src/import-helper.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "release:patch": "npm version patch && npm publish",
+    "release:minor": "npm version minor && npm publish",
+    "release:major": "npm version major && npm publish"
   },
   "bin": {
-    "aem-import-helper": "bin.js"
+    "aem-import-helper": "src/bin.js"
   },
   "repository": {
     "type": "git",
@@ -23,5 +26,8 @@
   "bugs": {
     "url": "https://github.com/blefebvre/aem-import-helper/issues"
   },
-  "homepage": "https://github.com/blefebvre/aem-import-helper#readme"
+  "homepage": "https://github.com/blefebvre/aem-import-helper#readme",
+  "dependencies": {
+    "esbuild": "^0.23.0"
+  }
 }
