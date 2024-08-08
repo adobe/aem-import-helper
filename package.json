@@ -1,0 +1,24 @@
+{
+  "name": "aem-import-helper",
+  "version": "0.1.0",
+  "description": "Helper tool for running large import jobs with AEM Import as a Service.",
+  "main": "import-helper.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/blefebvre/aem-import-helper.git"
+  },
+  "keywords": [
+    "AEM",
+    "import",
+    "Edge"
+  ],
+  "author": "blefebvre",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/blefebvre/aem-import-helper/issues"
+  },
+  "homepage": "https://github.com/blefebvre/aem-import-helper#readme"
+}

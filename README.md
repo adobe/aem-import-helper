@@ -1,6 +1,6 @@
 # AEM Import Helper
 
-Helper script for running large import jobs with AEM Import as a Service.
+Helper tool for running large import jobs with AEM Import as a Service.
 
 ## Usage
 
