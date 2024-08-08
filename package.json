@@ -1,6 +1,6 @@
 {
   "name": "aem-import-helper",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Helper tool for running large import jobs with AEM Import as a Service.",
   "main": "src/import-helper.js",
   "scripts": {
