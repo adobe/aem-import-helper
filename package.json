@@ -6,6 +6,9 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "bin": {
+    "aem-import-helper": "./bin.js"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/blefebvre/aem-import-helper.git"
