@@ -9,7 +9,7 @@
  * OF ANY KIND, either express or implied. See the License for the specific language
  * governing permissions and limitations under the License.
  */
-const esbuild= require('esbuild');
+import esbuild from 'esbuild';
 
 function base64Encode(str) {
   return Buffer.from(str).toString('base64');
@@ -40,4 +40,4 @@ function prepareImportScript(importJsPath) {
   }
 }
 
-module.exports = prepareImportScript;
+export default prepareImportScript;

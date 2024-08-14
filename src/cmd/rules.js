@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /*
  * Copyright 2024 Adobe. All rights reserved.
  * This file is licensed to you under the Apache License, Version 2.0 (the "License");
@@ -11,20 +10,20 @@
  * governing permissions and limitations under the License.
  */
 
-import yargs from 'yargs';
-import {hideBin} from 'yargs/helpers';
-import {importCommand} from './cmd/import.js';
-import {rulesCommand} from './cmd/rules.js';
+import {greet} from '../rules/rules-helper.js';
 
-const argv = yargs(hideBin(process.argv));
-
-importCommand(argv);
-rulesCommand(argv);
-
-argv
-  .scriptName("aem-import-helper")
-  .usage('$0 <cmd> [args]')
-  .strictCommands()
-  .demandCommand(1, 'You need at least one command before moving on')
-  .help()
-  .argv;
+export function rulesCommand(yargs) {
+  yargs.command({
+    command: 'rules <name>',
+    describe: 'Assists with creating import script rules.',
+    builder: (yargs) => {
+      return yargs.positional('name', {
+        describe: 'Name of the person to greet',
+        type: 'string'
+      });
+    },
+    handler: (argv) => {
+      console.log(greet(argv.name));
+    }
+  });
+}

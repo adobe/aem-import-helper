@@ -1,9 +1,13 @@
 {
   "name": "aem-import-helper",
   "version": "0.2.0",
-  "description": "Helper tool for running large import jobs with AEM Import as a Service.",
-  "main": "src/import-helper.js",
+  "description": "Helper tool for importing sites to AEM.",
+  "author": "blefebvre",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "src/index.js",
   "scripts": {
+    "start": "node src/bin.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "release:patch": "npm version patch && npm publish",
     "release:minor": "npm version minor && npm publish",
@@ -16,18 +20,17 @@
     "type": "git",
     "url": "git+https://github.com/blefebvre/aem-import-helper.git"
   },
+  "bugs": {
+    "url": "https://github.com/blefebvre/aem-import-helper/issues"
+  },
+  "homepage": "https://github.com/blefebvre/aem-import-helper#readme",
   "keywords": [
     "AEM",
     "import",
     "Edge"
   ],
-  "author": "blefebvre",
-  "license": "Apache-2.0",
-  "bugs": {
-    "url": "https://github.com/blefebvre/aem-import-helper/issues"
-  },
-  "homepage": "https://github.com/blefebvre/aem-import-helper#readme",
   "dependencies": {
-    "esbuild": "^0.23.0"
+    "esbuild": "^0.23.0",
+    "yargs": "^17.7.2"
   }
 }

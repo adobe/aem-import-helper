@@ -10,9 +10,9 @@
  * governing permissions and limitations under the License.
  */
 
-const https = require('https');
-const { URL } = require('url');
-const prepareImportScript = require("./bundler");
+import https from 'https';
+import { URL } from 'url';
+import prepareImportScript from './bundler.js';
 
 /**
  * Run the import job and begin polling for the result. Logs progress & result to the console.
@@ -127,4 +127,4 @@ async function runImportJobAndPoll( {
   return startJob();
 }
 
-module.exports = runImportJobAndPoll;
+export default runImportJobAndPoll;
