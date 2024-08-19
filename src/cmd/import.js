@@ -51,8 +51,8 @@ export function importCommand(yargs) {
         process.exit(1);
       }
 
-      if (!process.env.SPACECAT_API_KEY || !process.env.IMPORT_API_KEY) {
-        console.error('Error: Ensure the SPACECAT_API_KEY and IMPORT_API_KEY environment variables are set.');
+      if (!process.env.AEM_IMPORT_API_KEY) {
+        console.error('Error: Ensure the AEM_IMPORT_API_KEY environment variable is set.');
         process.exit(1);
       }
 

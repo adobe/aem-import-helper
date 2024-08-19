@@ -44,8 +44,7 @@ async function runImportJobAndPoll( {
         headers: {
           'Content-Type': data ? 'application/json' : '',
           'Content-Length': data ? Buffer.byteLength(data) : 0,
-          'x-api-key': process.env.SPACECAT_API_KEY,
-          'x-import-api-key': process.env.IMPORT_API_KEY,
+          'x-api-key': process.env.AEM_IMPORT_API_KEY,
         }
       };
 
@@ -59,7 +58,9 @@ async function runImportJobAndPoll( {
           if (res.statusCode >= 200 && res.statusCode < 300) {
             resolve(JSON.parse(body));
           } else {
-            reject(new Error(`Request failed with status code ${res.statusCode}. x-error header: ${res.headers['x-error']}, Body: ${body}`));
+            reject(new Error(`Request failed with status code ${res.statusCode}. `
+              + `x-error header: ${res.headers['x-error']}, x-invocation-id: ${res.headers['x-invocation-id']}, `
+              + `Body: ${body}`));
           }
         });
       });

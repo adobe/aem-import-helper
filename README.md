@@ -23,7 +23,7 @@ Create a file (named `urls.txt` below) which contains a list of all URLs to impo
 Set your environment variables (either in your shell profile or in a `.env` file):
 
 ```
-export IMPORT_API_KEY=your-import-api-key
+export AEM_IMPORT_API_KEY=your-import-api-key
 ```
 
 Add a npm script entry to your Edge Delivery project's `package.json`:
