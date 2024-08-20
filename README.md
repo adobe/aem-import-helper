@@ -41,6 +41,8 @@ npm run import -- --urls tools/importer/urls.txt --importjs tools/importer/impor
 The `import.js` file you provide will be automatically bundled and sent to the Import as a Service API, so referencing
 other local scripts (such as transformers) is supported.
 
+Once complete, a pre-signed URL to download the import result (as a .zip archive) from S3 will be printed to the console. 
+
 ## Coming soon
 
-- Custom import.js support on the API side
+- A report detailing the result of the import, including the reason for any failures
