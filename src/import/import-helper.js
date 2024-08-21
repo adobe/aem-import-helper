@@ -13,6 +13,7 @@
 import https from 'https';
 import { URL } from 'url';
 import prepareImportScript from './bundler.js';
+import chalk from 'chalk';
 
 /**
  * Run the import job and begin polling for the result. Logs progress & result to the console.
@@ -25,7 +26,7 @@ import prepareImportScript from './bundler.js';
 async function runImportJobAndPoll( {
   urls,
   importJsPath,
-  options, importJsBundle,
+  options,
   stage = false
 } ) {
   // Determine the base URL
@@ -84,17 +85,17 @@ async function runImportJobAndPoll( {
       try {
         const jobStatus = await makeRequest(url, 'GET');
         if (jobStatus.status !== 'RUNNING') {
-          console.log('Job completed:', jobStatus);
+          console.log(chalk.green('Job completed:', jobStatus));
 
           // Print the job result's downloadUrl
           const jobResult = await makeRequest(`${url}/result`, 'POST');
-          console.log(`Download the import archive: ${jobResult.downloadUrl}`);
+          console.log(chalk.yellow(`Download the import archive: ${jobResult.downloadUrl}`));
           break;
         }
-        console.log('Job status:', jobStatus.status);
+        console.log(chalk.yellow('Job status:', jobStatus.status));
         await new Promise((resolve) => setTimeout(resolve, 5000)); // Wait before polling again
       } catch (error) {
-        console.error('Error polling job status:', error);
+        console.error(chalk.red('Error polling job status:', error));
         break;
       }
     }
@@ -118,10 +119,10 @@ async function runImportJobAndPoll( {
 
     try {
       const jobResponse = await makeRequest(baseURL, 'POST', JSON.stringify(requestBody));
-      console.log('Job started:', jobResponse);
+      console.log(chalk.yellow('Job started:', jobResponse));
       await pollJobStatus(jobResponse.id);
     } catch (error) {
-      console.error('Error starting job:', error);
+      console.error(chalk.red('Error starting job:', error));
     }
   }
 

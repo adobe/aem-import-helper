@@ -11,6 +11,7 @@
  */
 
 import fs from 'fs';
+import chalk from 'chalk';
 import runImportJobAndPoll from '../import/import-helper.js';
 
 export function importCommand(yargs) {
@@ -47,12 +48,12 @@ export function importCommand(yargs) {
 
       // Ensure required arguments are provided and environment variables are set
       if (!urlsPath) {
-        console.error('Usage: node import-helper.js --urls <path/to/urls.txt> [--options <options>] [--importjs <path/to/import.js>] [--stage]');
+        console.error(chalk.red('Usage: node import-helper.js --urls <path/to/urls.txt> [--options <options>] [--importjs <path/to/import.js>] [--stage]'));
         process.exit(1);
       }
 
       if (!process.env.AEM_IMPORT_API_KEY) {
-        console.error('Error: Ensure the AEM_IMPORT_API_KEY environment variable is set.');
+        console.error(chalk.red('Error: Ensure the AEM_IMPORT_API_KEY environment variable is set.'));
         process.exit(1);
       }
 
@@ -65,7 +66,7 @@ export function importCommand(yargs) {
         try {
           options = JSON.parse(optionsString);
         } catch (error) {
-          console.error('Error: Invalid options JSON.');
+          console.error(chalk.red('Error: Invalid options JSON.'));
           process.exit(1);
         }
       }
@@ -73,9 +74,9 @@ export function importCommand(yargs) {
       // Run the import job
       runImportJobAndPoll({ urls, options, importJsPath, stage } )
       .then(() => {
-        console.log('Done.');
+        console.log(chalk.green('Done.'));
       }).catch((error) => {
-        console.error(`Error: ${error.message}`);
+        console.error(chalk.red(`Error: ${error.message}`));
         process.exit(1);
       });
     }

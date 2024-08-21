@@ -15,11 +15,13 @@ import yargs from 'yargs';
 import {hideBin} from 'yargs/helpers';
 import {importCommand} from './cmd/import.js';
 import {rulesCommand} from './cmd/rules.js';
+import {bundleCommand} from './cmd/bundle.js';
 
 const argv = yargs(hideBin(process.argv));
 
 importCommand(argv);
 rulesCommand(argv);
+bundleCommand(argv);
 
 argv
   .scriptName("aem-import-helper")

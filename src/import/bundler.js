@@ -18,9 +18,10 @@ function base64Encode(str) {
 /**
  * Prepares the given import script by bundling it up and Base64 encoding it.
  * @param {string} importJsPath - Path on the filesystem to the import.js entry point
+ * @param {object} options - Options object
  * @returns {string} - Base64 encoded import.js bundle
  */
-function prepareImportScript(importJsPath) {
+function prepareImportScript(importJsPath, { encode = true } = {}) {
   try {
     const bundle = esbuild.buildSync({
       entryPoints: [importJsPath],
@@ -33,7 +34,10 @@ function prepareImportScript(importJsPath) {
     })
 
     const bundledCode = bundle.outputFiles[0].text;
-    return base64Encode(bundledCode);
+    if (encode) {
+      return base64Encode(bundledCode);
+    }
+    return bundledCode;
   } catch (error) {
     console.error('Import.js bundling failed:', error)
     throw error;

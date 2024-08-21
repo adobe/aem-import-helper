@@ -30,6 +30,7 @@
     "Edge"
   ],
   "dependencies": {
+    "chalk": "^5.3.0",
     "esbuild": "^0.23.0",
     "yargs": "^17.7.2"
   }
