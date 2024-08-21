@@ -1,6 +1,6 @@
 {
   "name": "aem-import-helper",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Helper tool for importing sites to AEM.",
   "author": "blefebvre",
   "license": "Apache-2.0",
