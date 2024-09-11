@@ -10,7 +10,9 @@
  * governing permissions and limitations under the License.
  */
 
-import https from 'https';
+import path from 'path';
+import fetch from 'node-fetch';
+import { Blob } from 'buffer';
 import { URL } from 'url';
 import prepareImportScript from './bundler.js';
 import chalk from 'chalk';
@@ -35,47 +37,27 @@ async function runImportJobAndPoll( {
     : 'https://spacecat.experiencecloud.live/api/v1/tools/import/jobs';
 
   // Function to make HTTP requests
-  function makeRequest(url, method, data) {
-    return new Promise((resolve, reject) => {
-      const parsedUrl = new URL(url);
-      const requestOptions = {
-        hostname: parsedUrl.hostname,
-        path: parsedUrl.pathname,
-        method,
-        headers: {
-          'Content-Type': data ? 'application/json' : '',
-          'Content-Length': data ? Buffer.byteLength(data) : 0,
-          'x-api-key': process.env.AEM_IMPORT_API_KEY,
-        }
-      };
-
-      const req = https.request(requestOptions, (res) => {
-        let body = '';
-        res.on('data', (chunk) => {
-          body += chunk;
-        });
-
-        res.on('end', () => {
-          if (res.statusCode >= 200 && res.statusCode < 300) {
-            resolve(JSON.parse(body));
-          } else {
-            reject(new Error(`Request failed with status code ${res.statusCode}. `
-              + `x-error header: ${res.headers['x-error']}, x-invocation-id: ${res.headers['x-invocation-id']}, `
-              + `Body: ${body}`));
-          }
-        });
-      });
-
-      req.on('error', (e) => {
-        reject(e);
-      });
-
-      if (data) {
-        req.write(data);
-      }
-
-      req.end();
+  async function makeRequest(url, method, data) {
+    const parsedUrl = new URL(url);
+    const headers = new Headers({
+      'Content-Type': data ? 'application/json' : '',
+      'x-api-key': process.env.AEM_IMPORT_API_KEY,
     });
+    if (data instanceof FormData) {
+      headers.delete('Content-Type');
+    }
+    const res = await fetch(parsedUrl, {
+      method,
+      headers,
+      body: data,
+    });
+    if (res.ok) {
+      return res.json();
+    }
+    const body = await res.text();
+    throw new Error(`Request failed with status code ${res.status}. `
+        + `x-error header: ${res.headers.get('x-error')}, x-invocation-id: ${res.headers.get('x-invocation-id')}, `
+        + `Body: ${body}`);
   }
 
   // Function to poll job status
@@ -103,22 +85,26 @@ async function runImportJobAndPoll( {
 
   // Main function to start the job
   async function startJob() {
-    const requestBody = {
-      urls,
-    };
-
-    if (options) {
+    const requestBody = new FormData();
+    requestBody.append('urls', JSON.stringify(urls));
+    const { headers, ...restOptions } = options || {};
+    if (restOptions) {
       // Conditionally include options, when provided
-      requestBody.options = options;
+      requestBody.append('options', JSON.stringify(restOptions));
     }
-
+    if (headers) {
+      // Conditionally include custom headers, when provided
+      requestBody.append('customHeaders', JSON.stringify(headers));
+    }
     if (importJsPath) {
       // Conditionally include the custom (bundled) import.js, when provided
-      requestBody.importScript = prepareImportScript(importJsPath);
+      const bundledCode = prepareImportScript(importJsPath);
+      const bundledScriptBlob = new Blob([bundledCode], { type: 'application/javascript' });
+      requestBody.append('importScript', bundledScriptBlob, path.basename(importJsPath));
     }
 
     try {
-      const jobResponse = await makeRequest(baseURL, 'POST', JSON.stringify(requestBody));
+      const jobResponse = await makeRequest(baseURL, 'POST', requestBody);
       console.log(chalk.yellow('Job started:'), jobResponse);
       await pollJobStatus(jobResponse.id);
     } catch (error) {

@@ -33,7 +33,7 @@ export function bundleCommand(yargs) {
 
       try {
         console.log(chalk.yellow(`Bundling ${importJsPath}...`));
-        const bundledCode = prepareImportScript(importJsPath, {encode: false});
+        const bundledCode = prepareImportScript(importJsPath);
         const outputPath = `${importJsPath.replace(/\.[^/.]+$/, "")}.bundle.js`;
         console.log(chalk.yellow(`Writing to ${outputPath}...`));
         fs.writeFileSync(outputPath, bundledCode);

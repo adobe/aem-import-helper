@@ -46,12 +46,7 @@ export function importCommand(yargs) {
         stage
       } = argv;
 
-      // Ensure required arguments are provided and environment variables are set
-      if (!urlsPath) {
-        console.error(chalk.red('Usage: node import-helper.js --urls <path/to/urls.txt> [--options <options>] [--importjs <path/to/import.js>] [--stage]'));
-        process.exit(1);
-      }
-
+      // Ensure required environment variable is set
       if (!process.env.AEM_IMPORT_API_KEY) {
         console.error(chalk.red('Error: Ensure the AEM_IMPORT_API_KEY environment variable is set.'));
         process.exit(1);

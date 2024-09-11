@@ -11,17 +11,12 @@
  */
 import esbuild from 'esbuild';
 
-function base64Encode(str) {
-  return Buffer.from(str).toString('base64');
-}
-
 /**
- * Prepares the given import script by bundling it up and Base64 encoding it.
+ * Prepares the given import script by bundling it up.
  * @param {string} importJsPath - Path on the filesystem to the import.js entry point
- * @param {object} options - Options object
- * @returns {string} - Base64 encoded import.js bundle
+ * @returns {string} - import.js bundle
  */
-function prepareImportScript(importJsPath, { encode = true } = {}) {
+function prepareImportScript(importJsPath) {
   try {
     const bundle = esbuild.buildSync({
       entryPoints: [importJsPath],
@@ -33,11 +28,7 @@ function prepareImportScript(importJsPath, { encode = true } = {}) {
       target: ['es2015'],
     })
 
-    const bundledCode = bundle.outputFiles[0].text;
-    if (encode) {
-      return base64Encode(bundledCode);
-    }
-    return bundledCode;
+    return bundle.outputFiles[0].text;
   } catch (error) {
     console.error('Import.js bundling failed:', error)
     throw error;
