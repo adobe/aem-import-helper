@@ -74,7 +74,11 @@ async function runImportJobAndPoll( {
           console.log(chalk.green('Download the import archive:'), jobResult.downloadUrl);
           break;
         }
-        console.log(chalk.yellow('Job status:'), jobStatus.status);
+
+        const progressUrl = `${url}/progress`;
+        const jobProgress = await makeRequest(progressUrl, 'GET');
+        console.log(chalk.yellow('Job status:'), jobStatus.status, jobProgress);
+
         await new Promise((resolve) => setTimeout(resolve, 5000)); // Wait before polling again
       } catch (error) {
         console.error(chalk.red('Error polling job status:'), error);
