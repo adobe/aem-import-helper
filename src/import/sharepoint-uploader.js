@@ -17,7 +17,7 @@ import { Readable } from 'node:stream';
 import unzipper from 'unzipper';
 import chalk from 'chalk';
 
-// Maximum number of times to try uploading a file to SharePoint
+// Maximum number of times to retry uploading a file to SharePoint
 const UPLOAD_RETRY_LIMIT = 2;
 
 // Temporary directory to store the extracted files
@@ -76,8 +76,14 @@ function parseSharePointUrl(sharepointUrl) {
   };
 }
 
+/**
+ * Download a .zip file from a given S3 presigned URL and upload its contents to a SharePoint site.
+ * Includes a basic retry mechanism which will re-attempt to upload a file up to UPLOAD_RETRY_LIMIT times.
+ * @param {string} s3PresignedUrl - The S3 presigned URL to download the ZIP file from
+ * @param {string} sharePointUrl - The SharePoint URL to upload the extracted files to
+ * @returns {Promise<void>}
+ */
 export async function uploadZipFromS3ToSharePoint(s3PresignedUrl, sharePointUrl) {
-
   const successfulUploads = [];
   const failedUploads = [];
 
@@ -127,7 +133,7 @@ export async function uploadZipFromS3ToSharePoint(s3PresignedUrl, sharePointUrl)
     }
   }
 
-  console.log(chalk.green(`Starting upload to Sharepoint, since you provided a SharePoint URL (${sharePointUrl})`));
+  console.log(chalk.green(`Starting document upload to SharePoint, since you provided a SharePoint URL (${sharePointUrl})`));
 
   try {
     // Step 1: Download and extract the ZIP file

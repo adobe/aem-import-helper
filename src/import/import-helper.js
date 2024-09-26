@@ -39,6 +39,10 @@ async function runImportJobAndPoll( {
     ? 'https://spacecat.experiencecloud.live/api/ci/tools/import/jobs'
     : 'https://spacecat.experiencecloud.live/api/v1/tools/import/jobs';
 
+  function hasProvidedSharePointUrl() {
+    return typeof sharePointUploadUrl === 'string';
+  }
+
   // Function to make HTTP requests
   async function makeRequest(url, method, data) {
     const parsedUrl = new URL(url);
@@ -79,7 +83,7 @@ async function runImportJobAndPoll( {
           const jobResult = await makeRequest(`${url}/result`, 'POST');
           console.log(chalk.green('Download the import archive:'), jobResult.downloadUrl);
 
-          if (sharePointUploadUrl) {
+          if (hasProvidedSharePointUrl()) {
             // Upload the import archive to SharePoint
             await uploadZipFromS3ToSharePoint(jobResult.downloadUrl, sharePointUploadUrl);
           }
