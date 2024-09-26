@@ -67,6 +67,8 @@ async function runImportJobAndPoll( {
   async function pollJobStatus(jobId) {
     const url = `${baseURL}/${jobId}`;
     while (true) {
+      // Wait before polling
+      await new Promise((resolve) => setTimeout(resolve, 5000));
       try {
         const jobStatus = await makeRequest(url, 'GET');
         if (jobStatus.status !== 'RUNNING') {
@@ -79,7 +81,7 @@ async function runImportJobAndPoll( {
 
           if (sharePointUploadUrl) {
             // Upload the import archive to SharePoint
-            uploadZipFromS3ToSharePoint(jobResult.downloadUrl, sharePointUploadUrl);
+            await uploadZipFromS3ToSharePoint(jobResult.downloadUrl, sharePointUploadUrl);
           }
           break;
         }
@@ -87,8 +89,6 @@ async function runImportJobAndPoll( {
         const progressUrl = `${url}/progress`;
         const jobProgress = await makeRequest(progressUrl, 'GET');
         console.log(chalk.yellow('Job status:'), jobStatus.status, jobProgress);
-
-        await new Promise((resolve) => setTimeout(resolve, 5000)); // Wait before polling again
       } catch (error) {
         console.error(chalk.red('Error polling job status:'), error);
         break;
