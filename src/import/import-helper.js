@@ -16,12 +16,14 @@ import { Blob } from 'buffer';
 import { URL } from 'url';
 import prepareImportScript from './bundler.js';
 import chalk from 'chalk';
+import { uploadZipFromS3ToSharePoint } from './sharepoint-uploader.js';
 
 /**
  * Run the import job and begin polling for the result. Logs progress & result to the console.
  * @param {Array<string>} urls - Array of URLs to import
  * @param {object} options - Optional object with import options
  * @param {string} importJsPath - Optional path to the custom import.js file
+ * @param {string} sharePointUploadUrl - SharePoint URL to upload imported files to
  * @param {boolean} stage - Set to true if stage APIs should be used
  * @returns {Promise<void>}
  */
@@ -29,6 +31,7 @@ async function runImportJobAndPoll( {
   urls,
   importJsPath,
   options,
+  sharePointUploadUrl,
   stage = false
 } ) {
   // Determine the base URL
@@ -67,11 +70,17 @@ async function runImportJobAndPoll( {
       try {
         const jobStatus = await makeRequest(url, 'GET');
         if (jobStatus.status !== 'RUNNING') {
+          // Job is finished!
           console.log(chalk.green('Job completed:'), jobStatus);
 
           // Print the job result's downloadUrl
           const jobResult = await makeRequest(`${url}/result`, 'POST');
           console.log(chalk.green('Download the import archive:'), jobResult.downloadUrl);
+
+          if (sharePointUploadUrl) {
+            // Upload the import archive to SharePoint
+            uploadZipFromS3ToSharePoint(jobResult.downloadUrl, sharePointUploadUrl);
+          }
           break;
         }
 

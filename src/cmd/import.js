@@ -33,6 +33,10 @@ export function importCommand(yargs) {
         describe: 'path to import script',
         type: 'string'
       })
+      .option('sharepointurl', {
+        describe: 'SharePoint URL to upload imported files to',
+        type: 'string'
+      })
       .option('stage', {
         describe: 'use stage endpoint',
         type: 'boolean'
@@ -43,6 +47,7 @@ export function importCommand(yargs) {
         urls: urlsPath,
         options: optionsString,
         importjs: importJsPath,
+        sharepointurl: sharePointUploadUrl,
         stage
       } = argv;
 
@@ -67,7 +72,7 @@ export function importCommand(yargs) {
       }
 
       // Run the import job
-      runImportJobAndPoll({ urls, options, importJsPath, stage } )
+      runImportJobAndPoll({ urls, options, importJsPath, sharePointUploadUrl, stage } )
       .then(() => {
         console.log(chalk.green('Done.'));
       }).catch((error) => {
