@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /*
  * Copyright 2024 Adobe. All rights reserved.
  * This file is licensed to you under the Apache License, Version 2.0 (the "License");
@@ -11,24 +10,12 @@
  * governing permissions and limitations under the License.
  */
 
-import yargs from 'yargs';
-import {hideBin} from 'yargs/helpers';
-import {importCommand} from './cmd/import.js';
-import {rulesCommand} from './cmd/rules.js';
-import {bundleCommand} from './cmd/bundle.js';
-import {uploadCommand} from './cmd/upload.js';
+import chalk from 'chalk';
 
-const argv = yargs(hideBin(process.argv));
-
-importCommand(argv);
-uploadCommand(argv);
-rulesCommand(argv);
-bundleCommand(argv);
-
-argv
-  .scriptName("aem-import-helper")
-  .usage('$0 <cmd> [args]')
-  .strictCommands()
-  .demandCommand(1, 'You need at least one command before moving on')
-  .help()
-  .argv;
+export function checkEnvironment(env) {
+  // Ensure required environment variable is set
+  if (typeof env.AEM_IMPORT_API_KEY !== 'string') {
+    console.error(chalk.red('Error: Ensure the AEM_IMPORT_API_KEY environment variable is set.'));
+    process.exit(1);
+  }
+}

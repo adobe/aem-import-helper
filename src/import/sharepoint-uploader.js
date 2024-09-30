@@ -30,7 +30,6 @@ const downloadDirDefault = `extracted-files-${Date.now()}`;
  * @returns {Promise<void>}
  */
 async function downloadAndExtractZip(s3PresignedUrl, downloadDirPath) {
-  console.log(chalk.green('Downloading job archive...'));
   try {
     // Download the ZIP file using fetch
     const response = await fetch(s3PresignedUrl);
@@ -81,9 +80,10 @@ function parseSharePointUrl(sharepointUrl) {
  * Includes a basic retry mechanism which will re-attempt to upload a file up to UPLOAD_RETRY_LIMIT times.
  * @param {string} s3PresignedUrl - The S3 presigned URL to download the ZIP file from
  * @param {string} sharePointUrl - The SharePoint URL to upload the extracted files to
+ * @param {boolean} cleanup - Whether to cleanup the tmp download directory after the upload
  * @returns {Promise<void>}
  */
-export async function uploadZipFromS3ToSharePoint(s3PresignedUrl, sharePointUrl) {
+export async function uploadZipFromS3ToSharePoint(s3PresignedUrl, sharePointUrl, cleanup = true) {
   const successfulUploads = [];
   const failedUploads = [];
 
@@ -133,14 +133,21 @@ export async function uploadZipFromS3ToSharePoint(s3PresignedUrl, sharePointUrl)
     }
   }
 
-  console.log(chalk.green(`Starting document upload to SharePoint, since you provided a SharePoint URL (${sharePointUrl})`));
+  console.log(chalk.green(`Starting document upload to SharePoint URL ${sharePointUrl}`));
 
   try {
     // Step 1: Download and extract the ZIP file
+    console.log(chalk.green('Downloading job archive...'));
     await downloadAndExtractZip(s3PresignedUrl, downloadDirDefault);
 
     // Step 2: Upload files to SharePoint, preserving the directory structure
+    console.log(chalk.green(`Uploading job artifacts to SharePoint...`));
     await uploadDirectoryToSharePoint(path.join(downloadDirDefault, 'docx'));
+
+    // Step 3: cleanup the download directory
+    if (cleanup) {
+      fs.rmSync(downloadDirDefault, { recursive: true });
+    }
 
     console.log(chalk.green(`SharePoint upload operation complete. Successful uploads: ${successfulUploads.length}, failed uploads: ${failedUploads.length}`));
   } catch (error) {
