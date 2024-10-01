@@ -43,7 +43,7 @@ export function importCommand(yargs) {
         type: 'boolean'
       });
     },
-    handler: (argv) => {
+    handler: async (argv) => {
       const {
         urls: urlsPath,
         options: optionsString,
@@ -69,13 +69,13 @@ export function importCommand(yargs) {
       }
 
       // Run the import job
-      runImportJobAndPoll({ urls, options, importJsPath, sharePointUploadUrl, stage } )
-      .then(() => {
+      try {
+        await runImportJobAndPoll({ urls, options, importJsPath, sharePointUploadUrl, stage } );
         console.log(chalk.green('Done.'));
-      }).catch((error) => {
+      } catch(error) {
         console.error(chalk.red(`Error: ${error.message}`));
         process.exit(1);
-      });
+      };
     }
   });
 }

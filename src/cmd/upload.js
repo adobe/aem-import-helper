@@ -34,7 +34,7 @@ export function uploadCommand(yargs) {
         type: 'boolean'
       });
     },
-    handler: (argv) => {
+    handler: async (argv) => {
       const {
         jobid: jobId,
         sharepointurl: sharePointUploadUrl,
@@ -44,13 +44,13 @@ export function uploadCommand(yargs) {
       checkEnvironment(process.env);
 
       // Process the upload request
-      uploadJobResult({ jobId, sharePointUploadUrl, stage })
-      .then(() => {
+      try {
+        await uploadJobResult({jobId, sharePointUploadUrl, stage});
         console.log(chalk.green('Done.'));
-      }).catch((error) => {
+      } catch (error) {
         console.error(chalk.red(`Error: ${error.message}`));
         process.exit(1);
-      });
+      }
     }
   });
 }
