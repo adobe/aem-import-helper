@@ -6,6 +6,7 @@ A helpful companion for importing your site to AEM.
 
 - Run large [import](#import) jobs with AEM Import as a Service ([API docs](https://opensource.adobe.com/spacecat-api-service/#tag/import)).
 - [Bundle](#bundle) your import scripts.
+- Develop import scripts with ease using AI-assisted [commands](#assistant).
 
 ## Install
 
@@ -82,6 +83,43 @@ npm run bundle -- --importjs tools/importer/import.js
 ```
 
 The `import.js` file you provide will be bundled with any locally referenced scripts and saved to a new file named `import.bundle.js`.
+
+### Assistant
+
+Run AI-enabled commands to assist with your import script development.
+
+Add an npm script entry to your Edge Delivery project's `package.json`:
+
+```
+"assistant": "aem-import-helper assistant"
+```
+
+Run the script:
+
+```
+npm run assistant -- start --url https://example.com --outputPath tools/importer
+npm run assistant -- cleanup --url https://example.com --prompt "content to remove"
+npm run assistant -- block --url https://example.com --name "name of the block" --prompt "describe block content on the page"
+npm run assistant -- cells --url https://example.com --name "name of the block" --prompt "describe content that should be added to the block"
+```
+
+#### Commands
+
+- `start`: Start a new import project
+- `cleanup`: Remove content from the page
+- `block`: Define a block on the page
+- `cells`: Add content to a block
+
+#### Options
+
+- `--url`: The URL of the page to analyze
+- `--outputPath`: The directory to save the import scripts
+- `--name`: The name of the block
+- `--prompt`: Descriptive text to help understand the content
+
+#### Authentication
+
+
 
 ## Coming soon
 

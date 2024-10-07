@@ -10,8 +10,13 @@
  * governing permissions and limitations under the License.
  */
 
-const greet = (name) => {
-  return `Hello, ${name}!`;
-};
+const FILENAME = 'import-rules.js';
 
-export { greet };
+const getRules = async (outputPath) => {
+  const rulesModule = await import(`${process.cwd()}${outputPath}/${FILENAME}`);
+  return rulesModule.default;
+}
+
+export {
+  getRules,
+}

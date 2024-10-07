@@ -10,20 +10,22 @@
  * governing permissions and limitations under the License.
  */
 
-import {greet} from '../rules/rules-helper.js';
+import path from 'path';
+import {copyFiles} from '../utils/fileUtils.js';
 
-export function rulesCommand(yargs) {
-  yargs.command({
-    command: 'rules <name>',
-    describe: 'Assists with creating import script rules.',
-    builder: (yargs) => {
-      return yargs.positional('name', {
-        describe: 'Name of the person to greet',
-        type: 'string'
-      });
-    },
-    handler: (argv) => {
-      console.log(greet(argv.name));
-    }
-  });
+const port = 3009;
+
+export function getPort() {
+  return port;
+}
+
+export function getBaseUrl() {
+  return `http://localhost:${port}`;
+}
+
+export function copyTemplates(outputPath) {
+  // Copy templates to server root
+  const srcDir = path.join(process.cwd(), 'node_modules', 'aem-import-builder', 'dist', 'templates');
+  const destDir = path.join(process.cwd(), outputPath, 'templates');
+  copyFiles(srcDir, destDir);
 }

@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /*
  * Copyright 2024 Adobe. All rights reserved.
  * This file is licensed to you under the Apache License, Version 2.0 (the "License");
@@ -10,25 +9,6 @@
  * OF ANY KIND, either express or implied. See the License for the specific language
  * governing permissions and limitations under the License.
  */
+import { EventEmitter } from 'events';
 
-import yargs from 'yargs';
-import {hideBin} from 'yargs/helpers';
-import {importCommand} from './cmd/import.js';
-import {assistantCommand} from './cmd/assistant.js';
-import {bundleCommand} from './cmd/bundle.js';
-import {uploadCommand} from './cmd/upload.js';
-
-const argv = yargs(hideBin(process.argv));
-
-importCommand(argv);
-uploadCommand(argv);
-bundleCommand(argv);
-assistantCommand(argv);
-
-argv
-  .scriptName("aem-import-helper")
-  .usage('$0 <cmd> [args]')
-  .strictCommands()
-  .demandCommand(1, 'You need at least one command before moving on')
-  .help()
-  .argv;
+export const helperEvents = new EventEmitter();

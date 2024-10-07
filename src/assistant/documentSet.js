@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /*
  * Copyright 2024 Adobe. All rights reserved.
  * This file is licensed to you under the Apache License, Version 2.0 (the "License");
@@ -11,24 +10,23 @@
  * governing permissions and limitations under the License.
  */
 
-import yargs from 'yargs';
-import {hideBin} from 'yargs/helpers';
-import {importCommand} from './cmd/import.js';
-import {assistantCommand} from './cmd/assistant.js';
-import {bundleCommand} from './cmd/bundle.js';
-import {uploadCommand} from './cmd/upload.js';
+import {readFromFile, writeToFile} from '../utils/fileUtils.js';
 
-const argv = yargs(hideBin(process.argv));
+const FILENAME = 'documentSet.json';
 
-importCommand(argv);
-uploadCommand(argv);
-bundleCommand(argv);
-assistantCommand(argv);
+const getDocumentSet = (outputPath) => {
+  const manifestText = readFromFile(`.${outputPath}/${FILENAME}`);
+  const manifestArray = manifestText ? JSON.parse(manifestText) : [];
+  return new Set(manifestArray);
+}
 
-argv
-  .scriptName("aem-import-helper")
-  .usage('$0 <cmd> [args]')
-  .strictCommands()
-  .demandCommand(1, 'You need at least one command before moving on')
-  .help()
-  .argv;
+const writeDocumentSet = (outputPath, documentSet) => {
+  const manifestArray = Array.from(documentSet);
+  const manifestText = JSON.stringify(manifestArray, null, 2);
+  writeToFile(`.${outputPath}/${FILENAME}`, manifestText);
+}
+
+export {
+  getDocumentSet,
+  writeDocumentSet,
+}
