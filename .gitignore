@@ -1,6 +1,7 @@
 node_modules
 .idea
 *.iml
+coverage
 
 # dotenv environment variable files
 .env

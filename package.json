@@ -8,7 +8,7 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/bin.js",
-    "test": "mocha",
+    "test": "c8 mocha",
     "release:patch": "npm version patch && npm publish",
     "release:minor": "npm version minor && npm publish",
     "release:major": "npm version major && npm publish"
@@ -30,7 +30,8 @@
     "Edge"
   ],
   "engines": {
-    "node": ">=20.17.0"
+    "node": "^20.17.0 <21.0.0",
+    "npm": "^10.0.0 <11.0.0"
   },
   "dependencies": {
     "aem-import-builder": "^0.1.0",
@@ -45,9 +46,11 @@
     "yargs": "^17.7.2"
   },
   "devDependencies": {
+    "c8": "10.1.2",
     "chai": "^5.1.1",
+    "chai-as-promised": "^8.0.0",
     "esmock": "^2.6.7",
     "mocha": "^10.7.3",
-    "sinon": "^18.0.0"
+    "sinon": "^18.0.1"
   }
 }
