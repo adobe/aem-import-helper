@@ -13,7 +13,7 @@
 const FILENAME = 'import-rules.js';
 
 const getRules = async (outputPath) => {
-  const rulesModule = await import(`${process.cwd()}${outputPath}/${FILENAME}`);
+  const rulesModule = await import(`file://${process.cwd()}${outputPath}/${FILENAME}`);
   return rulesModule.default;
 }
 
