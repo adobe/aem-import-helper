@@ -2,7 +2,7 @@
   "name": "aem-import-helper",
   "version": "0.8.0",
   "description": "Helper tool for importing sites to AEM.",
-  "author": "blefebvre",
+  "author": "AEM Importer Team",
   "license": "Apache-2.0",
   "type": "module",
   "main": "src/index.js",
@@ -18,12 +18,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/blefebvre/aem-import-helper.git"
+    "url": "git+https://github.com/adobe/aem-import-helper.git"
   },
   "bugs": {
-    "url": "https://github.com/blefebvre/aem-import-helper/issues"
+    "url": "https://github.com/adobe/aem-import-helper/issues"
   },
-  "homepage": "https://github.com/blefebvre/aem-import-helper#readme",
+  "homepage": "https://github.com/adobe/aem-import-helper#readme",
   "keywords": [
     "AEM",
     "import",
