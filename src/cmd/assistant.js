@@ -14,7 +14,7 @@ import {
   runRemovalAssistant,
   runBlockAssistant,
   runStartAssistant,
-  runCellAssistant,
+  runCellAssistant, runPageAssistant,
 } from '../assistant/assistant-helper.js';
 import chalk from 'chalk';
 
@@ -124,6 +124,37 @@ export function assistantCommand(yargs) {
         handler: async (argv) => {
           try {
             await runCellAssistant({
+              url: argv.url,
+              name: argv.name,
+              prompt: argv.prompt,
+              outputPath: argv.outputPath
+            });
+            process.exit(0);
+          } catch (error) {
+            console.error(chalk.red(`Error: ${error.message}`));
+            process.exit(1);
+          }
+        }
+      })
+      .command({
+        command: 'page',
+        describe: 'Generates page transformation scripts.',
+        builder: (yargs) => {
+          return yargs
+          .option('name', {
+            describe: 'The name of the page transformation',
+            type: 'string',
+            demandOption: true
+          })
+          .option('prompt', {
+            describe: 'Prompt for the page transformation function',
+            type: 'string',
+            demandOption: true
+          });
+        },
+        handler: async (argv) => {
+          try {
+            await runPageAssistant({
               url: argv.url,
               name: argv.name,
               prompt: argv.prompt,

@@ -12,6 +12,11 @@
 
 import path from 'path';
 import {copyFiles} from '../utils/fileUtils.js';
+import {findUpSync} from 'find-up';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const port = 3009;
 
@@ -25,7 +30,8 @@ export function getBaseUrl() {
 
 export function copyTemplates(outputPath) {
   // Copy templates to server root
-  const srcDir = path.join(process.cwd(), 'node_modules', 'aem-import-builder', 'dist', 'templates');
+  const nodeModulesDir = findUpSync('node_modules', { type: 'directory', cwd: __dirname });
+  const srcDir = path.join(nodeModulesDir, 'aem-import-builder', 'dist', 'templates');
   const destDir = path.join(process.cwd(), outputPath, 'templates');
   copyFiles(srcDir, destDir);
 }
