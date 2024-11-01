@@ -13,7 +13,7 @@
 import { parentPort } from 'worker_threads';
 import express from 'express';
 import path from 'path';
-import {getPort} from './assistant-server.js';
+import { getPort } from './assistant-server.js';
 
 
 const assistantServer = express();

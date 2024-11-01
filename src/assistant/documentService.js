@@ -10,7 +10,7 @@
  * governing permissions and limitations under the License.
  */
 import puppeteer from 'puppeteer';
-import {helperEvents} from '../events.js';
+import { helperEvents } from '../events.js';
 
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.5735.199 Safari/537.36';
 
@@ -93,7 +93,7 @@ export const fetchDocument = async (url, options = {}) => {
   try {
     const { documents = new Set() } = options;
     const documentEntry = Array.from(documents).find((entry) => entry.url === url);
-    let {content: documentContent, screenshot: documentScreenshot = ''} = documentEntry || {};
+    let { content: documentContent, screenshot: documentScreenshot = '' } = documentEntry || {};
     if (!documentEntry) {
       [documentContent, documentScreenshot] = await fetchUrlContent(url);
     } else {

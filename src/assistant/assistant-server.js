@@ -11,8 +11,8 @@
  */
 
 import path from 'path';
-import {copyFiles} from '../utils/fileUtils.js';
-import {findUpSync} from 'find-up';
+import { copyFiles } from '../utils/fileUtils.js';
+import { findUpSync } from 'find-up';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);

@@ -11,9 +11,7 @@
  */
 
 import path from 'path';
-import fetch from 'node-fetch';
 import { Blob } from 'buffer';
-import { URL } from 'url';
 import prepareImportScript from './bundler.js';
 import chalk from 'chalk';
 import { uploadZipFromS3ToSharePoint } from './sharepoint-uploader.js';

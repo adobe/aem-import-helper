@@ -21,27 +21,27 @@ export function importCommand(yargs) {
     describe: 'Start an import job',
     builder: (yargs) => {
       return yargs
-      .option('urls', {
-        describe: 'path to urls file',
-        type: 'string',
-        demandOption: true
-      })
-      .option('options', {
-        describe: 'options as a JSON string',
-        type: 'string'
-      })
-      .option('importjs', {
-        describe: 'path to import script',
-        type: 'string'
-      })
-      .option('sharepointurl', {
-        describe: 'SharePoint URL to upload imported files to',
-        type: 'string'
-      })
-      .option('stage', {
-        describe: 'use stage endpoint',
-        type: 'boolean'
-      });
+        .option('urls', {
+          describe: 'path to urls file',
+          type: 'string',
+          demandOption: true,
+        })
+        .option('options', {
+          describe: 'options as a JSON string',
+          type: 'string',
+        })
+        .option('importjs', {
+          describe: 'path to import script',
+          type: 'string',
+        })
+        .option('sharepointurl', {
+          describe: 'SharePoint URL to upload imported files to',
+          type: 'string',
+        })
+        .option('stage', {
+          describe: 'use stage endpoint',
+          type: 'boolean',
+        });
     },
     handler: async (argv) => {
       const {
@@ -49,7 +49,7 @@ export function importCommand(yargs) {
         options: optionsString,
         importjs: importJsPath,
         sharepointurl: sharePointUploadUrl,
-        stage
+        stage,
       } = argv;
 
       checkEnvironment(process.env);
@@ -76,6 +76,6 @@ export function importCommand(yargs) {
         console.error(chalk.red(`Error: ${error.message}`));
         process.exit(1);
       };
-    }
+    },
   });
 }

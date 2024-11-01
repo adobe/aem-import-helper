@@ -12,11 +12,11 @@
  */
 
 import yargs from 'yargs';
-import {hideBin} from 'yargs/helpers';
-import {importCommand} from './cmd/import.js';
-import {assistantCommand} from './cmd/assistant.js';
-import {bundleCommand} from './cmd/bundle.js';
-import {uploadCommand} from './cmd/upload.js';
+import { hideBin } from 'yargs/helpers';
+import { importCommand } from './cmd/import.js';
+import { assistantCommand } from './cmd/assistant.js';
+import { bundleCommand } from './cmd/bundle.js';
+import { uploadCommand } from './cmd/upload.js';
 
 const argv = yargs(hideBin(process.argv));
 
@@ -26,7 +26,7 @@ bundleCommand(argv);
 assistantCommand(argv);
 
 argv
-  .scriptName("aem-import-helper")
+  .scriptName('aem-import-helper')
   .usage('$0 <cmd> [args]')
   .strictCommands()
   .demandCommand(1, 'You need at least one command before moving on')
