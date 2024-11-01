@@ -119,7 +119,7 @@ const runStartAssistant = async ({url, outputPath = DEFAULT_IMPORTER_PATH}) => {
 
 const runRemovalAssistant = async ({url, prompt, outputPath = DEFAULT_IMPORTER_PATH}) => {
   const startTime = Date.now();
-  const builder = await getBuilder(url, {useExisting:  true, outputPath});
+  const builder = await getBuilder(url, {useExisting: true, outputPath});
   const manifest = await builder.addCleanup(prompt);
   writeManifestFiles(manifest, outputPath);
   console.log(chalk.green(`Removal script generated successfully in ${getDurationText(startTime)}`));
@@ -127,7 +127,7 @@ const runRemovalAssistant = async ({url, prompt, outputPath = DEFAULT_IMPORTER_P
 
 const runBlockAssistant = async ({url, name, prompt, outputPath = DEFAULT_IMPORTER_PATH}) => {
   const startTime = Date.now();
-  const builder = await getBuilder(url, {useExisting:  true, outputPath});
+  const builder = await getBuilder(url, {useExisting: true, outputPath});
   const manifest = await builder.addBlock(name, prompt);
   writeManifestFiles(manifest, outputPath);
   console.log(chalk.green(`Block scripts generated successfully in ${getDurationText(startTime)}`));
@@ -135,7 +135,7 @@ const runBlockAssistant = async ({url, name, prompt, outputPath = DEFAULT_IMPORT
 
 const runCellAssistant = async ({url, name, prompt, outputPath = DEFAULT_IMPORTER_PATH}) => {
   const startTime = Date.now();
-  const builder = await getBuilder(url, {useExisting:  true, outputPath});
+  const builder = await getBuilder(url, {useExisting: true, outputPath});
   const manifest = await builder.addCellParser(name, prompt);
   writeManifestFiles(manifest, outputPath);
   console.log(chalk.green(`${name} block parser generated successfully in ${getDurationText(startTime)}`));
@@ -143,7 +143,7 @@ const runCellAssistant = async ({url, name, prompt, outputPath = DEFAULT_IMPORTE
 
 const runPageAssistant = async ({url, name, prompt, outputPath = DEFAULT_IMPORTER_PATH}) => {
   const startTime = Date.now();
-  const builder = await getBuilder(url, {useExisting:  true, outputPath});
+  const builder = await getBuilder(url, {useExisting: true, outputPath});
   const manifest = await builder.addPageTransformer(name, prompt);
   writeManifestFiles(manifest, outputPath);
   console.log(chalk.green(`${name} page transformation generated successfully in ${getDurationText(startTime)}`));
