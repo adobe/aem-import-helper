@@ -136,7 +136,7 @@ const runBlockAssistant = async ({url, name, prompt, outputPath = DEFAULT_IMPORT
 const runCellAssistant = async ({url, name, prompt, outputPath = DEFAULT_IMPORTER_PATH}) => {
   const startTime = Date.now();
   const builder = await getBuilder(url, {useExisting:  true, outputPath});
-  const manifest = await builder.addParser(name, prompt);
+  const manifest = await builder.addCellParser(name, prompt);
   writeManifestFiles(manifest, outputPath);
   console.log(chalk.green(`${name} block parser generated successfully in ${getDurationText(startTime)}`));
 };
@@ -144,7 +144,7 @@ const runCellAssistant = async ({url, name, prompt, outputPath = DEFAULT_IMPORTE
 const runPageAssistant = async ({url, name, prompt, outputPath = DEFAULT_IMPORTER_PATH}) => {
   const startTime = Date.now();
   const builder = await getBuilder(url, {useExisting:  true, outputPath});
-  const manifest = await builder.addTransformer(name, prompt);
+  const manifest = await builder.addPageTransformer(name, prompt);
   writeManifestFiles(manifest, outputPath);
   console.log(chalk.green(`${name} page transformation generated successfully in ${getDurationText(startTime)}`));
 };
