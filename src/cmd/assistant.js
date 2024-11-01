@@ -14,7 +14,8 @@ import {
   runRemovalAssistant,
   runBlockAssistant,
   runStartAssistant,
-  runCellAssistant, runPageAssistant,
+  runCellAssistant,
+  runPageAssistant,
 } from '../assistant/assistant-helper.js';
 import chalk from 'chalk';
 
