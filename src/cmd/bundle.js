@@ -20,11 +20,11 @@ export function bundleCommand(yargs) {
     describe: 'Bundle an import script',
     builder: (yargs) => {
       return yargs
-      .option('importjs', {
-        describe: 'path to import script',
-        type: 'string',
-        demandOption: true
-      })
+        .option('importjs', {
+          describe: 'path to import script',
+          type: 'string',
+          demandOption: true,
+        })
     },
     handler: (argv) => {
       const {
@@ -34,7 +34,7 @@ export function bundleCommand(yargs) {
       try {
         console.log(chalk.yellow(`Bundling ${importJsPath}...`));
         const bundledCode = prepareImportScript(importJsPath);
-        const outputPath = `${importJsPath.replace(/\.[^/.]+$/, "")}.bundle.js`;
+        const outputPath = `${importJsPath.replace(/\.[^/.]+$/, '')}.bundle.js`;
         console.log(chalk.yellow(`Writing to ${outputPath}...`));
         fs.writeFileSync(outputPath, bundledCode);
         console.log(chalk.green('Done.'));
@@ -42,6 +42,6 @@ export function bundleCommand(yargs) {
         console.error(chalk.red('Failed to bundle import script:', error));
         process.exit(1);
       }
-    }
+    },
   });
 }

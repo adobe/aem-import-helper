@@ -10,7 +10,6 @@
  * governing permissions and limitations under the License.
  */
 
-import fs from 'fs';
 import chalk from 'chalk';
 import { uploadJobResult } from '../import/import-helper.js';
 import { checkEnvironment } from '../utils/env-utils.js';
@@ -21,36 +20,36 @@ export function uploadCommand(yargs) {
     describe: 'Upload the result of an import job',
     builder: (yargs) => {
       return yargs
-      .option('jobid', {
-        describe: 'ID of the job to upload',
-        type: 'string'
-      })
-      .option('sharepointurl', {
-        describe: 'SharePoint URL to upload imported files to',
-        type: 'string'
-      })
-      .option('stage', {
-        describe: 'use stage endpoint',
-        type: 'boolean'
-      });
+        .option('jobid', {
+          describe: 'ID of the job to upload',
+          type: 'string',
+        })
+        .option('sharepointurl', {
+          describe: 'SharePoint URL to upload imported files to',
+          type: 'string',
+        })
+        .option('stage', {
+          describe: 'use stage endpoint',
+          type: 'boolean',
+        });
     },
     handler: async (argv) => {
       const {
         jobid: jobId,
         sharepointurl: sharePointUploadUrl,
-        stage
+        stage,
       } = argv;
 
       checkEnvironment(process.env);
 
       // Process the upload request
       try {
-        await uploadJobResult({jobId, sharePointUploadUrl, stage});
+        await uploadJobResult({ jobId, sharePointUploadUrl, stage });
         console.log(chalk.green('Done.'));
       } catch (error) {
         console.error(chalk.red(`Error: ${error.message}`));
         process.exit(1);
       }
-    }
+    },
   });
 }

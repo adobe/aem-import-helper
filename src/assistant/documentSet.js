@@ -10,7 +10,7 @@
  * governing permissions and limitations under the License.
  */
 
-import {readFromFile, writeToFile} from '../utils/fileUtils.js';
+import { readFromFile, writeToFile } from '../utils/fileUtils.js';
 
 const FILENAME = 'documentSet.json';
 

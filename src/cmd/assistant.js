@@ -15,6 +15,7 @@ import {
   runBlockAssistant,
   runStartAssistant,
   runCellAssistant,
+  runPageAssistant,
 } from '../assistant/assistant-helper.js';
 import chalk from 'chalk';
 
@@ -24,118 +25,149 @@ export function assistantCommand(yargs) {
     describe: 'Assists with creating import script rules.',
     builder: (yargs) => {
       return yargs
-      .option('url', {
-        describe: 'URL of the document',
-        type: 'string',
-        demandOption: true
-      })
-      .option('outputPath', {
-        describe: 'Output path for generated scripts',
-        type: 'string',
-      })
-      .command({
-        command: 'start',
-        describe: 'Start a new import project.',
-        handler: async (argv) => {
-          try {
-            await runStartAssistant({
-              url: argv.url,
-              outputPath: argv.outputPath
-            });
-            process.exit(0);
-          } catch (error) {
-            console.error(chalk.red(`Error: ${error.message}`));
-            process.exit(1);
-          }
-        }
-      })
-      .command({
-        command: 'cleanup',
-        describe: 'Add elements that can be removed from the document.',
-        builder: (yargs) => {
-          return yargs
-          .option('prompt', {
-            describe: 'Prompt for elements to remove',
-            type: 'string',
-            demandOption: true
-          });
-        },
-        handler: async (argv) => {
-          try {
-            await runRemovalAssistant({
-              url: argv.url,
-              prompt: argv.prompt,
-              outputPath: argv.outputPath
-            });
-          process.exit(0);
-          } catch (error) {
-            console.error(chalk.red(`Error: ${error.message}`));
-            process.exit(1);
-          }
-        }
-      })
-      .command({
-        command: 'block',
-        describe: 'Builds the transformation rules for page blocks.',
-        builder: (yargs) => {
-          return yargs
-          .option('name', {
-            describe: 'The name of the block',
-            type: 'string',
-            demandOption: true
-          })
-          .option('prompt', {
-            describe: 'Prompt for block to find',
-            type: 'string',
-            demandOption: true
-          });
-        },
-        handler: async (argv) => {
-          try {
-            await runBlockAssistant({
-              url: argv.url,
-              name: argv.name,
-              prompt: argv.prompt,
-              outputPath: argv.outputPath
-            });
-          process.exit(0);
-          } catch (error) {
-            console.error(chalk.red(`Error: ${error.message}`));
-            process.exit(1);
-          }
-        }
-      })
-      .command({
-        command: 'cells',
-        describe: 'Builds the cell rules for a block.',
-        builder: (yargs) => {
-          return yargs
-          .option('name', {
-            describe: 'The name of the block',
-            type: 'string',
-            demandOption: true
-          })
-          .option('prompt', {
-            describe: 'Prompt for cells to include',
-            type: 'string',
-            demandOption: true
-          });
-        },
-        handler: async (argv) => {
-          try {
-            await runCellAssistant({
-              url: argv.url,
-              name: argv.name,
-              prompt: argv.prompt,
-              outputPath: argv.outputPath
-            });
-            process.exit(0);
-          } catch (error) {
-            console.error(chalk.red(`Error: ${error.message}`));
-            process.exit(1);
-          }
-        }
-      });
-    }
+        .option('url', {
+          describe: 'URL of the document',
+          type: 'string',
+          demandOption: true,
+        })
+        .option('outputPath', {
+          describe: 'Output path for generated scripts',
+          type: 'string',
+        })
+        .command({
+          command: 'start',
+          describe: 'Start a new import project.',
+          handler: async (argv) => {
+            try {
+              await runStartAssistant({
+                url: argv.url,
+                outputPath: argv.outputPath,
+              });
+              process.exit(0);
+            } catch (error) {
+              console.error(chalk.red(`Error: ${error.message}`));
+              process.exit(1);
+            }
+          },
+        })
+        .command({
+          command: 'cleanup',
+          describe: 'Add elements that can be removed from the document.',
+          builder: (yargs) => {
+            return yargs
+              .option('prompt', {
+                describe: 'Prompt for elements to remove',
+                type: 'string',
+                demandOption: true,
+              });
+          },
+          handler: async (argv) => {
+            try {
+              await runRemovalAssistant({
+                url: argv.url,
+                prompt: argv.prompt,
+                outputPath: argv.outputPath,
+              });
+              process.exit(0);
+            } catch (error) {
+              console.error(chalk.red(`Error: ${error.message}`));
+              process.exit(1);
+            }
+          },
+        })
+        .command({
+          command: 'block',
+          describe: 'Builds the transformation rules for page blocks.',
+          builder: (yargs) => {
+            return yargs
+              .option('name', {
+                describe: 'The name of the block',
+                type: 'string',
+                demandOption: true,
+              })
+              .option('prompt', {
+                describe: 'Prompt for block to find',
+                type: 'string',
+                demandOption: true,
+              });
+          },
+          handler: async (argv) => {
+            try {
+              await runBlockAssistant({
+                url: argv.url,
+                name: argv.name,
+                prompt: argv.prompt,
+                outputPath: argv.outputPath,
+              });
+              process.exit(0);
+            } catch (error) {
+              console.error(chalk.red(`Error: ${error.message}`));
+              process.exit(1);
+            }
+          },
+        })
+        .command({
+          command: 'cells',
+          describe: 'Builds the cell rules for a block.',
+          builder: (yargs) => {
+            return yargs
+              .option('name', {
+                describe: 'The name of the block',
+                type: 'string',
+                demandOption: true,
+              })
+              .option('prompt', {
+                describe: 'Prompt for cells to include',
+                type: 'string',
+                demandOption: true,
+              });
+          },
+          handler: async (argv) => {
+            try {
+              await runCellAssistant({
+                url: argv.url,
+                name: argv.name,
+                prompt: argv.prompt,
+                outputPath: argv.outputPath,
+              });
+              process.exit(0);
+            } catch (error) {
+              console.error(chalk.red(`Error: ${error.message}`));
+              process.exit(1);
+            }
+          },
+        })
+        .command({
+          command: 'page',
+          describe: 'Generates page transformation scripts.',
+          builder: (yargs) => {
+            return yargs
+              .option('name', {
+                describe: 'The name of the page transformation',
+                type: 'string',
+                demandOption: true,
+              })
+              .option('prompt', {
+                describe: 'Prompt for the page transformation function',
+                type: 'string',
+                demandOption: true,
+              });
+          },
+          handler: async (argv) => {
+            try {
+              await runPageAssistant({
+                url: argv.url,
+                name: argv.name,
+                prompt: argv.prompt,
+                outputPath: argv.outputPath,
+              });
+              process.exit(0);
+            } catch (error) {
+              console.error(chalk.red(`Error: ${error.message}`));
+              process.exit(1);
+            }
+          },
+        });
+    },
   });
 }

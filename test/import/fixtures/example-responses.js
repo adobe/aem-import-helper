@@ -17,16 +17,16 @@ export const jobInProgressResponse = {
   startTime: '2024-10-04T15:23:35.512Z',
   status: 'RUNNING',
   urlCount: 5,
-  initiatedBy: { apiKeyName: "Bruce's Key", userAgent: 'node' },
+  initiatedBy: { apiKeyName: 'Bruce\'s Key', userAgent: 'node' },
   hasCustomHeaders: false,
-  hasCustomImportJs: false
+  hasCustomImportJs: false,
 };
 
 export const progressResponse = {
   pending: 5,
   redirect: 0,
   completed: 0,
-  failed: 0
+  failed: 0,
 };
 
 export const jobCompletedResponse = {
@@ -38,15 +38,15 @@ export const jobCompletedResponse = {
   duration: 16973,
   status: 'COMPLETE',
   urlCount: 5,
-  initiatedBy: { apiKeyName: "Bruce's Key", userAgent: 'node' },
+  initiatedBy: { apiKeyName: 'Bruce\'s Key', userAgent: 'node' },
   successCount: 5,
   failedCount: 0,
   redirectCount: 0,
   hasCustomHeaders: false,
-  hasCustomImportJs: false
+  hasCustomImportJs: false,
 }
 
 export const jobResultResponse = {
-  id: "318cab4f-f793-4e72-be20-894b3713f102",
-  downloadUrl: "https://example.s3.region.amazonaws.com/imports/318cab4f-f793-4e72-be20-894b3713f102/import-result.zip?X-Amz-Algorithm=AWS4-..."
+  id: '318cab4f-f793-4e72-be20-894b3713f102',
+  downloadUrl: 'https://example.s3.region.amazonaws.com/imports/318cab4f-f793-4e72-be20-894b3713f102/import-result.zip?X-Amz-Algorithm=AWS4-...',
 }

@@ -25,7 +25,7 @@ describe('prepareImportScript tests', () => {
     });
 
     prepareImportScript = await esmock('../../src/import/bundler.js', {
-      esbuild: { buildSync: buildSyncStub }
+      esbuild: { buildSync: buildSyncStub },
     });
   });
 

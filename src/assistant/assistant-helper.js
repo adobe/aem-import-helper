@@ -13,18 +13,18 @@
 import { Worker } from 'worker_threads';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import {ImportBuilderFactory} from 'aem-import-builder';
-import {writeToFile} from '../utils/fileUtils.js';
+import { ImportBuilderFactory } from 'aem-import-builder';
+import { writeToFile } from '../utils/fileUtils.js';
 import chalk from 'chalk';
 import ora from 'ora';
-import {fetchDocument} from './documentService.js';
-import {helperEvents} from '../events.js';
+import { fetchDocument } from './documentService.js';
+import { helperEvents } from '../events.js';
 import {
   getBaseUrl,
   copyTemplates,
 } from './assistant-server.js';
-import {getDocumentSet, writeDocumentSet} from './documentSet.js';
-import {getRules} from './importRules.js';
+import { getDocumentSet, writeDocumentSet } from './documentSet.js';
+import { getRules } from './importRules.js';
 
 const DEFAULT_IMPORTER_PATH = '/tools/importer';
 
@@ -56,7 +56,7 @@ const startServer = () => {
   });
 }
 
-const getBuilder = async (url, {useExisting = false, outputPath}) => {
+const getBuilder = async (url, { useExisting = false, outputPath }) => {
   console.log(chalk.magenta('Import assistant is analyzing the page...'));
   const auth = {
     authCode: process.env.IMS_AUTH_CODE,
@@ -92,7 +92,7 @@ const getBuilder = async (url, {useExisting = false, outputPath}) => {
   const rules = useExisting? await getRules(outputPath) : undefined;
   const page = await fetchDocument(url, { documents: documentSet });
   writeDocumentSet(outputPath, documentSet);
-  return factory.create({mode: 'script', rules, page});
+  return factory.create({ mode: 'script', rules, page });
 }
 
 const writeManifestFiles = (manifest, outputPath) => {
@@ -109,41 +109,50 @@ const getDurationText = (startTime) => {
   return `${minutes} minutes ${seconds} seconds`;
 }
 
-const runStartAssistant = async ({url, outputPath = DEFAULT_IMPORTER_PATH}) => {
+const runStartAssistant = async ({ url, outputPath = DEFAULT_IMPORTER_PATH }) => {
   const startTime = Date.now();
-  const builder = await getBuilder(url, {outputPath});
+  const builder = await getBuilder(url, { outputPath });
   const manifest = await builder.buildProject();
   writeManifestFiles(manifest, outputPath);
   console.log(chalk.green(`Import scripts generated successfully in ${getDurationText(startTime)}`));
 };
 
-const runRemovalAssistant = async ({url, prompt, outputPath = DEFAULT_IMPORTER_PATH}) => {
+const runRemovalAssistant = async ({ url, prompt, outputPath = DEFAULT_IMPORTER_PATH }) => {
   const startTime = Date.now();
-  const builder = await getBuilder(url, {useExisting:  true, outputPath});
+  const builder = await getBuilder(url, { useExisting: true, outputPath });
   const manifest = await builder.addCleanup(prompt);
   writeManifestFiles(manifest, outputPath);
   console.log(chalk.green(`Removal script generated successfully in ${getDurationText(startTime)}`));
 };
 
-const runBlockAssistant = async ({url, name, prompt, outputPath = DEFAULT_IMPORTER_PATH}) => {
+const runBlockAssistant = async ({ url, name, prompt, outputPath = DEFAULT_IMPORTER_PATH }) => {
   const startTime = Date.now();
-  const builder = await getBuilder(url, {useExisting:  true, outputPath});
+  const builder = await getBuilder(url, { useExisting: true, outputPath });
   const manifest = await builder.addBlock(name, prompt);
   writeManifestFiles(manifest, outputPath);
   console.log(chalk.green(`Block scripts generated successfully in ${getDurationText(startTime)}`));
 };
 
-const runCellAssistant = async ({url, name, prompt, outputPath = DEFAULT_IMPORTER_PATH}) => {
+const runCellAssistant = async ({ url, name, prompt, outputPath = DEFAULT_IMPORTER_PATH }) => {
   const startTime = Date.now();
-  const builder = await getBuilder(url, {useExisting:  true, outputPath});
-  const manifest = await builder.addCells(name, prompt);
+  const builder = await getBuilder(url, { useExisting: true, outputPath });
+  const manifest = await builder.addCellParser(name, prompt);
   writeManifestFiles(manifest, outputPath);
   console.log(chalk.green(`${name} block parser generated successfully in ${getDurationText(startTime)}`));
+};
+
+const runPageAssistant = async ({ url, name, prompt, outputPath = DEFAULT_IMPORTER_PATH }) => {
+  const startTime = Date.now();
+  const builder = await getBuilder(url, { useExisting: true, outputPath });
+  const manifest = await builder.addPageTransformer(name, prompt);
+  writeManifestFiles(manifest, outputPath);
+  console.log(chalk.green(`${name} page transformation generated successfully in ${getDurationText(startTime)}`));
 };
 
 export {
   runStartAssistant,
   runRemovalAssistant,
   runBlockAssistant,
-  runCellAssistant
+  runCellAssistant,
+  runPageAssistant,
 };

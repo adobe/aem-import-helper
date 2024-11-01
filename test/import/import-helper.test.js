@@ -10,12 +10,11 @@
  * governing permissions and limitations under the License.
  */
 import { expect, use } from 'chai';
-import esmock from 'esmock';
 import sinon from 'sinon';
 import { runImportJobAndPoll } from '../../src/import/import-helper.js';
 import chaiAsPromised from 'chai-as-promised';
 import {
-  jobCompletedResponse, jobInProgressResponse, jobResultResponse, progressResponse
+  jobCompletedResponse, jobInProgressResponse, jobResultResponse, progressResponse,
 } from './fixtures/example-responses.js';
 
 use(chaiAsPromised);

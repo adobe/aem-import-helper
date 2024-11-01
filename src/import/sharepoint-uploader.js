@@ -55,7 +55,7 @@ function parseSharePointUrl(sharepointUrl) {
   const fullPathDecoded = decodeURIComponent(urlObj.pathname);
 
   // Find the position of "/sites/" and extract the site part
-  const siteMatch = fullPathDecoded.match(/\/sites\/[^\/]+/);
+  const siteMatch = fullPathDecoded.match(/\/sites\/[^/]+/);
   if (!siteMatch) {
     throw new Error('Invalid SharePoint URL: Missing "/sites/" in the URL');
   }
@@ -71,7 +71,7 @@ function parseSharePointUrl(sharepointUrl) {
   // Return the site URL and path as an object
   return {
     siteUrl,
-    basePath: cleanedPath
+    basePath: cleanedPath,
   };
 }
 
@@ -141,7 +141,7 @@ export async function uploadZipFromS3ToSharePoint(s3PresignedUrl, sharePointUrl,
     await downloadAndExtractZip(s3PresignedUrl, downloadDirDefault);
 
     // Step 2: Upload files to SharePoint, preserving the directory structure
-    console.log(chalk.green(`Uploading job artifacts to SharePoint...`));
+    console.log(chalk.green('Uploading job artifacts to SharePoint...'));
     await uploadDirectoryToSharePoint(path.join(downloadDirDefault, 'docx'));
 
     // Step 3: cleanup the download directory
