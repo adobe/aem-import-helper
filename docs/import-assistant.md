@@ -11,6 +11,7 @@ Start a new import project.
 #### Example:
 ```npm run assistant -- start --url https://example.com --outputPath tools/importer```
 
+&nbsp;
 ### Cleanup
 
 Add elements that can be removed from the document.
@@ -19,6 +20,7 @@ Add elements that can be removed from the document.
 ```npm run assistant --cleanup --url https://example.com --prompt "content to remove" --outputPath tools/importer```
 
 
+&nbsp;
 ### Block
 
 Builds the transformation rules for page blocks.
@@ -26,6 +28,7 @@ Builds the transformation rules for page blocks.
 
 ```npm run assistant -- block --url https://example.com --name "name of the block" --prompt "describe block content on the page" --outputPath tools/importer```
 
+&nbsp;
 ### Cells
 
 Builds the cell rules for a block.
@@ -34,7 +37,7 @@ Builds the cell rules for a block.
 ```npm run assistant -- cells --url https://example.com --name "name of the block" --prompt "describe content that should be added to the block" --outputPath tools/importer```
 
 
-
+&nbsp;
 ### Page
 
 Generates page transformation scripts.
