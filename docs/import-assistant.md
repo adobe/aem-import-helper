@@ -1,17 +1,16 @@
  # Import Assistant
-
----
+ 
 Run powerful AI-enabled commands to assist with your import script development.
 
 &nbsp;
-#### Usage
+### Install
 Add an npm script entry to your Edge Delivery project's `package.json`:
 
 ```
 "assistant": "aem-import-helper assistant"
 ```
 
-#### Options
+### Options
 
 - `--url`: The URL of the page to analyze
 - `--outputPath`: The directory to save the import scripts
@@ -22,7 +21,7 @@ Add an npm script entry to your Edge Delivery project's `package.json`:
 &nbsp;
 ## Commands
 
----
+
 ### Start
 
 Start a new import project.
