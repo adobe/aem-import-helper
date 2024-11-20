@@ -59,15 +59,15 @@ const startServer = () => {
 const getBuilder = async (url, { useExisting = false, outputPath }) => {
   console.log(chalk.magenta('Import assistant is analyzing the page...'));
   const auth = {
-    authCode: process.env.IMS_AUTH_CODE,
-    clientSecret: process.env.IMS_CLIENT_SECRET,
+    apiKey: process.env.AEM_IMPORT_API_KEY,
+    environment: 'prod', // or 'stage'
   }
 
   // copy builder templates to server root
   copyTemplates(outputPath);
   await startServer();
 
-  const factory = ImportBuilderFactory({ auth, baseUrl: getBaseUrl() });
+  const factory = ImportBuilderFactory({ baseUrl: getBaseUrl(), ...auth });
   const spinner = ora({ text: 'Initializing...', color: 'yellow' });
   factory.on('start', (msg) => {
     spinner.start(chalk.yellow(msg));
