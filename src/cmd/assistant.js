@@ -34,6 +34,10 @@ export function assistantCommand(yargs) {
           describe: 'Output path for generated scripts',
           type: 'string',
         })
+        .option('stage', {
+          describe: 'use stage endpoint',
+          type: 'boolean',
+        })
         .command({
           command: 'start',
           describe: 'Start a new import project.',
@@ -42,6 +46,7 @@ export function assistantCommand(yargs) {
               await runStartAssistant({
                 url: argv.url,
                 outputPath: argv.outputPath,
+                stage: argv.stage,
               });
               process.exit(0);
             } catch (error) {
@@ -67,6 +72,7 @@ export function assistantCommand(yargs) {
                 url: argv.url,
                 prompt: argv.prompt,
                 outputPath: argv.outputPath,
+                stage: argv.stage,
               });
               process.exit(0);
             } catch (error) {
@@ -98,6 +104,7 @@ export function assistantCommand(yargs) {
                 name: argv.name,
                 prompt: argv.prompt,
                 outputPath: argv.outputPath,
+                stage: argv.stage,
               });
               process.exit(0);
             } catch (error) {
@@ -129,6 +136,7 @@ export function assistantCommand(yargs) {
                 name: argv.name,
                 prompt: argv.prompt,
                 outputPath: argv.outputPath,
+                stage: argv.stage,
               });
               process.exit(0);
             } catch (error) {
@@ -160,6 +168,7 @@ export function assistantCommand(yargs) {
                 name: argv.name,
                 prompt: argv.prompt,
                 outputPath: argv.outputPath,
+                stage: argv.stage,
               });
               process.exit(0);
             } catch (error) {
