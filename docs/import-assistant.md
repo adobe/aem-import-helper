@@ -2,7 +2,7 @@
  
 Run powerful AI-enabled commands to assist with your import script development.
 
-### Options
+### Required Parameters
 
 - `--url`: The URL of the page to analyze
 - `--outputPath`: The directory to save the import scripts
