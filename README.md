@@ -86,9 +86,12 @@ The `import.js` file you provide will be bundled with any locally referenced scr
 
 ### Assistant
 
+Run AI-enabled commands to assist with your import script development.
+
+Add an npm script entry to your Edge Delivery project's `package.json`:
+
+```
+"assistant": "aem-import-helper assistant"
+```
+
 See [Import Assistant](./docs/import-assistant.md) for usage.
-
-
-## Coming soon
-
-- A report detailing the result of the import, including the reason for any failures
