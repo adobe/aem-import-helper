@@ -96,8 +96,6 @@ const getBuilder = async (url, { useExisting = false, outputPath, stage}) => {
 }
 
 const writeManifestFiles = async (manifest, outputPath) => {
-  helperEvents.emit('start', `Starting to write files from manifest`);
-
   const { files = [] } = manifest;
 
   const writeSingleManifestFile = async ({ name, contents }) => {
@@ -116,8 +114,6 @@ const writeManifestFiles = async (manifest, outputPath) => {
 
   // Wait for all file writing to complete
   await Promise.all(writePromises);
-
-  helperEvents.emit('complete', `Finished writing files from manifest`);
 }
 
 const getDurationText = (startTime) => {
@@ -131,7 +127,7 @@ const runStartAssistant = async ({ url, outputPath = DEFAULT_IMPORTER_PATH, stag
   const startTime = Date.now();
   const builder = await getBuilder(url, { outputPath, stage });
   const manifest = await builder.buildProject();
-  writeManifestFiles(manifest, outputPath);
+  await writeManifestFiles(manifest, outputPath);
   console.log(chalk.green(`Import scripts generated successfully in ${getDurationText(startTime)}`));
 };
 
