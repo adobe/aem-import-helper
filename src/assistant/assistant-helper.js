@@ -96,11 +96,35 @@ const getBuilder = async (url, { useExisting = false, outputPath, stage}) => {
 }
 
 const writeManifestFiles = (manifest, outputPath) => {
+  helperEvents.emit('start', "Starting to write files from manifest");
+
   const { files = [] } = manifest;
-  files.forEach(({ name, contents }) => {
-    writeToFile(`.${outputPath}${name}`, contents);
+
+  // Collect all promises for file writing
+  const writePromises = files.map(({ name, contents }) => {
+    if (contents) {
+      return writeToFile(`.${outputPath}${name}`, contents).then(() => {
+        helperEvents.emit('progress', `File ${name} was written to ${outputPath}`);
+      })
+      .catch((error) => {
+        // Emit an error event if writing fails
+        helperEvents.emit('error', `Failed to write file ${name}: ${error.message}`);
+      });
+    } else {
+      helperEvents.emit('progress', `File ${name} was skipped due to missing content`);
+      return Promise.resolve(); // Return a resolved promise if skipping
+    }
   });
-}
+
+  // Wait for all file writing to complete before emitting 'end'
+  Promise.all(writePromises).then(() => {
+    helperEvents.emit('complete', "Finished writing files from manifest");
+  })
+  .catch((error) => {
+    // Emit an error event if Promise.all fails
+    helperEvents.emit('error', `Error during file writing: ${error.message}`);
+  });
+};
 
 const getDurationText = (startTime) => {
   const duration = Date.now() - startTime;
