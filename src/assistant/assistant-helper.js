@@ -96,7 +96,7 @@ const getBuilder = async (url, { useExisting = false, outputPath, stage}) => {
 }
 
 const writeManifestFiles = (manifest, outputPath) => {
-  helperEvents.emit('start', "Starting to write files from manifest");
+  helperEvents.emit('start', `Starting to write files from manifest`);
 
   const { files = [] } = manifest;
 
@@ -118,7 +118,7 @@ const writeManifestFiles = (manifest, outputPath) => {
 
   // Wait for all file writing to complete before emitting 'end'
   Promise.all(writePromises).then(() => {
-    helperEvents.emit('complete', "Finished writing files from manifest");
+    helperEvents.emit('complete', `Finished writing files from manifest`);
   })
   .catch((error) => {
     // Emit an error event if Promise.all fails
