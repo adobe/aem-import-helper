@@ -19,6 +19,11 @@ import {
 } from '../assistant/assistant-helper.js';
 import chalk from 'chalk';
 
+function logAssistantError(error) {
+  console.error(chalk.red(`\n\nError: ${error.message}`));
+  process.exit(1);
+}
+
 export function assistantCommand(yargs) {
   yargs.command({
     command: 'assistant',
@@ -50,8 +55,7 @@ export function assistantCommand(yargs) {
               });
               process.exit(0);
             } catch (error) {
-              console.error(chalk.red(`Error: ${error.message}`));
-              process.exit(1);
+              logAssistantError(error);
             }
           },
         })
@@ -76,8 +80,7 @@ export function assistantCommand(yargs) {
               });
               process.exit(0);
             } catch (error) {
-              console.error(chalk.red(`Error: ${error.message}`));
-              process.exit(1);
+              logAssistantError(error);
             }
           },
         })
@@ -108,8 +111,7 @@ export function assistantCommand(yargs) {
               });
               process.exit(0);
             } catch (error) {
-              console.error(chalk.red(`Error: ${error.message}`));
-              process.exit(1);
+              logAssistantError(error);
             }
           },
         })
@@ -140,8 +142,7 @@ export function assistantCommand(yargs) {
               });
               process.exit(0);
             } catch (error) {
-              console.error(chalk.red(`Error: ${error.message}`));
-              process.exit(1);
+              logAssistantError(error);
             }
           },
         })
@@ -172,8 +173,7 @@ export function assistantCommand(yargs) {
               });
               process.exit(0);
             } catch (error) {
-              console.error(chalk.red(`Error: ${error.message}`));
-              process.exit(1);
+              logAssistantError(error);
             }
           },
         });
