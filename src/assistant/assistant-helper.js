@@ -169,4 +169,5 @@ export {
   runBlockAssistant,
   runCellAssistant,
   runPageAssistant,
+  writeManifestFiles,
 };
