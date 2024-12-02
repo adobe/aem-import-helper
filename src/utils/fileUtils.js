@@ -9,6 +9,7 @@
  * OF ANY KIND, either express or implied. See the License for the specific language
  * governing permissions and limitations under the License.
  */
+import { mkdir, writeFile } from 'fs/promises';
 import fs from 'fs';
 import path from 'path';
 
@@ -20,10 +21,10 @@ export function readFromFile(filePath) {
   }
 }
 
-export function writeToFile(filePath, fileData) {
+export async function writeToFile(filePath, fileData) {
   const dirPath = path.dirname(filePath);
-  fs.mkdirSync(dirPath, { recursive: true });
-  fs.writeFileSync(filePath, fileData, 'utf8');
+  await mkdir(dirPath, { recursive: true });
+  await writeFile(filePath, fileData, 'utf8');
 }
 
 export function copyFiles(srcDir, destDir) {
