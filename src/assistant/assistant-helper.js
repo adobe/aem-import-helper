@@ -10,90 +10,12 @@
  * governing permissions and limitations under the License.
  */
 
-import { Worker } from 'worker_threads';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import { ImportBuilderFactory } from 'aem-import-builder';
+import getBuilder from './assistant-builder.js';
 import { writeToFile } from '../utils/fileUtils.js';
 import chalk from 'chalk';
-import ora from 'ora';
-import { fetchDocument } from './documentService.js';
 import { helperEvents } from '../events.js';
-import {
-  getBaseUrl,
-  copyTemplates,
-} from './assistant-server.js';
-import { getDocumentSet, writeDocumentSet } from './documentSet.js';
-import { getRules } from './importRules.js';
 
 const DEFAULT_IMPORTER_PATH = '/tools/importer';
-
-/**
- * Start up an Express server in a worker thread for serving templates
- * to the import builder.
- * @return {Promise<void>}
- */
-const startServer = () => {
-  return new Promise((resolve, reject) => {
-    // Start the Express server in a worker thread
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = dirname(__filename);
-    const worker = new Worker(join(__dirname, 'server.js'));
-
-    worker.on('message', (message) => {
-      console.log(message);
-      resolve();
-    });
-    worker.on('error', (error) => {
-      console.error('Server error:', error);
-      reject(error);
-    });
-    worker.on('exit', (code) => {
-      if (code !== 0) {
-        console.error(`Server stopped with exit code ${code}`);
-      }
-    });
-  });
-}
-
-const getBuilder = async (url, { useExisting = false, outputPath, stage}) => {
-  console.log(chalk.magenta('Import assistant is analyzing the page...'));
-  const auth = {
-    apiKey: process.env.AEM_IMPORT_API_KEY,
-    environment: stage ? 'stage' : 'prod'
-  }
-
-  // copy builder templates to server root
-  copyTemplates(outputPath);
-  await startServer();
-
-  const factory = ImportBuilderFactory({ baseUrl: getBaseUrl(), ...auth });
-  const spinner = ora({ text: 'Initializing...', color: 'yellow' });
-  factory.on('start', (msg) => {
-    spinner.start(chalk.yellow(msg));
-  });
-  factory.on('progress', (msg) => {
-    spinner.text = chalk.yellow(msg);
-  });
-  factory.on('complete', () => {
-    spinner.succeed();
-  });
-  helperEvents.on('start', (msg) => {
-    spinner.start(chalk.yellow(msg));
-  });
-  helperEvents.on('progress', (msg) => {
-    spinner.text = chalk.yellow(msg);
-  });
-  helperEvents.on('complete', () => {
-    spinner.succeed();
-  });
-
-  const documentSet = useExisting ? getDocumentSet(outputPath) : new Set();
-  const rules = useExisting? await getRules(outputPath) : undefined;
-  const page = await fetchDocument(url, { documents: documentSet });
-  writeDocumentSet(outputPath, documentSet);
-  return factory.create({ mode: 'script', rules, page });
-}
 
 const writeManifestFiles = async (manifest, outputPath) => {
   const { files = [] } = manifest;
@@ -157,7 +79,7 @@ const runCellAssistant = async ({ url, name, prompt, outputPath = DEFAULT_IMPORT
 
 const runPageAssistant = async ({ url, name, prompt, outputPath = DEFAULT_IMPORTER_PATH, stage = false }) => {
   const startTime = Date.now();
-  const builder = await getBuilder(url, { useExisting: true, outputPath, stage});
+  const builder = await getBuilder(url, { useExisting: true, outputPath, stage });
   const manifest = await builder.addPageTransformer(name, prompt);
   await writeManifestFiles(manifest, outputPath);
   console.log(chalk.green(`${name} page transformation generated successfully in ${getDurationText(startTime)}`));
@@ -169,5 +91,4 @@ export {
   runBlockAssistant,
   runCellAssistant,
   runPageAssistant,
-  writeManifestFiles,
 };
