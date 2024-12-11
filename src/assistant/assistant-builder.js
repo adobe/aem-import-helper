@@ -57,6 +57,8 @@ const getBuilder = async (url, { useExisting = false, outputPath, stage }) => {
   console.log(chalk.magenta('Import assistant is analyzing the page...'));
   const auth = {
     apiKey: process.env.AEM_IMPORT_API_KEY,
+    authCode: process.env.IMS_AUTH_CODE,
+    clientSecret: process.env.IMS_CLIENT_SECRET,
     environment: stage ? 'stage' : 'prod',
   }
 

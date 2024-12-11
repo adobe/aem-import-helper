@@ -11,7 +11,7 @@
  */
 
 import getBuilder from './assistant-builder.js';
-import { writeToFile } from '../utils/fileUtils.js';
+import { readFromFile, writeToFile } from '../utils/fileUtils.js';
 import chalk from 'chalk';
 import { helperEvents } from '../events.js';
 
@@ -40,9 +40,23 @@ const writeManifestFiles = async (manifest, outputPath) => {
 
 const getDurationText = (startTime) => {
   const duration = Date.now() - startTime;
-  const minutes = Math.floor(duration / 6000);
-  const seconds = ((duration % 6000) / 1000).toFixed(2);
+  const minutes = Math.floor(duration / 60000);
+  const seconds = ((duration % 60000) / 1000).toFixed(2);
   return `${minutes} minutes ${seconds} seconds`;
+}
+
+async function orchestrator(assistants) {
+  const results = [];
+  for (const assistantFunc of assistants) {
+    results.push(await assistantFunc());
+  }
+  return results;
+}
+
+function combineManifests(manifests = []) {
+  return manifests.reduce((acc, val) => ({
+    files: [...acc.files, ...val.files],
+  }), { files: [] });
 }
 
 const runStartAssistant = async ({ url, outputPath = DEFAULT_IMPORTER_PATH, stage = false }) => {
@@ -85,10 +99,36 @@ const runPageAssistant = async ({ url, name, prompt, outputPath = DEFAULT_IMPORT
   console.log(chalk.green(`${name} page transformation generated successfully in ${getDurationText(startTime)}`));
 };
 
+const runMappingAssistant = async ({ mappingPath, outputPath = DEFAULT_IMPORTER_PATH, stage = false }) => {
+  console.log(chalk.green(`
+    ____                           __     _____           _       __     ___                    __ 
+   /  _/___ ___  ____  ____  _____/ /_   / ___/__________(_)___  / /_   /   | ____ ____  ____  / /_
+   / // __ \`__ \\/ __ \\/ __ \\/ ___/ __/   \\__ \\/ ___/ ___/ / __ \\/ __/  / /| |/ __ \`/ _ \\/ __ \\/ __/
+ _/ // / / / / / /_/ / /_/ / /  / /_    ___/ / /__/ /  / / /_/ / /_   / ___ / /_/ /  __/ / / / /_  
+/___/_/ /_/ /_/ .___/\\____/_/   \\__/   /____/\\___/_/  /_/ .___/\\__/  /_/  |_\\__, /\\___/_/ /_/\\__/  
+             /_/                                       /_/                 /____/                           
+`));
+
+  const startTime = Date.now();
+  // load mapping file
+  const mappingText = readFromFile(`.${outputPath}/${mappingPath}`);
+  const mapping = JSON.parse(mappingText);
+  const builder = await getBuilder(mapping.url, { outputPath, stage });
+  const workflow = await orchestrator([
+    () => builder.buildProject(),
+    () => builder.addSectionMapping(mappingText),
+  ]);
+  // combine all the workflow manifests
+  const manifest = combineManifests(workflow);
+  await writeManifestFiles(manifest, outputPath);
+  console.log(chalk.green(`Import script successfully generated from section mapping in ${getDurationText(startTime)}`));
+};
+
 export {
   runStartAssistant,
   runRemovalAssistant,
   runBlockAssistant,
   runCellAssistant,
   runPageAssistant,
+  runMappingAssistant,
 };
