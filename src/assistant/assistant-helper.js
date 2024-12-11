@@ -55,7 +55,7 @@ async function orchestrator(assistants) {
 
 function combineManifests(manifests = []) {
   return manifests.reduce((acc, val) => ({
-    files: [...acc.files, ...val.files],
+    files: [...acc.files, ...(val.files || [])],
   }), { files: [] });
 }
 
@@ -113,11 +113,20 @@ const runMappingAssistant = async ({ mappingPath, outputPath = DEFAULT_IMPORTER_
   // load mapping file
   const mappingText = readFromFile(`.${outputPath}/${mappingPath}`);
   const mapping = JSON.parse(mappingText);
+  // const navMapping = mapping.mapping.find((m) => m.path === '/nav');
+  // const footerMapping = mapping.mapping.find((m) => m.path === '/footer');
   const builder = await getBuilder(mapping.url, { outputPath, stage });
-  const workflow = await orchestrator([
-    () => builder.buildProject(),
-    () => builder.addSectionMapping(mappingText),
-  ]);
+  const agents = [() => builder.buildProject()];
+  /*
+  if (navMapping) {
+    agents.push(() => builder.addCleanup(navMapping.sections[0].blocks[0].xpath));
+  }
+  if (footerMapping) {
+    agents.push(() => builder.addCleanup(footerMapping.sections[0].blocks[0].xpath));
+  }
+   */
+  agents.push(() => builder.addSectionMapping(mappingText));
+  const workflow = await orchestrator(agents);
   // combine all the workflow manifests
   const manifest = combineManifests(workflow);
   await writeManifestFiles(manifest, outputPath);
