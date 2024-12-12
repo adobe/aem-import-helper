@@ -16,7 +16,6 @@ import {
   runStartAssistant,
   runCellAssistant,
   runPageAssistant,
-  runMappingAssistant,
 } from '../assistant/assistant-helper.js';
 import chalk from 'chalk';
 
@@ -169,30 +168,6 @@ export function assistantCommand(yargs) {
                 url: argv.url,
                 name: argv.name,
                 prompt: argv.prompt,
-                outputPath: argv.outputPath,
-                stage: argv.stage,
-              });
-              process.exit(0);
-            } catch (error) {
-              logAssistantError(error);
-            }
-          },
-        })
-        .command({
-          command: 'mapping',
-          describe: 'Converts section mapping.',
-          builder: (yargs) => {
-            return yargs
-              .option('mappingPath', {
-                describe: 'Path to the section mapping file',
-                type: 'string',
-                demandOption: true,
-              });
-          },
-          handler: async (argv) => {
-            try {
-              await runMappingAssistant({
-                mappingPath: argv.mappingPath,
                 outputPath: argv.outputPath,
                 stage: argv.stage,
               });

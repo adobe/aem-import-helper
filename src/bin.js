@@ -17,6 +17,7 @@ import { importCommand } from './cmd/import.js';
 import { assistantCommand } from './cmd/assistant.js';
 import { bundleCommand } from './cmd/bundle.js';
 import { uploadCommand } from './cmd/upload.js';
+import { agentCommand } from './cmd/agent.js';
 
 const argv = yargs(hideBin(process.argv));
 
@@ -24,6 +25,7 @@ importCommand(argv);
 uploadCommand(argv);
 bundleCommand(argv);
 assistantCommand(argv);
+agentCommand(argv);
 
 argv
   .scriptName('aem-import-helper')

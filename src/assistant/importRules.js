@@ -10,10 +10,16 @@
  * governing permissions and limitations under the License.
  */
 
+import { existsSync } from 'fs';
+
 const FILENAME = 'import-rules.js';
 
 const getRules = async (outputPath) => {
-  const rulesModule = await import(`file://${process.cwd()}${outputPath}/${FILENAME}`);
+  const filePath = `${outputPath}/${FILENAME}`;
+  if (!existsSync(`.${filePath}`)) {
+    return undefined;
+  }
+  const rulesModule = await import(`file://${process.cwd()}${filePath}`);
   return rulesModule.default;
 }
 
