@@ -61,12 +61,25 @@ const runMappingAgent = async ({ mappingPath, outputPath = DEFAULT_IMPORTER_PATH
     agents.push(() => builder.buildProject());
   }
   if (navMapping) {
-    agents.push(() => builder.addCleanup(navMapping.sections[0].blocks[0].xpath.replace('/html[1]', '')));
+    agents.push(() => builder.addCleanup('navigation bar'));
   }
   if (footerMapping) {
     agents.push(() => builder.addCleanup('footer'));
   }
   agents.push(() => builder.addSectionMapping(mappingText));
+  // add cell parsing agents for each block
+  const allBlocks = mapping.mapping
+    .filter(({ path }) => path === mapping.sanitizedPath)
+    .flatMap((mapItem) =>
+      mapItem.sections.flatMap((section) =>
+        section.blocks.map((block) => block),
+      ),
+    )
+    .filter(({ block }) => block !== 'defaultContent');
+  allBlocks.forEach((b) => {
+    agents.push(() => builder.addBlockParserMapping(JSON.stringify(b)));
+  });
+  // run all the agents through the orchestrator
   const workflow = await orchestrator(agents);
   // combine all the workflow manifests
   const manifest = combineManifests(workflow);
