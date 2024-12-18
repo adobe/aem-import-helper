@@ -75,7 +75,7 @@ const runMappingAgent = async ({ mappingPath, outputPath = DEFAULT_IMPORTER_PATH
         section.blocks.map((block) => block),
       ),
     )
-    .filter(({ block }) => block !== 'defaultContent');
+    .filter(({ mapping }) => mapping !== 'defaultContent');
   allBlocks.forEach((b) => {
     agents.push(() => builder.addBlockParserMapping(JSON.stringify(b)));
   });
