@@ -98,7 +98,7 @@ async function uploadPackageWithRetry(endpoint, packagePath, authHeader, maxRetr
       const uploadResponse = await uploadPackage(endpoint, authHeader, formData);
       // eslint-disable-next-line no-await-in-loop
       const uploadResponseBody = await parseJsonResponse(uploadResponse);
-      console.info(`✅ Package uploaded successfully to ${uploadResponseBody.path}`);
+      console.info(`Package uploaded successfully to ${uploadResponseBody.path}`);
 
       return uploadResponseBody;
     } catch (error) {
@@ -115,7 +115,6 @@ async function uploadPackageWithRetry(endpoint, packagePath, authHeader, maxRetr
       }
     }
   }
-
 }
 
 /**
@@ -134,7 +133,7 @@ async function installPackageWithRetry(endpoint, authHeader, maxRetries = 3) {
       const installResponse = await installPackage(endpoint, authHeader);
       // eslint-disable-next-line no-await-in-loop
       const installResponseBody = await parseJsonResponse(installResponse);
-      console.info(`✅ Package installed successfully at ${installResponseBody.path}`);
+      console.info(`Package installed successfully at ${endpoint}.`);
       return installResponseBody;
 
     } catch (error) {
