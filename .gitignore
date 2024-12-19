@@ -2,6 +2,8 @@ node_modules
 .idea
 *.iml
 coverage
+secret.key
+aem_config.json
 
 # dotenv environment variable files
 .env
