@@ -47,6 +47,9 @@ export async function runImportJobAndPoll( {
   // Determine the base URL
   const baseURL = getApiBaseUrl(stage);
 
+  // Filter out obviously invalid URLs, and ignore comments.
+  const filteredUrls = urls && Array.isArray(urls) ? urls.filter((url) => url.length > 4 && url[0] !== '#') : [];
+
   function hasProvidedSharePointUrl() {
     return typeof sharePointUploadUrl === 'string';
   }
@@ -87,7 +90,7 @@ export async function runImportJobAndPoll( {
   // Main function to start the job
   async function startJob() {
     const requestBody = new FormData();
-    requestBody.append('urls', JSON.stringify(urls));
+    requestBody.append('urls', JSON.stringify(filteredUrls));
     const { headers, ...restOptions } = options || {};
     if (restOptions) {
       // Conditionally include options, when provided
@@ -106,6 +109,8 @@ export async function runImportJobAndPoll( {
 
     try {
       const jobResponse = await makeRequest(baseURL, 'POST', requestBody);
+      console.log(chalk.yellow('Job can be managed (tracked, stopped, downloaded, etc) at:'));
+      console.log(`https://labs.aem.live/tools/import/index.html?jobid=${jobResponse.id}`);
       console.log(chalk.yellow('Job started:'), jobResponse);
       await pollJobStatus(jobResponse.id);
     } catch (error) {
@@ -113,8 +118,8 @@ export async function runImportJobAndPoll( {
     }
   }
 
-  if (!Array.isArray(urls) || urls.length === 0) {
-    throw new Error('No URLs provided');
+  if (filteredUrls.length === 0) {
+    throw new Error('No valid URLs provided');
   }
 
   return startJob();
