@@ -88,10 +88,16 @@ describe('Import helper tests', () => {
       const testParams = {
         urls: [],
       };
-      await expect(runImportJobAndPoll(testParams)).to.be.rejectedWith(Error, 'No URLs provided');
+      await expect(runImportJobAndPoll(testParams)).to.be.rejectedWith(Error, 'No valid URLs provided');
 
       testParams.urls = null;
-      await expect(runImportJobAndPoll(testParams)).to.be.rejectedWith(Error, 'No URLs provided');
+      await expect(runImportJobAndPoll(testParams)).to.be.rejectedWith(Error, 'No valid URLs provided');
+
+      testParams.urls = ['# This is a comment.'];
+      await expect(runImportJobAndPoll(testParams)).to.be.rejectedWith(Error, 'No valid URLs provided');
+
+      testParams.urls = {type: 'not a string!'};
+      await expect(runImportJobAndPoll(testParams)).to.be.rejectedWith(Error, 'No valid URLs provided');
     });
 
     it ('should create a new job which completes right away', async () => {
