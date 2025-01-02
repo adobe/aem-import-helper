@@ -48,7 +48,7 @@ export async function runImportJobAndPoll( {
   const baseURL = getApiBaseUrl(stage);
 
   // Filter out obviously invalid URLs, and ignore comments.
-  const filteredUrls = urls && Array.isArray(urls) ? urls.filter((url) => url.length > 4 && url[0] !== '#') : [];
+  const filteredUrls = Array.isArray(urls) ? urls.filter((url) => url.length > 4 && url[0] !== '#') : [];
 
   function hasProvidedSharePointUrl() {
     return typeof sharePointUploadUrl === 'string';
