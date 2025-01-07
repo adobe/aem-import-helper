@@ -17,8 +17,7 @@ import { importCommand } from './cmd/import.js';
 import { assistantCommand } from './cmd/assistant.js';
 import { bundleCommand } from './cmd/bundle.js';
 import { uploadCommand } from './cmd/upload.js';
-import { aemUploadCommand } from './cmd/aem-upload.js';
-import { aemLoginCommand } from './cmd/aem-login.js';
+import { aemCommand } from './cmd/aem.js';
 
 const argv = yargs(hideBin(process.argv));
 
@@ -26,8 +25,7 @@ importCommand(argv);
 uploadCommand(argv);
 bundleCommand(argv);
 assistantCommand(argv);
-aemUploadCommand(argv);
-aemLoginCommand(argv);
+aemCommand(argv);
 
 argv
   .scriptName('aem-import-helper')

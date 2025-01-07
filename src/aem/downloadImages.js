@@ -35,15 +35,12 @@ function ensureDirSync(directoryPath) {
  * @param imageUrl - The URL of the image to download
  * @param jcrPath - The JCR path of the image
  */
-// eslint-disable-next-line consistent-return
 async function downloadImage(opts, imageUrl, jcrPath) {
   const { maxRetries } = opts;
   const baseDelay = 5000; // base delay in milliseconds
 
-  // eslint-disable-next-line no-plusplus
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      // eslint-disable-next-line no-await-in-loop
       const response = await fetch(imageUrl);
 
       if (!response.ok) {
@@ -55,7 +52,6 @@ async function downloadImage(opts, imageUrl, jcrPath) {
       // Create the image path
       let imagePath = path.join(process.cwd(), jcrPath.replace(CONTENT_DAM_PREFIX, ''));
 
-      // eslint-disable-next-line no-await-in-loop
       await ensureDirSync(path.dirname(imagePath));
 
       const writer = fs.createWriteStream(imagePath);
@@ -73,7 +69,6 @@ async function downloadImage(opts, imageUrl, jcrPath) {
 
         // Exponential backoff
         const delay = baseDelay * 2 ** (attempt - 1);
-        // eslint-disable-next-line no-await-in-loop
         await new Promise((resolve) => {
           setTimeout(resolve, delay);
         });

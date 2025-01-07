@@ -94,9 +94,7 @@ async function uploadPackageWithRetry(endpoint, packagePath, authHeader, maxRetr
     try {
       // Upload package
       const formData = createFormData(packagePath);
-      // eslint-disable-next-line no-await-in-loop
       const uploadResponse = await uploadPackage(endpoint, authHeader, formData);
-      // eslint-disable-next-line no-await-in-loop
       const uploadResponseBody = await parseJsonResponse(uploadResponse);
       console.info(`Package uploaded successfully to ${uploadResponseBody.path}`);
 
@@ -108,7 +106,6 @@ async function uploadPackageWithRetry(endpoint, packagePath, authHeader, maxRetr
       } else {
         const retryDelay = BASE_DELAY * 2 ** (attempt - 1);
         console.warn(`Retrying package upload (${attempt}/${maxRetries}) in ${retryDelay}ms...`);
-        // eslint-disable-next-line no-await-in-loop
         await new Promise((resolve) => {
           setTimeout(resolve, retryDelay);
         });
@@ -125,13 +122,10 @@ async function uploadPackageWithRetry(endpoint, packagePath, authHeader, maxRetr
  * @returns {Promise<unknown>} The response from the AEM server.
  */
 async function installPackageWithRetry(endpoint, authHeader, maxRetries = 3) {
-  // eslint-disable-next-line no-plusplus
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       // Install package
-      // eslint-disable-next-line no-await-in-loop
       const installResponse = await installPackage(endpoint, authHeader);
-      // eslint-disable-next-line no-await-in-loop
       const installResponseBody = await parseJsonResponse(installResponse);
       console.info(`Package installed successfully at ${endpoint}.`);
       return installResponseBody;
@@ -143,7 +137,6 @@ async function installPackageWithRetry(endpoint, authHeader, maxRetries = 3) {
       } else {
         const retryDelay = BASE_DELAY * 2 ** (attempt - 1);
         console.warn(`Retrying package install (${attempt}/${maxRetries}) in ${retryDelay}ms...`);
-        // eslint-disable-next-line no-await-in-loop
         await new Promise((resolve) => {
           setTimeout(resolve, retryDelay);
         });

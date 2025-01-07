@@ -13,7 +13,7 @@
 import path from 'path';
 import fs from 'fs';
 import { FileSystemUploadOptions, FileSystemUpload } from '@adobe/aem-upload';
-import downloadImagesInMarkdown from './download-images-from-md.js';
+import downloadImagesInMarkdown from './downloadImages.js';
 
 function cleanup(downloadLocation) {
   return fs.promises.rm(downloadLocation, { recursive: true, force: true });
