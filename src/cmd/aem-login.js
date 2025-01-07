@@ -22,6 +22,20 @@ async function validateLogin(url, username, password) {
             Authorization: `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`,
         };
         const response = await fetch(url, { method: "GET", headers });
+
+        // Check if the server explicitly returns 401 or 403
+        if (response.status === 401 || response.status === 403) {
+            console.error('Unauthorized: Invalid credentials');
+            return false;
+        }
+
+        // Check the response body for specific errors
+        const text = await response.text();
+        if (text.includes('Invalid login') || text.includes('Unauthorized')) {
+            console.error('Invalid credentials detected in response body');
+            return false;
+        }
+
         return response.status === 200;
     } catch (error) {
         return false;
@@ -47,6 +61,7 @@ export function aemLoginCommand(yargs) {
                 .option('aemurl', {
                     describe: 'AEM Cloud Service url to upload content to',
                     type: 'string',
+                    demandOption: true, // aemurl is required
                 });
         },
         handler: async (argv) => {
