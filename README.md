@@ -101,8 +101,8 @@ See [Import Assistant](./docs/import-assistant.md) for usage.
 Add the npm script entries to your Edge Delivery project's `package.json`:
 
 ```
-"aem-login": "aem-import-helper aem-login"
-"aem-upload": "aem-import-helper aem-upload"
+"aem-login": "aem-import-helper aem login"
+"aem-upload": "aem-import-helper aem upload"
 ```
 `aem-login`: Authenticates with your AEM Cloud Service environment.
 `aem-upload`: Uploads content packages and associated assets to AEM.
