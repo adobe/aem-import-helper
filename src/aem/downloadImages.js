@@ -110,7 +110,7 @@ function getImageUrlMap(jcrImageMappingFile) {
 
       // Convert JSON object to Map (assuming keys and values are strings)
       for (const [key, value] of Object.entries(jsonData)) {
-        if (typeof key === 'string' && typeof value === 'string') {
+        if (typeof key === 'string' && typeof value === 'string' && key !== 'asset-folder-name') {
           map.set(key, value);
         }
       }

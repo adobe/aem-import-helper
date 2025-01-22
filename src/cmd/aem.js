@@ -78,7 +78,6 @@ async function getPathInputs() {
     const answers = await inquirer.prompt([
         { name: "contentPackagePath", message: "Enter the absolute path to the content package:" },
         { name: "jcrImageMappingFile", message: "Enter the absolute path to the jcr-image-mappings.json file:" },
-        { name: "siteName", message: "Enter the site name:" },
     ]);
 
     return answers;
@@ -130,7 +129,7 @@ export function aemCommand(yargs) {
 
                         console.log('Checking for files...');
 
-                        if (!validateFiles(pathInputs.jcrImageMappingFile, pathInputs.contentPackagePath) || !pathInputs.siteName) {
+                        if (!validateFiles(pathInputs.jcrImageMappingFile, pathInputs.contentPackagePath)) {
                             console.log(chalk.green('Invalid file paths provided.'));
                             process.exit(1);
                         }
@@ -139,7 +138,6 @@ export function aemCommand(yargs) {
                             username: credentials.username,
                             password: credentials.password,
                             targetAEMUrl: credentials.url,
-                            baseAssetFolderName: pathInputs.siteName,
                             maxRetries: 3,
                         };
 

@@ -110,7 +110,7 @@ Add the npm script entries to your Edge Delivery project's `package.json`:
 1. Run the following command to log in to your AEM environment::
 
 ```
-npm run aem-login -- --aemurl https://author-env-url/
+npm run aem-login -- --aemurl https://author-env-url
 ```
 
 * You will be prompted to enter your username and password.

@@ -98,6 +98,14 @@ function createFileUploader() {
 }
 
 /**
+ * Get the AEM asset folder name from the JCR image mapping file.
+ */
+function getAemAssetFolderName(jcrImageMappingFile) {
+  const jcrImageMapping = JSON.parse(fs.readFileSync(jcrImageMappingFile, 'utf-8'));
+  return jcrImageMapping["asset-folder-name"] ? jcrImageMapping["asset-folder-name"] : "xwalk-assets";
+}
+
+/**
  * Upload images from urls in markdown file to AEM.
  *
  * @param opts - The options for uploading images to AEM
@@ -105,7 +113,7 @@ function createFileUploader() {
  * @returns {Promise<UploadResult>} The result of the upload operation
  */
 export default async function uploadImagesToAEM(opts, jcrImageMappingFile) {
-  const downloadLocation = path.join(process.cwd(), opts.baseAssetFolderName);
+  const downloadLocation = path.join(process.cwd(), getAemAssetFolderName(jcrImageMappingFile));
 
   // download images from the image mapping file
   await downloadImagesInMarkdown({ maxRetries: 3, downloadLocation }, jcrImageMappingFile);
