@@ -138,7 +138,7 @@ You’ll be prompted to provide the following details:
 Checking for credentials...
 ✔ Enter the absolute path to the content package: /Users/maji/Desktop/test/xwalkdemo.zip
 ✔ Enter the absolute path to the image-mapping.json file: /Users/maji/Desktop/test/image-mapping.json
-? Select the conflict handling policy for existing assets:
+? Select the conflict handling policy for existing assets (an asset with the given name already exists):
   Replace: Delete the existing asset and create a new one with the same name and binary.
 ❯ Skip: Do not create the new asset if an asset with the same name already exists.
 ```

@@ -16,7 +16,7 @@ import fetch from 'node-fetch';
 import inquirer from 'inquirer';
 import uploadPackageToAEM from '../aem/uploadPackage.js';
 import uploadImagesToAEM from '../aem/uploadImages.js';
-import { saveCredentials, loadCredentials } from '../utils/credential-utils.js';
+import { loadCredentials, saveCredentials } from '../utils/credential-utils.js';
 
 // Validate credentials with AEM
 async function validateLogin(url, username, password) {
@@ -75,13 +75,13 @@ async function validateFiles(imageMappingFile, contentPackagePath) {
 
 // Use inquirer to get required upload inputs
 async function getUserInputs() {
-  const answers = await inquirer.prompt([
+  return await inquirer.prompt([
     { name: 'contentPackagePath', message: 'Enter the absolute path to the content package:' },
     { name: 'imageMappingFile', message: 'Enter the absolute path to the image-mapping.json file:' },
     {
       type: 'list', // Use 'list' to create a selection prompt
       name: 'assetConflictHandlingPolicy',
-      message: 'Select the conflict handling policy for existing assets:',
+      message: 'Select the conflict handling policy for existing assets (an asset with the given name already exists):',
       choices: [
         { name: 'Replace: Delete the existing asset and create a new one with the same name and binary.', value: 'replace' },
         { name: 'Skip: Do not create the new asset if an asset with the same name already exists.', value: 'skip' },
@@ -89,8 +89,6 @@ async function getUserInputs() {
       default: 'skip', // Set a default option as skip
     },
   ]);
-
-  return answers;
 }
 
 export function aemCommand(yargs) {
