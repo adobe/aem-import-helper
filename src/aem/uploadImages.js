@@ -13,7 +13,7 @@
 import path from 'path';
 import fs from 'fs';
 import { FileSystemUploadOptions, FileSystemUpload } from '@adobe/aem-upload';
-import downloadImagesInMarkdown from './downloadImages.js';
+import { downloadImagesInMarkdown, getImageUrlMap } from './downloadImages.js';
 
 function cleanup(downloadLocation) {
   return fs.promises.rm(downloadLocation, { recursive: true, force: true });
@@ -53,9 +53,10 @@ function getEncodedCredentials(user, password) {
  * Build the FileSystemUploadOptions for uploading images to AEM.
  *
  * @param opts - The options for uploading images to AEM
+ * @param conflictHandlingPolicy - The conflict policy to use when uploading assets
  * @returns {DirectBinaryUploadOptions}
  */
-function buildFileSystemUploadOptions(opts) {
+function buildFileSystemUploadOptions(opts, conflictHandlingPolicy) {
   const { targetAEMUrl, username, password } = opts;
 
   return new FileSystemUploadOptions()
@@ -69,9 +70,9 @@ function buildFileSystemUploadOptions(opts) {
         Authorization: `Basic ${getEncodedCredentials(username, password)}`,
       },
     })
-    // If true and an asset with the given name already exists, the process will delete the existing
+    // If 'true', and an asset with the given name already exists, the process will delete the existing
     // asset and create a new one with the same name and the new binary.
-    .withUploadFileOptions({ replace: true });
+    .withUploadFileOptions({ replace: conflictHandlingPolicy === 'replace' });
 }
 
 /**
@@ -98,29 +99,45 @@ function createFileUploader() {
 }
 
 /**
- * Get the AEM asset folder name from the JCR image mapping file.
+ * Get the AEM asset folder name from the image mapping file.
  */
-function getAemAssetFolderName(jcrImageMappingFile) {
-  const jcrImageMapping = JSON.parse(fs.readFileSync(jcrImageMappingFile, 'utf-8'));
-  return jcrImageMapping["asset-folder-name"] ? jcrImageMapping["asset-folder-name"] : "xwalk-assets";
+function getAemAssetFolderName(imageMappingFile) {
+  // Get the image URL map from the image mapping file
+  const imageUrlMap = getImageUrlMap(imageMappingFile);
+
+  for (const jcrAssetPath of imageUrlMap.values()) {
+    if (jcrAssetPath) { // Check if the value is not empty
+      const match = jcrAssetPath.match(/^\/content\/dam\/([^/]+)/);
+      if (match) {
+        return match[1];
+      }
+    }
+  }
+  return null;
 }
 
 /**
  * Upload images from urls in markdown file to AEM.
  *
  * @param opts - The options for uploading images to AEM
- * @param jcrImageMappingFile - The file containing mapping of image urls to their JCR node paths
+ * @param imageMappingFile - The file containing mapping of image urls to their JCR node paths
+ * @param conflictHandlingPolicy - The conflict policy to use when uploading assets
  * @returns {Promise<UploadResult>} The result of the upload operation
  */
-export default async function uploadImagesToAEM(opts, jcrImageMappingFile) {
-  const downloadLocation = path.join(process.cwd(), getAemAssetFolderName(jcrImageMappingFile));
+export default async function uploadImagesToAEM(opts, imageMappingFile, conflictHandlingPolicy) {
+  const aemAssetFolderName = getAemAssetFolderName(imageMappingFile);
+  if (!aemAssetFolderName) {
+    throw new Error('No AEM asset folder found in the JCR image mapping file.');
+  }
+  console.log(`Uploading images to AEM asset folder: ${aemAssetFolderName}`);
+  const downloadLocation = path.join(process.cwd(), aemAssetFolderName);
 
   // download images from the image mapping file
-  await downloadImagesInMarkdown({ maxRetries: 3, downloadLocation }, jcrImageMappingFile);
+  await downloadImagesInMarkdown({ maxRetries: 3, downloadLocation }, imageMappingFile);
 
   // upload all assets in given folder
   const fileUpload = createFileUploader();
-  const result = await fileUpload.upload(buildFileSystemUploadOptions(opts), [downloadLocation]);
+  const result = await fileUpload.upload(buildFileSystemUploadOptions(opts, conflictHandlingPolicy), [downloadLocation]);
 
   // clean up the temporary folder
   await cleanup(downloadLocation)

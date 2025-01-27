@@ -20,144 +20,154 @@ import { saveCredentials, loadCredentials } from '../utils/credential-utils.js';
 
 // Validate credentials with AEM
 async function validateLogin(url, username, password) {
-    try {
-        const headers = {
-            Authorization: `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`,
-        };
-        const response = await fetch(url, { method: "GET", headers });
+  try {
+    const headers = {
+      Authorization: `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`,
+    };
+    const response = await fetch(url, { method: 'GET', headers });
 
-        // Check if the server explicitly returns 401 or 403
-        if (response.status === 401 || response.status === 403) {
-            console.error('Unauthorized: Invalid credentials');
-            return false;
-        }
-
-        // Check the response body for specific errors
-        const text = await response.text();
-        if (text.includes('Invalid login') || text.includes('Unauthorized')) {
-            console.error('Invalid credentials detected in response body');
-            return false;
-        }
-
-        return response.status === 200;
-    } catch (error) {
-        return false;
+    // Check if the server explicitly returns 401 or 403
+    if (response.status === 401 || response.status === 403) {
+      console.error('Unauthorized: Invalid credentials');
+      return false;
     }
+
+    // Check the response body for specific errors
+    const text = await response.text();
+    if (text.includes('Invalid login') || text.includes('Unauthorized')) {
+      console.error('Invalid credentials detected in response body');
+      return false;
+    }
+
+    return response.status === 200;
+  } catch (error) {
+    return false;
+  }
 }
 
 // Use inquirer to get user credentials
 async function getUserCredentials() {
-    const answers = await inquirer.prompt([
-        { name: "username", message: "Enter your AEM username:" },
-        { name: "password", message: "Enter your AEM password:", type: "password" },
-    ]);
+  const answers = await inquirer.prompt([
+    { name: 'username', message: 'Enter your AEM username:' },
+    { name: 'password', message: 'Enter your AEM password:', type: 'password' },
+  ]);
 
-    return answers;
+  return answers;
 }
 
 // Validate the files
-async function validateFiles(jcrImageMappingFile, contentPackagePath) {
-    if (!contentPackagePath || !jcrImageMappingFile) {
-        return false;
-    }
+async function validateFiles(imageMappingFile, contentPackagePath) {
+  if (!contentPackagePath || !imageMappingFile) {
+    return false;
+  }
 
-    if (!fs.existsSync(contentPackagePath)) {
-        console.error(`Content package not found: ${contentPackagePath}`);
-        return false;
-    }
+  if (!fs.existsSync(contentPackagePath)) {
+    console.error(`Content package not found: ${contentPackagePath}`);
+    return false;
+  }
 
-    if (!fs.existsSync(jcrImageMappingFile)) {
-        console.error(`jcr-image-mappings.json file not found: ${jcrImageMappingFile}`);
-        return false;
-    }
-    return true;
+  if (!fs.existsSync(imageMappingFile)) {
+    console.error(`image-mapping.json file not found: ${imageMappingFile}`);
+    return false;
+  }
+  return true;
 }
 
 // Use inquirer to get required upload inputs
-async function getPathInputs() {
-    const answers = await inquirer.prompt([
-        { name: "contentPackagePath", message: "Enter the absolute path to the content package:" },
-        { name: "jcrImageMappingFile", message: "Enter the absolute path to the jcr-image-mappings.json file:" },
-    ]);
+async function getUserInputs() {
+  const answers = await inquirer.prompt([
+    { name: 'contentPackagePath', message: 'Enter the absolute path to the content package:' },
+    { name: 'imageMappingFile', message: 'Enter the absolute path to the image-mapping.json file:' },
+    {
+      type: 'list', // Use 'list' to create a selection prompt
+      name: 'assetConflictHandlingPolicy',
+      message: 'Select the conflict handling policy for existing assets:',
+      choices: [
+        { name: 'Replace: Delete the existing asset and create a new one with the same name and binary.', value: 'replace' },
+        { name: 'Skip: Do not create the new asset if an asset with the same name already exists.', value: 'skip' },
+      ],
+      default: 'skip', // Set a default option as skip
+    },
+  ]);
 
-    return answers;
+  return answers;
 }
 
 export function aemCommand(yargs) {
-    yargs.command({
-        command: 'aem <subcommand>',
-        describe: 'Manage AEM Cloud Service interactions',
-        builder: (yargs) => {
-            return yargs
-                .command({
-                    command: 'login',
-                    describe: 'Login to AEM Cloud Service environment',
-                    builder: (yargs) => {
-                        return yargs.option('aemurl', {
-                            describe: 'AEM Cloud Service URL to upload content to',
-                            type: 'string',
-                            demandOption: true,
-                        });
-                    },
-                    handler: async (argv) => {
-                        const credentials = await getUserCredentials();
-                        console.log('Validating credentials...');
-                        if (!validateLogin(argv.aemurl, credentials.username, credentials.password)) {
-                            console.log(chalk.red('Invalid credentials or AEM URL.'));
-                            process.exit(1);
-                        }
+  yargs.command({
+    command: 'aem <subcommand>',
+    describe: 'Manage AEM Cloud Service interactions',
+    builder: (yargs) => {
+      return yargs
+        .command({
+          command: 'login',
+          describe: 'Login to AEM Cloud Service environment',
+          builder: (yargs) => {
+            return yargs.option('aemurl', {
+              describe: 'AEM Cloud Service URL to upload content to',
+              type: 'string',
+              demandOption: true,
+            });
+          },
+          handler: async (argv) => {
+            const credentials = await getUserCredentials();
+            console.log('Validating credentials...');
+            if (!validateLogin(argv.aemurl, credentials.username, credentials.password)) {
+              console.log(chalk.red('Invalid credentials or AEM URL.'));
+              process.exit(1);
+            }
 
-                        console.log('Saving credentials...');
-                        saveCredentials(argv.aemurl, credentials.username, credentials.password);
-                        console.log(chalk.green('Login successful! Credentials saved securely.'));
-                        process.exit(0);
-                    },
-                })
-                .command({
-                    command: 'upload',
-                    describe: 'Upload content to AEM Cloud Service environment',
-                    builder: (yargs) => yargs,
-                    handler: async () => {
-                        console.log('Checking for credentials...');
-                        const credentials = loadCredentials();
-                        if (!credentials) {
-                            console.log(chalk.red('No credentials found. Run `aem login` first.'));
-                            process.exit(1);
-                        }
+            console.log('Saving credentials...');
+            saveCredentials(argv.aemurl, credentials.username, credentials.password);
+            console.log(chalk.green('Login successful! Credentials saved securely.'));
+            process.exit(0);
+          },
+        })
+        .command({
+          command: 'upload',
+          describe: 'Upload content to AEM Cloud Service environment',
+          builder: (yargs) => yargs,
+          handler: async () => {
+            console.log('Checking for credentials...');
+            const credentials = loadCredentials();
+            if (!credentials) {
+              console.log(chalk.red('No credentials found. Run `aem login` first.'));
+              process.exit(1);
+            }
 
-                        const pathInputs = await getPathInputs();
+            const userInputs = await getUserInputs();
 
-                        console.log('Checking for files...');
+            console.log('Checking for files...');
 
-                        if (!validateFiles(pathInputs.jcrImageMappingFile, pathInputs.contentPackagePath)) {
-                            console.log(chalk.green('Invalid file paths provided.'));
-                            process.exit(1);
-                        }
+            if (!validateFiles(userInputs.imageMappingFile, userInputs.contentPackagePath)) {
+              console.log(chalk.green('Invalid file paths provided.'));
+              process.exit(1);
+            }
 
-                        const opts = {
-                            username: credentials.username,
-                            password: credentials.password,
-                            targetAEMUrl: credentials.url,
-                            maxRetries: 3,
-                        };
+            const opts = {
+              username: credentials.username,
+              password: credentials.password,
+              targetAEMUrl: credentials.url,
+              maxRetries: 3,
+            };
 
-                        // Process the upload request
-                        uploadImagesToAEM(opts, pathInputs.jcrImageMappingFile)
-                            .then(() => uploadPackageToAEM(opts, pathInputs.contentPackagePath))
-                            .then(() => console.log(chalk.green('Upload completed successfully')))
-                            .then(() => process.exit(0))
-                            .catch((err) => {
-                                console.error(chalk.red('Error during upload:', err.message));
-                                process.exit(1);
-                            });
-                    },
-                })
-                .demandCommand(1, 'You need to specify a valid subcommand: `login` or `upload`');
-        },
-        handler: () => {
-            // Default handler if no valid subcommand is provided
-            console.log(chalk.red('Invalid subcommand. Use `aem login` or `aem upload`.'));
-            process.exit(1);
-        },
-    });
+            // Process the upload request
+            uploadImagesToAEM(opts, userInputs.imageMappingFile, userInputs.assetConflictHandlingPolicy)
+              .then(() => uploadPackageToAEM(opts, userInputs.contentPackagePath))
+              .then(() => console.log(chalk.green('Upload completed successfully')))
+              .then(() => process.exit(0))
+              .catch((err) => {
+                console.error(chalk.red('Error during upload:', err.message));
+                process.exit(1);
+              });
+          },
+        })
+        .demandCommand(1, 'You need to specify a valid subcommand: `login` or `upload`');
+    },
+    handler: () => {
+      // Default handler if no valid subcommand is provided
+      console.log(chalk.red('Invalid subcommand. Use `aem login` or `aem upload`.'));
+      process.exit(1);
+    },
+  });
 }

@@ -87,7 +87,7 @@ async function downloadImage(opts, imageUrl, jcrPath) {
 async function downloadImages(opts, imageUrlMap) {
   // Map over the entries and create a promise for each image download.
   const downloadPromises = Array.from(imageUrlMap.entries()).map(([imageUrl, jcrPath]) =>
-    downloadImage(opts, imageUrl, jcrPath)
+    downloadImage(opts, imageUrl, jcrPath),
   );
 
   // Wait for all downloads to complete
@@ -100,18 +100,20 @@ async function downloadImages(opts, imageUrlMap) {
  * @param {string} jcrImageMappingFile - The path to the JSON file containing image URLs and JCR node paths
  * @returns {Map<string, string> | undefined} a map of image URLs to JCR node paths, or undefined if the file is invalid
  */
-function getImageUrlMap(jcrImageMappingFile) {
+export function getImageUrlMap(jcrImageMappingFile) {
   try {
     const data = fs.readFileSync(jcrImageMappingFile, 'utf8');
     const jsonData = JSON.parse(data);
+
 
     if (typeof jsonData === 'object' && jsonData !== null) {
       const map = new Map();
 
       // Convert JSON object to Map (assuming keys and values are strings)
       for (const [key, value] of Object.entries(jsonData)) {
-        if (typeof key === 'string' && typeof value === 'string' && key !== 'asset-folder-name') {
+        if (typeof key === 'string' && typeof value === 'string') {
           map.set(key, value);
+          console.log(`Added mapping: ${key} -> ${value}`);
         }
       }
       return map;
@@ -132,7 +134,7 @@ function getImageUrlMap(jcrImageMappingFile) {
  * @param jcrImageMappingFile - The file containing mappings of image urls to their JCR node paths
  * @returns {Promise<void>}
  */
-export default async function downloadImagesInMarkdown(opts, jcrImageMappingFile) {
+export async function downloadImagesInMarkdown(opts, jcrImageMappingFile) {
   const imageUrlMap = getImageUrlMap(jcrImageMappingFile);
 
   // Process the Map entries
