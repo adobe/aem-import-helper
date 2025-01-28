@@ -75,19 +75,9 @@ async function validateFiles(imageMappingFile, contentPackagePath) {
 
 // Use inquirer to get required upload inputs
 async function getUserInputs() {
-  return await inquirer.prompt([
+  return inquirer.prompt([
     { name: 'contentPackagePath', message: 'Enter the absolute path to the content package:' },
     { name: 'imageMappingFile', message: 'Enter the absolute path to the image-mapping.json file:' },
-    {
-      type: 'list', // Use 'list' to create a selection prompt
-      name: 'assetConflictHandlingPolicy',
-      message: 'Select the conflict handling policy for existing assets (an asset with the given name already exists):',
-      choices: [
-        { name: 'Replace: Delete the existing asset and create a new one with the same name and binary.', value: 'replace' },
-        { name: 'Skip: Do not create the new asset if an asset with the same name already exists.', value: 'skip' },
-      ],
-      default: 'skip', // Set a default option as skip
-    },
   ]);
 }
 
@@ -150,7 +140,7 @@ export function aemCommand(yargs) {
             };
 
             // Process the upload request
-            uploadImagesToAEM(opts, userInputs.imageMappingFile, userInputs.assetConflictHandlingPolicy)
+            uploadImagesToAEM(opts, userInputs.imageMappingFile)
               .then(() => uploadPackageToAEM(opts, userInputs.contentPackagePath))
               .then(() => console.log(chalk.green('Upload completed successfully')))
               .then(() => process.exit(0))

@@ -53,10 +53,9 @@ function getEncodedCredentials(user, password) {
  * Build the FileSystemUploadOptions for uploading images to AEM.
  *
  * @param opts - The options for uploading images to AEM
- * @param conflictHandlingPolicy - The conflict policy to use when uploading assets
  * @returns {DirectBinaryUploadOptions}
  */
-function buildFileSystemUploadOptions(opts, conflictHandlingPolicy) {
+function buildFileSystemUploadOptions(opts) {
   const { targetAEMUrl, username, password } = opts;
 
   return new FileSystemUploadOptions()
@@ -72,7 +71,7 @@ function buildFileSystemUploadOptions(opts, conflictHandlingPolicy) {
     })
     // If 'true', and an asset with the given name already exists, the process will delete the existing
     // asset and create a new one with the same name and the new binary.
-    .withUploadFileOptions({ replace: conflictHandlingPolicy === 'replace' });
+    .withUploadFileOptions({ replace: true });
 }
 
 /**
@@ -121,10 +120,9 @@ function getAemAssetFolderName(imageMappingFile) {
  *
  * @param opts - The options for uploading images to AEM
  * @param imageMappingFile - The file containing mapping of image urls to their JCR node paths
- * @param conflictHandlingPolicy - The conflict policy to use when uploading assets
  * @returns {Promise<UploadResult>} The result of the upload operation
  */
-export default async function uploadImagesToAEM(opts, imageMappingFile, conflictHandlingPolicy) {
+export default async function uploadImagesToAEM(opts, imageMappingFile) {
   const aemAssetFolderName = getAemAssetFolderName(imageMappingFile);
   if (!aemAssetFolderName) {
     throw new Error('No AEM asset folder found in the JCR image mapping file.');
@@ -137,7 +135,7 @@ export default async function uploadImagesToAEM(opts, imageMappingFile, conflict
 
   // upload all assets in given folder
   const fileUpload = createFileUploader();
-  const result = await fileUpload.upload(buildFileSystemUploadOptions(opts, conflictHandlingPolicy), [downloadLocation]);
+  const result = await fileUpload.upload(buildFileSystemUploadOptions(opts), [downloadLocation]);
 
   // clean up the temporary folder
   await cleanup(downloadLocation)

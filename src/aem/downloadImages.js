@@ -125,7 +125,7 @@ export function getImageUrlMap(jcrImageMappingFile) {
     // Return undefined if there's an error reading the file or parsing JSON
     return undefined;
   }
-};
+}
 
 /**
  * Function to download images present in given markdown file.
