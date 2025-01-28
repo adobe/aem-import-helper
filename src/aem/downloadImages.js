@@ -113,7 +113,6 @@ export function getImageUrlMap(jcrImageMappingFile) {
       for (const [key, value] of Object.entries(jsonData)) {
         if (typeof key === 'string' && typeof value === 'string') {
           map.set(key, value);
-          console.log(`Added mapping: ${key} -> ${value}`);
         }
       }
       return map;
