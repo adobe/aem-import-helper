@@ -26,21 +26,25 @@ async function validateLogin(url, username, password) {
     };
     const response = await fetch(url, { method: 'GET', headers });
 
-    // Check if the server explicitly returns 401 or 403
-    if (response.status === 401 || response.status === 403) {
-      console.error('Unauthorized: Invalid credentials');
+    if (!response.ok) {
+      console.error(chalk.red(`Login failed with status: ${response.status} - ${response.statusText}`));
+      // Check if the server explicitly returns 401 or 403
+      if (response.status === 401 || response.status === 403) {
+        console.error(chalk.red('Unauthorized: Invalid credentials'));
+      }
       return false;
     }
 
     // Check the response body for specific errors
     const text = await response.text();
     if (text.includes('Invalid login') || text.includes('Unauthorized')) {
-      console.error('Invalid credentials detected in response body');
+      console.error(chalk.red(`Invalid credentials detected in response body: ${text}`));
       return false;
     }
 
     return response.status === 200;
   } catch (error) {
+    console.error(chalk.red(`Network error: ${error.message}`));
     return false;
   }
 }
@@ -56,18 +60,18 @@ async function getUserCredentials() {
 }
 
 // Validate the files
-async function validateFiles(imageMappingFile, contentPackagePath) {
+function validateFiles(imageMappingFile, contentPackagePath) {
   if (!contentPackagePath || !imageMappingFile) {
     return false;
   }
 
   if (!fs.existsSync(contentPackagePath)) {
-    console.error(`Content package not found: ${contentPackagePath}`);
+    console.error(chalk.red(`Content package not found: ${contentPackagePath}`));
     return false;
   }
 
   if (!fs.existsSync(imageMappingFile)) {
-    console.error(`image-mapping.json file not found: ${imageMappingFile}`);
+    console.error(chalk.red(`image-mapping.json file not found: ${imageMappingFile}`));
     return false;
   }
   return true;
@@ -79,6 +83,26 @@ async function getUserInputs() {
     { name: 'contentPackagePath', message: 'Enter the absolute path to the content package:' },
     { name: 'imageMappingFile', message: 'Enter the absolute path to the image-mapping.json file:' },
   ]);
+}
+
+// Get, validate and store the user login credentials
+async function login(argv) {
+  const credentials = await getUserCredentials();
+  console.log(chalk.yellow('Validating credentials...'));
+  if (!await validateLogin(argv.aemurl, credentials.username, credentials.password)) {
+    process.exit(1);
+  }
+  console.log(chalk.yellow('Saving credentials...'));
+  saveCredentials(argv.aemurl, credentials.username, credentials.password);
+  console.log(chalk.green('Login successful! Credentials saved securely.'));
+}
+
+// Perform the upload of content to AEM
+async function runUpload(opts) {
+  console.log(chalk.yellow('Uploading content to AEM...'));
+  await uploadImagesToAEM(opts);
+  await uploadPackageToAEM(opts);
+  console.log(chalk.green('Content uploaded successfully.'));
 }
 
 export function aemCommand(yargs) {
@@ -98,16 +122,7 @@ export function aemCommand(yargs) {
             });
           },
           handler: async (argv) => {
-            const credentials = await getUserCredentials();
-            console.log('Validating credentials...');
-            if (!validateLogin(argv.aemurl, credentials.username, credentials.password)) {
-              console.log(chalk.red('Invalid credentials or AEM URL.'));
-              process.exit(1);
-            }
-
-            console.log('Saving credentials...');
-            saveCredentials(argv.aemurl, credentials.username, credentials.password);
-            console.log(chalk.green('Login successful! Credentials saved securely.'));
+            await login(argv);
             process.exit(0);
           },
         })
@@ -116,7 +131,7 @@ export function aemCommand(yargs) {
           describe: 'Upload content to AEM Cloud Service environment',
           builder: (yargs) => yargs,
           handler: async () => {
-            console.log('Checking for credentials...');
+            console.log(chalk.yellow('Checking for credentials...'));
             const credentials = loadCredentials();
             if (!credentials) {
               console.log(chalk.red('No credentials found. Run `aem login` first.'));
@@ -125,10 +140,9 @@ export function aemCommand(yargs) {
 
             const userInputs = await getUserInputs();
 
-            console.log('Checking for files...');
-
+            console.log(chalk.yellow('Checking for files...'));
             if (!validateFiles(userInputs.imageMappingFile, userInputs.contentPackagePath)) {
-              console.log(chalk.green('Invalid file paths provided.'));
+              console.error(chalk.red('Invalid file paths provided.'));
               process.exit(1);
             }
 
@@ -137,17 +151,18 @@ export function aemCommand(yargs) {
               password: credentials.password,
               targetAEMUrl: credentials.url,
               maxRetries: 3,
+              imageMappingFilePath: userInputs.imageMappingFile,
+              packagePath: userInputs.contentPackagePath,
             };
 
-            // Process the upload request
-            uploadImagesToAEM(opts, userInputs.imageMappingFile)
-              .then(() => uploadPackageToAEM(opts, userInputs.contentPackagePath))
-              .then(() => console.log(chalk.green('Upload completed successfully')))
-              .then(() => process.exit(0))
-              .catch((err) => {
-                console.error(chalk.red('Error during upload:', err.message));
-                process.exit(1);
-              });
+            try {
+              await runUpload(opts);
+              process.exit(0)
+            } catch (err) {
+              console.error(chalk.red('Error during upload:', err.message));
+              process.exit(1);
+            }
+
           },
         })
         .demandCommand(1, 'You need to specify a valid subcommand: `login` or `upload`');

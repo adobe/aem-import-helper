@@ -97,12 +97,12 @@ async function downloadImages(opts, imageUrlMap) {
 
 /**
  * Get a map of image URLs to JCR node paths from a JSON file.
- * @param {string} jcrImageMappingFile - The path to the JSON file containing image URLs and JCR node paths
+ * @param {string} imageMappingFilePath - The path to the JSON file containing image URLs and JCR node paths
  * @returns {Map<string, string> | undefined} a map of image URLs to JCR node paths, or undefined if the file is invalid
  */
-export function getImageUrlMap(jcrImageMappingFile) {
+export function getImageUrlMap(imageMappingFilePath) {
   try {
-    const data = fs.readFileSync(jcrImageMappingFile, 'utf8');
+    const data = fs.readFileSync(imageMappingFilePath, 'utf8');
     const jsonData = JSON.parse(data);
 
 
@@ -130,11 +130,11 @@ export function getImageUrlMap(jcrImageMappingFile) {
  * Function to download images present in given markdown file.
  *
  * @param opts - The options for downloading images
- * @param jcrImageMappingFile - The file containing mappings of image urls to their JCR node paths
+ * @param imageMappingFilePath - The file containing mappings of image urls to their JCR node paths
  * @returns {Promise<void>}
  */
-export async function downloadImagesInMarkdown(opts, jcrImageMappingFile) {
-  const imageUrlMap = getImageUrlMap(jcrImageMappingFile);
+export async function downloadImagesInMarkdown(opts, imageMappingFilePath) {
+  const imageUrlMap = getImageUrlMap(imageMappingFilePath);
 
   // Process the Map entries
   await downloadImages(opts, imageUrlMap);
