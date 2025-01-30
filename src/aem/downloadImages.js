@@ -13,6 +13,7 @@
 import fetch from 'node-fetch';
 import fs from 'fs';
 import path from 'path';
+import chalk from 'chalk';
 
 const CONTENT_DAM_PREFIX = '/content/dam';
 
@@ -24,7 +25,7 @@ function ensureDirSync(directoryPath) {
     // Create the directory if it doesn't exist, including parent directories
     fs.mkdirSync(directoryPath, { recursive: true });
   } catch (err) {
-    console.error('Error ensuring directory exists:', err);
+    console.error(chalk.red('Error ensuring directory exists:', err));
   }
 }
 
@@ -45,7 +46,7 @@ async function downloadImage(opts, imageUrl, jcrPath) {
 
       if (!response.ok) {
         const msg = `Failed to fetch ${imageUrl}. Status: ${response.status}.`;
-        console.error(msg);
+        console.info(chalk.yellow(msg));
         throw new Error(msg);
       }
 
@@ -62,10 +63,10 @@ async function downloadImage(opts, imageUrl, jcrPath) {
       });
     } catch (error) {
       if (attempt === maxRetries) {
-        console.error(`Failed to download ${imageUrl} after ${maxRetries} attempts.`);
+        console.error(chalk.red(`Failed to download ${imageUrl} after ${maxRetries} attempts.`));
         throw error;
       } else {
-        console.info(`Retrying download (${attempt}/${maxRetries})...`);
+        console.info(chalk.yellow(`Retrying download (${attempt}/${maxRetries})...`));
 
         // Exponential backoff
         const delay = baseDelay * 2 ** (attempt - 1);
@@ -104,7 +105,6 @@ export function getImageUrlMap(imageMappingFilePath) {
   try {
     const data = fs.readFileSync(imageMappingFilePath, 'utf8');
     const jsonData = JSON.parse(data);
-
 
     if (typeof jsonData === 'object' && jsonData !== null) {
       const map = new Map();
