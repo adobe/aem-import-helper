@@ -105,11 +105,14 @@ function getAemAssetFolderName(imageMappingFilePath) {
   // Get the image URL map from the image mapping file
   const imageUrlMap = getImageUrlMap(imageMappingFilePath);
 
-  const firstImageJcrPath = imageUrlMap.size > 0 ? imageUrlMap.values().next().value : null;
-  if (firstImageJcrPath) { // Check if the jcr path is not empty
-    const match = firstImageJcrPath.match(/^\/content\/dam\/([^/]+)/);
-    if (match) {
-      return match[1];
+  // Look for jcr content path in the image URL map
+  // check all entries in case the value is not present in the first entry due to some reason
+  for (const jcrAssetPath of imageUrlMap.values()) {
+    if (jcrAssetPath) { // Check if the value is not empty
+      const match = jcrAssetPath.match(/^\/content\/dam\/([^/]+)/);
+      if (match) {
+        return match[1];
+      }
     }
   }
 
