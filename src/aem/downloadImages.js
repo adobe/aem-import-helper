@@ -13,6 +13,7 @@
 import fetch from 'node-fetch';
 import fs from 'fs';
 import path from 'path';
+import chalk from 'chalk';
 
 const CONTENT_DAM_PREFIX = '/content/dam';
 
@@ -24,7 +25,7 @@ function ensureDirSync(directoryPath) {
     // Create the directory if it doesn't exist, including parent directories
     fs.mkdirSync(directoryPath, { recursive: true });
   } catch (err) {
-    console.error('Error ensuring directory exists:', err);
+    console.error(chalk.red('Error ensuring directory exists:', err));
   }
 }
 
@@ -45,7 +46,7 @@ async function downloadImage(opts, imageUrl, jcrPath) {
 
       if (!response.ok) {
         const msg = `Failed to fetch ${imageUrl}. Status: ${response.status}.`;
-        console.error(msg);
+        console.info(chalk.yellow(msg));
         throw new Error(msg);
       }
 
@@ -62,10 +63,10 @@ async function downloadImage(opts, imageUrl, jcrPath) {
       });
     } catch (error) {
       if (attempt === maxRetries) {
-        console.error(`Failed to download ${imageUrl} after ${maxRetries} attempts.`);
+        console.error(chalk.red(`Failed to download ${imageUrl} after ${maxRetries} attempts.`));
         throw error;
       } else {
-        console.info(`Retrying download (${attempt}/${maxRetries})...`);
+        console.info(chalk.yellow(`Retrying download (${attempt}/${maxRetries})...`));
 
         // Exponential backoff
         const delay = baseDelay * 2 ** (attempt - 1);
@@ -87,7 +88,7 @@ async function downloadImage(opts, imageUrl, jcrPath) {
 async function downloadImages(opts, imageUrlMap) {
   // Map over the entries and create a promise for each image download.
   const downloadPromises = Array.from(imageUrlMap.entries()).map(([imageUrl, jcrPath]) =>
-    downloadImage(opts, imageUrl, jcrPath)
+    downloadImage(opts, imageUrl, jcrPath),
   );
 
   // Wait for all downloads to complete
@@ -97,12 +98,12 @@ async function downloadImages(opts, imageUrlMap) {
 
 /**
  * Get a map of image URLs to JCR node paths from a JSON file.
- * @param {string} jcrImageMappingFile - The path to the JSON file containing image URLs and JCR node paths
+ * @param {string} imageMappingFilePath - The path to the JSON file containing image URLs and JCR node paths
  * @returns {Map<string, string> | undefined} a map of image URLs to JCR node paths, or undefined if the file is invalid
  */
-function getImageUrlMap(jcrImageMappingFile) {
+export function getImageUrlMap(imageMappingFilePath) {
   try {
-    const data = fs.readFileSync(jcrImageMappingFile, 'utf8');
+    const data = fs.readFileSync(imageMappingFilePath, 'utf8');
     const jsonData = JSON.parse(data);
 
     if (typeof jsonData === 'object' && jsonData !== null) {
@@ -123,17 +124,17 @@ function getImageUrlMap(jcrImageMappingFile) {
     // Return undefined if there's an error reading the file or parsing JSON
     return undefined;
   }
-};
+}
 
 /**
  * Function to download images present in given markdown file.
  *
  * @param opts - The options for downloading images
- * @param jcrImageMappingFile - The file containing mappings of image urls to their JCR node paths
+ * @param imageMappingFilePath - The file containing mappings of image urls to their JCR node paths
  * @returns {Promise<void>}
  */
-export default async function downloadImagesInMarkdown(opts, jcrImageMappingFile) {
-  const imageUrlMap = getImageUrlMap(jcrImageMappingFile);
+export async function downloadImagesInMarkdown(opts, imageMappingFilePath) {
+  const imageUrlMap = getImageUrlMap(imageMappingFilePath);
 
   // Process the Map entries
   await downloadImages(opts, imageUrlMap);

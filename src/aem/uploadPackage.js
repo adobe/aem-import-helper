@@ -12,6 +12,7 @@
 import fs from 'fs';
 import fetch from 'node-fetch';
 import FormData from 'form-data';
+import chalk from "chalk";
 
 const BASE_DELAY = 5000; // base delay in milliseconds
 
@@ -96,16 +97,16 @@ async function uploadPackageWithRetry(endpoint, packagePath, authHeader, maxRetr
       const formData = createFormData(packagePath);
       const uploadResponse = await uploadPackage(endpoint, authHeader, formData);
       const uploadResponseBody = await parseJsonResponse(uploadResponse);
-      console.info(`Package uploaded successfully to ${uploadResponseBody.path}`);
+      console.info(chalk.yellow(`Package uploaded successfully to ${uploadResponseBody.path}`));
 
       return uploadResponseBody;
     } catch (error) {
       if (attempt === maxRetries) {
-        console.error('Max retries reached. Failed to upload package.');
+        console.error(chalk.red('Max retries reached. Failed to upload package.'));
         throw error;
       } else {
         const retryDelay = BASE_DELAY * 2 ** (attempt - 1);
-        console.warn(`Retrying package upload (${attempt}/${maxRetries}) in ${retryDelay}ms...`);
+        console.warn(chalk.yellow(`Retrying package upload (${attempt}/${maxRetries}) in ${retryDelay}ms...`));
         await new Promise((resolve) => {
           setTimeout(resolve, retryDelay);
         });
@@ -127,16 +128,16 @@ async function installPackageWithRetry(endpoint, authHeader, maxRetries = 3) {
       // Install package
       const installResponse = await installPackage(endpoint, authHeader);
       const installResponseBody = await parseJsonResponse(installResponse);
-      console.info(`Package installed successfully at ${endpoint}.`);
+      console.info(chalk.yellow(`Package installed successfully at ${endpoint}.`));
       return installResponseBody;
 
     } catch (error) {
       if (attempt === maxRetries) {
-        console.error('Max retries reached. Failed to install package.');
+        console.error(chalk.red('Max retries reached. Failed to install package.'));
         throw error;
       } else {
         const retryDelay = BASE_DELAY * 2 ** (attempt - 1);
-        console.warn(`Retrying package install (${attempt}/${maxRetries}) in ${retryDelay}ms...`);
+        console.warn(chalk.yellow(`Retrying package install (${attempt}/${maxRetries}) in ${retryDelay}ms...`));
         await new Promise((resolve) => {
           setTimeout(resolve, retryDelay);
         });
@@ -151,9 +152,9 @@ async function installPackageWithRetry(endpoint, authHeader, maxRetries = 3) {
  * @param {string} packagePath - The path to the content package file path
  * @returns {Promise<unknown>} The response from the AEM server.
  */
-export default async function uploadPackageToAEM(opts, packagePath) {
+export default async function uploadPackageToAEM(opts) {
   const {
-    username, password, targetAEMUrl, maxRetries = 3,
+    username, password, targetAEMUrl, maxRetries = 3, packagePath,
   } = opts;
 
   if (!username || !password || !targetAEMUrl || !packagePath) {

@@ -13,7 +13,8 @@
 import path from 'path';
 import fs from 'fs';
 import { FileSystemUploadOptions, FileSystemUpload } from '@adobe/aem-upload';
-import downloadImagesInMarkdown from './downloadImages.js';
+import { downloadImagesInMarkdown, getImageUrlMap } from './downloadImages.js';
+import chalk from 'chalk';
 
 function cleanup(downloadLocation) {
   return fs.promises.rm(downloadLocation, { recursive: true, force: true });
@@ -69,7 +70,7 @@ function buildFileSystemUploadOptions(opts) {
         Authorization: `Basic ${getEncodedCredentials(username, password)}`,
       },
     })
-    // If true and an asset with the given name already exists, the process will delete the existing
+    // If 'true', and an asset with the given name already exists, the process will delete the existing
     // asset and create a new one with the same name and the new binary.
     .withUploadFileOptions({ replace: true });
 }
@@ -85,30 +86,56 @@ function createFileUploader() {
   // specific handling that should occur when a file finishes uploading successfully
   fileUpload.on('fileend', (data) => {
     const { fileName } = data;
-    console.info(`Uploaded asset: ${fileName}`);
+    console.info(chalk.yellow(`Uploaded asset: ${fileName}`));
   });
 
   // specific handling that should occur when a file upload fails
   fileUpload.on('fileerror', (data) => {
     const { fileName, errors } = data;
-    console.error(`Failed to upload asset: ${fileName}. ${errors.toString()}`);
+    console.error(chalk.red(`Failed to upload asset: ${fileName}. ${errors.toString()}`));
   });
 
   return fileUpload;
 }
 
 /**
+ * Get the AEM asset folder name from the image mapping file.
+ */
+function getAemAssetFolderName(imageMappingFilePath) {
+  // Get the image URL map from the image mapping file
+  const imageUrlMap = getImageUrlMap(imageMappingFilePath);
+
+  // Look for jcr content path in the image URL map
+  // check all entries in case the value is not present in the first entry due to some reason
+  for (const jcrAssetPath of imageUrlMap.values()) {
+    if (jcrAssetPath) { // Check if the value is not empty
+      const match = jcrAssetPath.match(/^\/content\/dam\/([^/]+)/);
+      if (match) {
+        return match[1];
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
  * Upload images from urls in markdown file to AEM.
  *
  * @param opts - The options for uploading images to AEM
- * @param jcrImageMappingFile - The file containing mapping of image urls to their JCR node paths
  * @returns {Promise<UploadResult>} The result of the upload operation
  */
-export default async function uploadImagesToAEM(opts, jcrImageMappingFile) {
-  const downloadLocation = path.join(process.cwd(), opts.baseAssetFolderName);
+export default async function uploadImagesToAEM(opts) {
+  const { imageMappingFilePath } = opts;
+  const aemAssetFolderName = getAemAssetFolderName(imageMappingFilePath);
+  if (!aemAssetFolderName) {
+    throw new Error('No valid AEM asset path found in the JCR image mapping file.');
+  }
+  console.log(chalk.yellow(`Uploading images to AEM asset folder: ${aemAssetFolderName}`));
+  const downloadLocation = path.join(process.cwd(), aemAssetFolderName);
 
   // download images from the image mapping file
-  await downloadImagesInMarkdown({ maxRetries: 3, downloadLocation }, jcrImageMappingFile);
+  await downloadImagesInMarkdown({ maxRetries: 3, downloadLocation }, imageMappingFilePath);
 
   // upload all assets in given folder
   const fileUpload = createFileUploader();
