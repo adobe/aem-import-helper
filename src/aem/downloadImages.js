@@ -20,7 +20,7 @@ const CONTENT_DAM_PREFIX = '/content/dam';
 /**
  * Function to ensure directory exists
  */
-function ensureDirSync(directoryPath) {
+export function ensureDirSync(directoryPath) {
   try {
     // Create the directory if it doesn't exist, including parent directories
     fs.mkdirSync(directoryPath, { recursive: true });
@@ -36,7 +36,7 @@ function ensureDirSync(directoryPath) {
  * @param imageUrl - The URL of the image to download
  * @param jcrPath - The JCR path of the image
  */
-async function downloadImage(opts, imageUrl, jcrPath) {
+export async function downloadImage(opts, imageUrl, jcrPath) {
   const { maxRetries } = opts;
   const baseDelay = 5000; // base delay in milliseconds
 
@@ -85,7 +85,7 @@ async function downloadImage(opts, imageUrl, jcrPath) {
  * @param imageUrlMap - The map of image urls to their JCR node paths
  * @returns {Promise<void>} A promise that resolves when all images are downloaded
  */
-async function downloadImages(opts, imageUrlMap) {
+export async function downloadImages(opts, imageUrlMap) {
   // Map over the entries and create a promise for each image download.
   const downloadPromises = Array.from(imageUrlMap.entries()).map(([imageUrl, jcrPath]) =>
     downloadImage(opts, imageUrl, jcrPath),

@@ -10,9 +10,8 @@
  * governing permissions and limitations under the License.
  */
 import fs from 'fs';
-import fetch from 'node-fetch';
 import FormData from 'form-data';
-import chalk from "chalk";
+import chalk from 'chalk';
 
 const BASE_DELAY = 5000; // base delay in milliseconds
 
