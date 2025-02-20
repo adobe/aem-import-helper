@@ -14,63 +14,63 @@ import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
 
-const HEX = "hex";
-const UTF8 = "utf8";
-const ALGORITHM = "aes-256-cbc";
+const HEX = 'hex';
+const UTF8 = 'utf8';
+const ALGORITHM = 'aes-256-cbc';
 
 // Load or generate an encryption key
 function loadOrCreateKey() {
-    const KEY_FILE = path.resolve(process.cwd(), "secret.key");
+  const KEY_FILE = path.resolve(process.cwd(), 'secret.key');
 
-    if (!fs.existsSync(KEY_FILE)) {
-        const key = crypto.randomBytes(32); // 256-bit key
-        fs.writeFileSync(KEY_FILE, key);
-    }
-    return fs.readFileSync(KEY_FILE);
+  if (!fs.existsSync(KEY_FILE)) {
+    const key = crypto.randomBytes(32); // 256-bit key
+    fs.writeFileSync(KEY_FILE, key);
+  }
+  return fs.readFileSync(KEY_FILE);
 }
 
 // Encrypt function
 function encrypt(text) {
-    const KEY = loadOrCreateKey();
+  const KEY = loadOrCreateKey();
 
-    const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipheriv(ALGORITHM, KEY, iv);
-    let encrypted = cipher.update(text, UTF8, HEX);
-    encrypted += cipher.final(HEX);
-    return `${iv.toString(HEX)}:${encrypted}`;
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv(ALGORITHM, KEY, iv);
+  let encrypted = cipher.update(text, UTF8, HEX);
+  encrypted += cipher.final(HEX);
+  return `${iv.toString(HEX)}:${encrypted}`;
 }
 
 // Decrypt function
 function decrypt(encryptedText) {
-    const KEY = loadOrCreateKey();
+  const KEY = loadOrCreateKey();
 
-    const [iv, encrypted] = encryptedText.split(":");
-    const decipher = crypto.createDecipheriv(ALGORITHM, KEY, Buffer.from(iv, HEX));
-    let decrypted = decipher.update(encrypted, HEX, UTF8);
-    decrypted += decipher.final(UTF8);
-    return decrypted;
+  const [iv, encrypted] = encryptedText.split(':');
+  const decipher = crypto.createDecipheriv(ALGORITHM, KEY, Buffer.from(iv, HEX));
+  let decrypted = decipher.update(encrypted, HEX, UTF8);
+  decrypted += decipher.final(UTF8);
+  return decrypted;
 }
 
 // Load credentials
 export function loadCredentials() {
-    const CONFIG_FILE = path.resolve(process.cwd(), "aem_config.json");
+  const CONFIG_FILE = path.resolve(process.cwd(), 'aem_config.json');
 
-    if (fs.existsSync(CONFIG_FILE)) {
-        const data = JSON.parse(fs.readFileSync(CONFIG_FILE));
-        data.password = decrypt(data.password);
-        return data;
-    }
-    return null;
+  if (fs.existsSync(CONFIG_FILE)) {
+    const data = JSON.parse(fs.readFileSync(CONFIG_FILE));
+    data.password = decrypt(data.password);
+    return data;
+  }
+  return null;
 }
 
 // Save credentials securely
 export function saveCredentials(url, username, password) {
-    const CONFIG_FILE = path.resolve(process.cwd(), "aem_config.json");
+  const CONFIG_FILE = path.resolve(process.cwd(), 'aem_config.json');
 
-    const data = {
-        url,
-        username,
-        password: encrypt(password),
-    };
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(data, null, 2));
+  const data = {
+    url,
+    username,
+    password: encrypt(password),
+  };
+  fs.writeFileSync(CONFIG_FILE, JSON.stringify(data, null, 2));
 }
