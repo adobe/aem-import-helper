@@ -12,3 +12,6 @@ aem_config.json
 .env.production.local
 .env.local
 
+.vscode
+.nvmrc
+

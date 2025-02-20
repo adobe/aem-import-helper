@@ -34,6 +34,18 @@ export function importCommand(yargs) {
           describe: 'path to import script',
           type: 'string',
         })
+        .option('models', {
+          describe: 'path to component-models.json file',
+          type: 'string',
+        })
+        .option('filters', {
+          describe: 'path to component-filters.json file',
+          type: 'string',
+        })
+        .option('definitions', {
+          describe: 'path to component-definition.json file',
+          type: 'string',
+        })
         .option('sharepointurl', {
           describe: 'SharePoint URL to upload imported files to',
           type: 'string',
@@ -48,6 +60,9 @@ export function importCommand(yargs) {
         urls: urlsPath,
         options: optionsString,
         importjs: importJsPath,
+        models: modelsPath,
+        filters: filtersPath,
+        definitions: definitionsPath,
         sharepointurl: sharePointUploadUrl,
         stage,
       } = argv;
@@ -70,7 +85,7 @@ export function importCommand(yargs) {
 
       // Run the import job
       try {
-        await runImportJobAndPoll({ urls, options, importJsPath, sharePointUploadUrl, stage } );
+        await runImportJobAndPoll({ urls, options, importJsPath, sharePointUploadUrl, stage, modelsPath, filtersPath, definitionsPath } );
         console.log(chalk.green('Done.'));
       } catch(error) {
         console.error(chalk.red(`Error: ${error.message}`));
