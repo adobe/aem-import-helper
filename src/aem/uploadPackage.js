@@ -10,6 +10,7 @@
  * governing permissions and limitations under the License.
  */
 import fs from 'fs';
+import fetch from 'node-fetch';
 import FormData from 'form-data';
 import chalk from 'chalk';
 
@@ -101,7 +102,7 @@ async function uploadPackageWithRetry(endpoint, packagePath, authHeader, maxRetr
       return uploadResponseBody;
     } catch (error) {
       if (attempt === maxRetries) {
-        console.error(chalk.red('Max retries reached. Failed to upload package.'));
+        console.error(chalk.red('Max retries reached. Failed to upload package.', error.message));
         throw error;
       } else {
         const retryDelay = BASE_DELAY * 2 ** (attempt - 1);
