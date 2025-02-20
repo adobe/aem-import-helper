@@ -71,9 +71,10 @@ npm run import -- --urls urls.txt --sharepointurl https://example.sharepoint.com
 
 Once the import job is complete, the import result will be downloaded from S3, extracted, and each document will be uploaded to the specified SharePoint directory.
 
-## XWalk Imports
+## AEM Authoring (Crosswalk) Imports
 
-To perform an XWalk import, you will need to provide additional parameters to the invocation.  The models, filters, and definition files are required. You must also specify the import `type` as `xwalk` and provide the `siteName` and `assetFolder`.
+To perform an Crosswalk import, you will need to provide additional parameters to the invocation.  The models, filters, and definition files are 
+required. You must also specify the import `type` as `xwalk` and provide the `siteName` and `assetFolder`.
 
 
 ```
