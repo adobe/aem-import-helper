@@ -10,6 +10,7 @@
  * governing permissions and limitations under the License.
  */
 
+import fs from 'fs';
 import path from 'path';
 import { Blob } from 'buffer';
 import prepareImportScript from './bundler.js';
@@ -34,6 +35,9 @@ async function getJobResult(jobId, stage) {
  * @param {string} sharePointUploadUrl - SharePoint URL to upload imported files to
  * @param {boolean} stage - Set to true if stage APIs should be used
  * @param {number} pollInterval - Time to wait between polling requests
+ * @param {string} modelsPath - Required path to the models JSON file when performing xwalk import
+ * @param {string} filtersPath - Required path to the filters JSON file when performing xwalk import
+ * @param {string} definitionsPath - Required path to the definitions JSON file when performing xwalk import
  * @returns {Promise<void>}
  */
 export async function runImportJobAndPoll( {
@@ -43,6 +47,9 @@ export async function runImportJobAndPoll( {
   sharePointUploadUrl,
   stage = false,
   pollInterval = 5000,
+  modelsPath,
+  filtersPath,
+  definitionsPath,
 } ) {
   // Determine the base URL
   const baseURL = getApiBaseUrl(stage);
@@ -105,6 +112,28 @@ export async function runImportJobAndPoll( {
       const bundledCode = prepareImportScript(importJsPath);
       const bundledScriptBlob = new Blob([bundledCode], { type: 'application/javascript' });
       requestBody.append('importScript', bundledScriptBlob, path.basename(importJsPath));
+    }
+
+    if (restOptions.type === 'xwalk') {
+      const requiredFiles = [
+        { path: modelsPath, name: 'component-models.json' },
+        { path: filtersPath, name: 'component-filters.json' },
+        { path: definitionsPath, name: 'component-definition.json' },
+      ];
+
+      requiredFiles.forEach(file => {
+        if (!file.path) {
+          throw new Error(
+            `You must provide a ${file.name} file when performing an xwalk import`);
+        }
+        if (!fs.existsSync(file.path)) {
+          throw new Error(`The file ${file.path} does not exist`);
+        }
+      });
+
+      requestBody.append('models', new Blob([fs.readFileSync(modelsPath, 'utf8')], { type: 'application/json' }));
+      requestBody.append('filters', new Blob([fs.readFileSync(filtersPath, 'utf8')], { type: 'application/json' }));
+      requestBody.append('definitions', new Blob([fs.readFileSync(definitionsPath, 'utf8')], { type: 'application/json' }));
     }
 
     try {

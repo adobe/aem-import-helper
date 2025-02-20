@@ -13,7 +13,7 @@
 export const jobInProgressResponse = {
   id: '318cab4f-f793-4e72-be20-894b3713f102',
   baseURL: 'https://example.com',
-  options: { enableJavascript: false },
+  options: { enableJavascript: false, },
   startTime: '2024-10-04T15:23:35.512Z',
   status: 'RUNNING',
   urlCount: 5,
@@ -49,4 +49,42 @@ export const jobCompletedResponse = {
 export const jobResultResponse = {
   id: '318cab4f-f793-4e72-be20-894b3713f102',
   downloadUrl: 'https://example.s3.region.amazonaws.com/imports/318cab4f-f793-4e72-be20-894b3713f102/import-result.zip?X-Amz-Algorithm=AWS4-...',
+}
+
+// XWalk Job Responses
+
+export const xwalkJInProgressResponse = {
+  id: '894b3713f102',
+  baseURL: 'https://example.com',
+  options: { enableJavascript: false, type: 'xwalk', siteName: 'xwalk', assetFolder: 'xwalk' },
+  startTime: '2024-10-04T15:23:35.512Z',
+  status: 'RUNNING',
+  urlCount: 5,
+  initiatedBy: { apiKeyName: 'Ben\'s Key', userAgent: 'node' },
+  hasCustomHeaders: false,
+  hasCustomImportJs: false,
+};
+
+export const xwalkProgressResponse = {
+  pending: 1,
+  redirect: 0,
+  completed: 0,
+  failed: 0,
+};
+
+export const xwalkJobCompletedResponse = {
+  id: '894b3713f102',
+  baseURL: 'https://example.com',
+  options: { enableJavascript: false, type: 'xwalk', siteName: 'xwalk', assetFolder: 'xwalk' },
+  startTime: '2024-10-04T15:23:35.512Z',
+  endTime: '2024-10-04T15:23:52.485Z',
+  duration: 16973,
+  status: 'COMPLETE',
+  urlCount: 1,
+  initiatedBy: { apiKeyName: 'Ben\'s Key', userAgent: 'node' },
+  successCount: 1,
+  failedCount: 0,
+  redirectCount: 0,
+  hasCustomHeaders: false,
+  hasCustomImportJs: false,
 }
