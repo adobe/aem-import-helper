@@ -11,28 +11,62 @@
  */
 
 import fs from 'fs';
-import { expect } from 'chai';
+import { expect, use } from 'chai';
 import sinon from 'sinon';
+import chaiAsPromised from 'chai-as-promised';
 import * as downloadImagesModule from '../../src/aem/downloadImages.js';
 import { downloadImagesInMarkdown } from '../../src/aem/downloadImages.js';
-import { Readable } from 'stream';
+import { Readable, Writable } from 'stream';
+import path from 'path';
+import { expectLogContains } from '../utils.js';
+
+use(chaiAsPromised);
+
 
 describe('downloadImages.js', function () {
-  this.timeout(30000); // Increase timeout to 30 seconds
+  let fetchStub;
+  let imageData;
+  let readFileSyncStub;
+  let mkdirSyncStub;
+  let createWriteStreamStub;
+  let consoleErrorStub;
 
-  let readFileSyncStub, mkdirSyncStub, createWriteStreamStub, consoleErrorStub, consoleInfoStub;
+  let fetchHandler = () => {
+    console.log('here');
+    return {
+      ok: true,
+      status: 200,
+      body: new Readable({
+        read() {
+          this.push('image data');
+          this.push(null);
+        },
+      }),
+    }
+  }
 
   beforeEach(() => {
+    consoleErrorStub = sinon.spy(console, 'error');
+
     readFileSyncStub = sinon.stub(fs, 'readFileSync');
     mkdirSyncStub = sinon.stub(fs, 'mkdirSync');
-    createWriteStreamStub = sinon.stub(fs, 'createWriteStream');
-    global.fetchStub = sinon.stub(global, 'fetch'); // figure out how to stub node-fetch correctly
-    consoleErrorStub = sinon.stub(console, 'error');
-    consoleInfoStub = sinon.stub(console, 'info');
+
+    const mockStream = new Writable({
+      write(chunk, encoding, callback) {
+        imageData = chunk.toString();
+        callback(); // Signal that writing is done
+      },
+      end: sinon.stub(),
+    })
+
+    createWriteStreamStub = sinon.stub(fs, 'createWriteStream').returns(mockStream);
+
+    fetchStub = sinon.stub(globalThis, 'fetch')
   });
 
   afterEach(() => {
     sinon.restore();
+    imageData = null;
   });
 
   describe('getImageUrlMap', () => {
@@ -70,27 +104,38 @@ describe('downloadImages.js', function () {
 
   describe('downloadImage', () => {
     it('should download image and save to file system', async () => {
-      const mockResponse = {
-        ok: true,
-        body: new Readable({
-          read() {
-            this.push('mock image data'); // Push data into the stream
-            this.push(null); // Signal end of stream
-          },
-        }),
-      };
-      global.fetchStub.resolves(mockResponse);
+      fetchStub.callsFake(fetchHandler);
 
       await downloadImagesModule.downloadImage({ maxRetries: 3 }, 'http://example.com/image.jpg', '/content/dam/image.jpg');
-      expect(global.fetchStub).to.have.been.calledWith('http://example.com/image.jpg');
-      expect(createWriteStreamStub).to.have.been.calledWith('/content/dam/image.jpg');
+      expect(fetchStub).to.have.been.calledWith('http://example.com/image.jpg');
+
+      const finalPath = path.join(process.cwd(), 'image.jpg');
+      expect(createWriteStreamStub).to.have.been.calledWith(finalPath);
+      expect(imageData).to.equal('image data');
     });
 
     it('should retry download on failure', async () => {
-      global.fetchStub.rejects(new Error('Failed to fetch http://example.com/image.jpg. Status: 404.'));
+      const badRequest = () => {
+        return {
+          ok: false,
+          status: 404,
+        }
+      };
 
-      await expect(downloadImagesModule.downloadImage({ maxRetries: 3 }, 'http://example.com/image.jpg', '/content/dam/image.jpg')).to.be.rejectedWith('Failed to fetch http://example.com/image.jpg. Status: 404.');
-      expect(consoleInfoStub).to.have.been.calledWith(sinon.match.string);
+      fetchStub.callsFake(badRequest);
+
+      await expect(
+        downloadImagesModule.downloadImage({ maxRetries: 5 },
+          'http://example.com/image.jpg',
+          '/content/dam/image.jpg',
+          0))
+        .to.be.rejectedWith('Failed to fetch http://example.com/image.jpg. Status: 404.');
+
+      // there should be 3 retry attempts
+      expect(fetchStub).to.have.callCount(5);
+
+      // because the image fails to download, the error message should be logged
+      expectLogContains(consoleErrorStub, 'Failed to download')
     });
   });
 
@@ -99,14 +144,13 @@ describe('downloadImages.js', function () {
       const mapFileContent = '{"http://example.com/image1.jpg":"/content/dam/image1.jpg"}';
       readFileSyncStub.returns(mapFileContent);
 
-      const mockResponse = { ok: true, body: { pipe: sinon.stub() } };
-      global.fetchStub.resolves(mockResponse);
+      fetchStub.callsFake(fetchHandler);
 
       createWriteStreamStub.returns({ on: sinon.stub().callsArg(1) });
 
       // test downloadImagesInMarkdown method
       await downloadImagesInMarkdown({ maxRetries: 3, downloadLocation: 'path/to/download' }, 'path/to/markdown.md');
-      expect(global.fetchStub).to.have.been.calledWith('http://example.com/image1.jpg');
+      expect(fetchStub).to.have.been.calledWith('http://example.com/image1.jpg');
       expect(createWriteStreamStub).to.have.been.called;
     });
   });

@@ -10,7 +10,6 @@
  * governing permissions and limitations under the License.
  */
 
-import fetch from 'node-fetch';
 import fs from 'fs';
 import path from 'path';
 import chalk from 'chalk';
@@ -32,13 +31,13 @@ export function ensureDirSync(directoryPath) {
 /**
  * Function to download an image with retry.
  *
- * @param opts - Additional options for downloading the image
- * @param imageUrl - The URL of the image to download
- * @param jcrPath - The JCR path of the image
+ * @param {{maxRetries: number}} opts - Additional options for downloading the image
+ * @param {string} imageUrl - The URL of the image to download
+ * @param {string} jcrPath - The JCR path of the image
+ * @param {number} retryDelay - The delay between retries in milliseconds defaults to 5000
  */
-export async function downloadImage(opts, imageUrl, jcrPath) {
+export async function downloadImage(opts, imageUrl, jcrPath, retryDelay = 5000) {
   const { maxRetries } = opts;
-  const baseDelay = 5000; // base delay in milliseconds
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -69,7 +68,7 @@ export async function downloadImage(opts, imageUrl, jcrPath) {
         console.info(chalk.yellow(`Retrying download (${attempt}/${maxRetries})...`));
 
         // Exponential backoff
-        const delay = baseDelay * 2 ** (attempt - 1);
+        const delay = retryDelay * 2 ** (attempt - 1);
         await new Promise((resolve) => {
           setTimeout(resolve, delay);
         });
@@ -107,15 +106,7 @@ export function getImageUrlMap(imageMappingFilePath) {
     const jsonData = JSON.parse(data);
 
     if (typeof jsonData === 'object' && jsonData !== null) {
-      const map = new Map();
-
-      // Convert JSON object to Map (assuming keys and values are strings)
-      for (const [key, value] of Object.entries(jsonData)) {
-        if (typeof key === 'string' && typeof value === 'string') {
-          map.set(key, value);
-        }
-      }
-      return map;
+      return new Map(Object.entries(jsonData));
     }
 
     // Return undefined if jsonData isn't valid
