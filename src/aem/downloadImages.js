@@ -36,6 +36,7 @@ export function ensureDirSync(directoryPath) {
  * @param {string} jcrPath - The JCR path of the image
  * @param {number} retryDelay - The delay between retries in milliseconds defaults to 5000
  */
+
 export async function downloadImage(opts, imageUrl, jcrPath, retryDelay = 5000) {
   const { maxRetries } = opts;
 
@@ -52,14 +53,28 @@ export async function downloadImage(opts, imageUrl, jcrPath, retryDelay = 5000) 
       // Create the image path
       let imagePath = path.join(process.cwd(), jcrPath.replace(CONTENT_DAM_PREFIX, ''));
 
-      await ensureDirSync(path.dirname(imagePath));
+      ensureDirSync(path.dirname(imagePath));
 
-      const writer = fs.createWriteStream(imagePath);
-      return new Promise((resolve, reject) => {
-        response.body.pipe(writer);
-        writer.on('finish', resolve);
-        writer.on('error', reject);
+      // Read response body as a stream and write it to the file
+      const fileStream = fs.createWriteStream(imagePath);
+      const reader = response.body.getReader();
+
+      await new Promise((resolve, reject) => {
+        function processChunk({ done, value }) {
+          if (done) {
+            fileStream.end();
+            resolve();
+            return;
+          }
+          fileStream.write(value);
+          reader.read().then(processChunk).catch(reject);
+        }
+        reader.read().then(processChunk).catch(reject);
+        fileStream.on('error', reject);
       });
+
+      console.info(chalk.green(`Downloaded ${imageUrl} successfully.`));
+      return;
     } catch (error) {
       if (attempt === maxRetries) {
         console.error(chalk.red(`Failed to download ${imageUrl} after ${maxRetries} attempts.`));
@@ -69,9 +84,7 @@ export async function downloadImage(opts, imageUrl, jcrPath, retryDelay = 5000) 
 
         // Exponential backoff
         const delay = retryDelay * 2 ** (attempt - 1);
-        await new Promise((resolve) => {
-          setTimeout(resolve, delay);
-        });
+        await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
   }

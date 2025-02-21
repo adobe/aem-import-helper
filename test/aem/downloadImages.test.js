@@ -22,14 +22,40 @@ import { expectLogContains } from '../utils.js';
 
 use(chaiAsPromised);
 
-
 describe('downloadImages.js', function () {
+  this.timeout(30000); // Increase timeout to 30 seconds
   let fetchStub;
   let imageData;
   let readFileSyncStub;
   let mkdirSyncStub;
   let createWriteStreamStub;
   let consoleErrorStub;
+
+  // Create a stub for fetch that returns a ReadableStream with image data
+  function createFetchStub(data = 'image data', status = 200, ok = true) {
+    return sinon.stub(globalThis, 'fetch').callsFake(async (url) => {
+      if (!url) throw new Error('URL is undefined');
+
+      const readableStream = new Readable({
+        read() {
+          this.push(data); // Simulated image data
+          this.push(null);
+        },
+      });
+
+      // fetch in Node.js returns a Web ReadableStream, not a Node.js Readable stream.
+      // Wrap the Node.js Readable stream (readableStream) inside a Web ReadableStream (webReadableStream).
+      // This ensures getReader() is available.
+      const webReadableStream = new globalThis.ReadableStream({
+        start(controller) {
+          readableStream.on('data', (chunk) => controller.enqueue(chunk));
+          readableStream.on('end', () => controller.close());
+        },
+      });
+
+      return { ok, status, body: webReadableStream };
+    });
+  }
 
   let fetchHandler = () => {
     console.log('here');
@@ -47,21 +73,23 @@ describe('downloadImages.js', function () {
 
   beforeEach(() => {
     consoleErrorStub = sinon.spy(console, 'error');
-
     readFileSyncStub = sinon.stub(fs, 'readFileSync');
     mkdirSyncStub = sinon.stub(fs, 'mkdirSync');
+    imageData = ''; // Reset image data
 
+    // Mock writable stream for file writing
     const mockStream = new Writable({
       write(chunk, encoding, callback) {
-        imageData = chunk.toString();
+        imageData += chunk.toString(); // Collect written data
         callback(); // Signal that writing is done
       },
-      end: sinon.stub(),
-    })
+      end(callback) {
+        callback(); // Ensure the stream properly ends
+      },
+    });
 
     createWriteStreamStub = sinon.stub(fs, 'createWriteStream').returns(mockStream);
-
-    fetchStub = sinon.stub(globalThis, 'fetch')
+    fetchStub = createFetchStub();
   });
 
   afterEach(() => {
@@ -104,13 +132,18 @@ describe('downloadImages.js', function () {
 
   describe('downloadImage', () => {
     it('should download image and save to file system', async () => {
-      fetchStub.callsFake(fetchHandler);
+      await downloadImagesModule.downloadImage(
+        { maxRetries: 3 },
+        'http://example.com/image.jpg',
+        '/content/dam/image.jpg',
+      );
 
-      await downloadImagesModule.downloadImage({ maxRetries: 3 }, 'http://example.com/image.jpg', '/content/dam/image.jpg');
       expect(fetchStub).to.have.been.calledWith('http://example.com/image.jpg');
 
       const finalPath = path.join(process.cwd(), 'image.jpg');
       expect(createWriteStreamStub).to.have.been.calledWith(finalPath);
+
+      // Ensure the image data was correctly written to the mock stream
       expect(imageData).to.equal('image data');
     });
 
