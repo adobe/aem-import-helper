@@ -10,7 +10,6 @@
  * governing permissions and limitations under the License.
  */
 
-import fetch from 'node-fetch';
 import fs from 'fs';
 import path from 'path';
 import chalk from 'chalk';
@@ -20,7 +19,7 @@ const CONTENT_DAM_PREFIX = '/content/dam';
 /**
  * Function to ensure directory exists
  */
-function ensureDirSync(directoryPath) {
+export function ensureDirSync(directoryPath) {
   try {
     // Create the directory if it doesn't exist, including parent directories
     fs.mkdirSync(directoryPath, { recursive: true });
@@ -32,13 +31,14 @@ function ensureDirSync(directoryPath) {
 /**
  * Function to download an image with retry.
  *
- * @param opts - Additional options for downloading the image
- * @param imageUrl - The URL of the image to download
- * @param jcrPath - The JCR path of the image
+ * @param {{maxRetries: number}} opts - Additional options for downloading the image
+ * @param {string} imageUrl - The URL of the image to download
+ * @param {string} jcrPath - The JCR path of the image
+ * @param {number} retryDelay - The delay between retries in milliseconds defaults to 5000
  */
-async function downloadImage(opts, imageUrl, jcrPath) {
+
+export async function downloadImage(opts, imageUrl, jcrPath, retryDelay = 5000) {
   const { maxRetries } = opts;
-  const baseDelay = 5000; // base delay in milliseconds
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -53,14 +53,28 @@ async function downloadImage(opts, imageUrl, jcrPath) {
       // Create the image path
       let imagePath = path.join(process.cwd(), jcrPath.replace(CONTENT_DAM_PREFIX, ''));
 
-      await ensureDirSync(path.dirname(imagePath));
+      ensureDirSync(path.dirname(imagePath));
 
-      const writer = fs.createWriteStream(imagePath);
-      return new Promise((resolve, reject) => {
-        response.body.pipe(writer);
-        writer.on('finish', resolve);
-        writer.on('error', reject);
+      // Read response body as a stream and write it to the file
+      const fileStream = fs.createWriteStream(imagePath);
+      const reader = response.body.getReader();
+
+      await new Promise((resolve, reject) => {
+        function processChunk({ done, value }) {
+          if (done) {
+            fileStream.end();
+            resolve();
+            return;
+          }
+          fileStream.write(value);
+          reader.read().then(processChunk).catch(reject);
+        }
+        reader.read().then(processChunk).catch(reject);
+        fileStream.on('error', reject);
       });
+
+      console.info(chalk.yellow(`Downloaded ${imageUrl} successfully.`));
+      return;
     } catch (error) {
       if (attempt === maxRetries) {
         console.error(chalk.red(`Failed to download ${imageUrl} after ${maxRetries} attempts.`));
@@ -69,10 +83,8 @@ async function downloadImage(opts, imageUrl, jcrPath) {
         console.info(chalk.yellow(`Retrying download (${attempt}/${maxRetries})...`));
 
         // Exponential backoff
-        const delay = baseDelay * 2 ** (attempt - 1);
-        await new Promise((resolve) => {
-          setTimeout(resolve, delay);
-        });
+        const delay = retryDelay * 2 ** (attempt - 1);
+        await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
   }
@@ -85,7 +97,7 @@ async function downloadImage(opts, imageUrl, jcrPath) {
  * @param imageUrlMap - The map of image urls to their JCR node paths
  * @returns {Promise<void>} A promise that resolves when all images are downloaded
  */
-async function downloadImages(opts, imageUrlMap) {
+export async function downloadImages(opts, imageUrlMap) {
   // Map over the entries and create a promise for each image download.
   const downloadPromises = Array.from(imageUrlMap.entries()).map(([imageUrl, jcrPath]) =>
     downloadImage(opts, imageUrl, jcrPath),
@@ -107,15 +119,7 @@ export function getImageUrlMap(imageMappingFilePath) {
     const jsonData = JSON.parse(data);
 
     if (typeof jsonData === 'object' && jsonData !== null) {
-      const map = new Map();
-
-      // Convert JSON object to Map (assuming keys and values are strings)
-      for (const [key, value] of Object.entries(jsonData)) {
-        if (typeof key === 'string' && typeof value === 'string') {
-          map.set(key, value);
-        }
-      }
-      return map;
+      return new Map(Object.entries(jsonData));
     }
 
     // Return undefined if jsonData isn't valid

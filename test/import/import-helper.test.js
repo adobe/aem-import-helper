@@ -96,7 +96,7 @@ describe('Import helper tests', () => {
       testParams.urls = ['# This is a comment.'];
       await expect(runImportJobAndPoll(testParams)).to.be.rejectedWith(Error, 'No valid URLs provided');
 
-      testParams.urls = {type: 'not a string!'};
+      testParams.urls = { type: 'not a string!' };
       await expect(runImportJobAndPoll(testParams)).to.be.rejectedWith(Error, 'No valid URLs provided');
     });
 
