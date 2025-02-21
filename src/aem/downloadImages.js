@@ -73,7 +73,7 @@ export async function downloadImage(opts, imageUrl, jcrPath, retryDelay = 5000) 
         fileStream.on('error', reject);
       });
 
-      console.info(chalk.green(`Downloaded ${imageUrl} successfully.`));
+      console.info(chalk.yellow(`Downloaded ${imageUrl} successfully.`));
       return;
     } catch (error) {
       if (attempt === maxRetries) {
