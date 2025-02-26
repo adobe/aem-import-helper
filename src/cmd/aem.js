@@ -77,14 +77,6 @@ function validateFiles(imageMappingFile, contentPackagePath) {
   return true;
 }
 
-// Use inquirer to get required upload inputs
-async function getUserInputs() {
-  return inquirer.prompt([
-    { name: 'contentPackagePath', message: 'Enter the absolute path to the content package:' },
-    { name: 'imageMappingFile', message: 'Enter the absolute path to the image-mapping.json file:' },
-  ]);
-}
-
 // Get, validate and store the user login credentials
 async function login(argv) {
   const credentials = await getUserCredentials();
@@ -129,8 +121,20 @@ export function aemCommand(yargs) {
         .command({
           command: 'upload',
           describe: 'Upload content to AEM Cloud Service environment',
-          builder: (yargs) => yargs,
-          handler: async () => {
+          builder: (yargs) => {
+            return yargs
+              .option('zip', {
+                type: 'string',
+                describe: 'Absolute path to the content package ZIP file',
+                demandOption: true,
+              })
+              .option('assetMapping', {
+                type: 'string',
+                describe: 'Absolute path to the asset-mapping.json file',
+                demandOption: true,
+              })
+          },
+          handler: async (args) => {
             console.log(chalk.yellow('Checking for credentials...'));
             const credentials = loadCredentials();
             if (!credentials) {
@@ -138,10 +142,8 @@ export function aemCommand(yargs) {
               process.exit(1);
             }
 
-            const userInputs = await getUserInputs();
-
             console.log(chalk.yellow('Checking for files...'));
-            if (!validateFiles(userInputs.imageMappingFile, userInputs.contentPackagePath)) {
+            if (!validateFiles(args.assetMapping, args.zip)) {
               console.error(chalk.red('Invalid file paths provided.'));
               process.exit(1);
             }
@@ -151,8 +153,8 @@ export function aemCommand(yargs) {
               password: credentials.password,
               targetAEMUrl: credentials.url,
               maxRetries: 3,
-              imageMappingFilePath: userInputs.imageMappingFile,
-              packagePath: userInputs.contentPackagePath,
+              imageMappingFilePath: args.assetMapping,
+              packagePath: args.zip,
             };
 
             try {
