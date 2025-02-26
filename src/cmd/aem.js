@@ -15,7 +15,7 @@ import fs from 'fs';
 import fetch from 'node-fetch';
 import inquirer from 'inquirer';
 import uploadPackageToAEM from '../aem/uploadPackage.js';
-import uploadImagesToAEM from '../aem/uploadImages.js';
+import uploadAssetsToAEM from '../aem/uploadAssets.js';
 import { loadCredentials, saveCredentials } from '../utils/credential-utils.js';
 
 // Validate credentials with AEM
@@ -60,8 +60,8 @@ async function getUserCredentials() {
 }
 
 // Validate the files
-function validateFiles(imageMappingFile, contentPackagePath) {
-  if (!contentPackagePath || !imageMappingFile) {
+function validateFiles(assetMappingFile, contentPackagePath) {
+  if (!contentPackagePath || !assetMappingFile) {
     return false;
   }
 
@@ -70,8 +70,8 @@ function validateFiles(imageMappingFile, contentPackagePath) {
     return false;
   }
 
-  if (!fs.existsSync(imageMappingFile)) {
-    console.error(chalk.red(`image-mapping.json file not found: ${imageMappingFile}`));
+  if (!fs.existsSync(assetMappingFile)) {
+    console.error(chalk.red(`asset-mapping.json file not found: ${assetMappingFile}`));
     return false;
   }
   return true;
@@ -81,7 +81,7 @@ function validateFiles(imageMappingFile, contentPackagePath) {
 async function getUserInputs() {
   return inquirer.prompt([
     { name: 'contentPackagePath', message: 'Enter the absolute path to the content package:' },
-    { name: 'imageMappingFile', message: 'Enter the absolute path to the image-mapping.json file:' },
+    { name: 'assetMappingFile', message: 'Enter the absolute path to the asset-mapping.json file:' },
   ]);
 }
 
@@ -100,7 +100,7 @@ async function login(argv) {
 // Perform the upload of content to AEM
 async function runUpload(opts) {
   console.log(chalk.yellow('Uploading content to AEM...'));
-  await uploadImagesToAEM(opts);
+  await uploadAssetsToAEM(opts);
   await uploadPackageToAEM(opts);
   console.log(chalk.green('Content uploaded successfully.'));
 }
@@ -141,7 +141,7 @@ export function aemCommand(yargs) {
             const userInputs = await getUserInputs();
 
             console.log(chalk.yellow('Checking for files...'));
-            if (!validateFiles(userInputs.imageMappingFile, userInputs.contentPackagePath)) {
+            if (!validateFiles(userInputs.assetMappingFile, userInputs.contentPackagePath)) {
               console.error(chalk.red('Invalid file paths provided.'));
               process.exit(1);
             }
@@ -151,7 +151,7 @@ export function aemCommand(yargs) {
               password: credentials.password,
               targetAEMUrl: credentials.url,
               maxRetries: 3,
-              imageMappingFilePath: userInputs.imageMappingFile,
+              assetMappingFilePath: userInputs.assetMappingFile,
               packagePath: userInputs.contentPackagePath,
             };
 
