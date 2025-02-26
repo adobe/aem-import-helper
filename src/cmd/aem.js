@@ -15,7 +15,7 @@ import fs from 'fs';
 import fetch from 'node-fetch';
 import inquirer from 'inquirer';
 import uploadPackageToAEM from '../aem/uploadPackage.js';
-import uploadImagesToAEM from '../aem/uploadImages.js';
+import uploadAssetsToAEM from '../aem/uploadAssets.js';
 import { loadCredentials, saveCredentials } from '../utils/credential-utils.js';
 
 // Validate credentials with AEM
@@ -67,7 +67,7 @@ function validateFiles(assetMappingFile, contentPackagePath) {
   }
 
   if (!fs.existsSync(assetMappingFile)) {
-    console.error(chalk.red(`image-mapping.json file not found: ${assetMappingFile}`));
+    console.error(chalk.red(`asset-mapping.json file not found: ${assetMappingFile}`));
     return false;
   }
   return true;
@@ -88,7 +88,7 @@ async function login(argv) {
 // Perform the upload of content to AEM
 async function runUpload(opts) {
   console.log(chalk.yellow('Uploading content to AEM...'));
-  await uploadImagesToAEM(opts);
+  await uploadAssetsToAEM(opts);
   await uploadPackageToAEM(opts);
   console.log(chalk.green('Content uploaded successfully.'));
 }
@@ -142,12 +142,17 @@ export function aemCommand(yargs) {
               process.exit(1);
             }
 
+            if (!validateFiles(userInputs.assetMappingFile, userInputs.contentPackagePath)) {
+              console.error(chalk.red('Invalid file paths provided.'));
+              process.exit(1);
+            }
+
             const opts = {
               username: credentials.username,
               password: credentials.password,
               targetAEMUrl: credentials.url,
               maxRetries: 3,
-              imageMappingFilePath: args['asset-mapping'],
+              assetMappingFilePath: args['asset-mapping'],
               packagePath: args['zip'],
             };
 
