@@ -14,31 +14,31 @@ import fs from 'fs';
 import { expect, use } from 'chai';
 import sinon from 'sinon';
 import chaiAsPromised from 'chai-as-promised';
-import * as downloadImagesModule from '../../src/aem/downloadImages.js';
-import { downloadImagesInMarkdown } from '../../src/aem/downloadImages.js';
+import * as downloadAssetsModule from '../../src/aem/downloadAssets.js';
+import { downloadAssetsInMarkdown } from '../../src/aem/downloadAssets.js';
 import { Readable, Writable } from 'stream';
 import path from 'path';
 import { expectLogContains } from '../utils.js';
 
 use(chaiAsPromised);
 
-describe('downloadImages.js', function () {
+describe('downloadAssets.js', function () {
   this.timeout(30000); // Increase timeout to 30 seconds
   let fetchStub;
-  let imageData;
+  let assetData;
   let readFileSyncStub;
   let mkdirSyncStub;
   let createWriteStreamStub;
   let consoleErrorStub;
 
-  // Create a stub for fetch that returns a ReadableStream with image data
-  function createFetchStub(data = 'image data', status = 200, ok = true) {
+  // Create a stub for fetch that returns a ReadableStream with asset data
+  function createFetchStub(data = 'asset data', status = 200, ok = true) {
     return sinon.stub(globalThis, 'fetch').callsFake(async (url) => {
       if (!url) throw new Error('URL is undefined');
 
       const readableStream = new Readable({
         read() {
-          this.push(data); // Simulated image data
+          this.push(data); // Simulated asset data
           this.push(null);
         },
       });
@@ -64,7 +64,7 @@ describe('downloadImages.js', function () {
       status: 200,
       body: new Readable({
         read() {
-          this.push('image data');
+          this.push('asset data');
           this.push(null);
         },
       }),
@@ -75,12 +75,12 @@ describe('downloadImages.js', function () {
     consoleErrorStub = sinon.spy(console, 'error');
     readFileSyncStub = sinon.stub(fs, 'readFileSync');
     mkdirSyncStub = sinon.stub(fs, 'mkdirSync');
-    imageData = ''; // Reset image data
+    assetData = ''; // Reset asset data
 
     // Mock writable stream for file writing
     const mockStream = new Writable({
       write(chunk, encoding, callback) {
-        imageData += chunk.toString(); // Collect written data
+        assetData += chunk.toString(); // Collect written data
         callback(); // Signal that writing is done
       },
       end(callback) {
@@ -94,22 +94,22 @@ describe('downloadImages.js', function () {
 
   afterEach(() => {
     sinon.restore();
-    imageData = null;
+    assetData = null;
   });
 
-  describe('getImageUrlMap', () => {
-    it('should return a map of image URLs to JCR node paths', () => {
-      const mockData = JSON.stringify({ 'http://example.com/image1.jpg': '/content/dam/image1.jpg' });
+  describe('getAssetUrlMap', () => {
+    it('should return a map of asset URLs to JCR node paths', () => {
+      const mockData = JSON.stringify({ 'http://example.com/asset1.jpg': '/content/dam/asset1.jpg' });
       readFileSyncStub.returns(mockData);
 
-      const result = downloadImagesModule.getImageUrlMap('path/to/image-mapping.json');
-      expect(result).to.deep.equal(new Map([['http://example.com/image1.jpg', '/content/dam/image1.jpg']]));
+      const result = downloadAssetsModule.getAssetUrlMap('path/to/asset-mapping.json');
+      expect(result).to.deep.equal(new Map([['http://example.com/asset1.jpg', '/content/dam/asset1.jpg']]));
     });
 
     it('should return undefined for invalid JSON', () => {
       readFileSyncStub.throws(new Error('Invalid JSON'));
 
-      const result = downloadImagesModule.getImageUrlMap('path/to/image-mapping.json');
+      const result = downloadAssetsModule.getAssetUrlMap('path/to/asset-mapping.json');
       expect(result).to.be.undefined;
     });
   });
@@ -118,33 +118,33 @@ describe('downloadImages.js', function () {
     it('should create directory if it does not exist', () => {
       mkdirSyncStub.returns();
 
-      downloadImagesModule.ensureDirSync('path/to/directory');
+      downloadAssetsModule.ensureDirSync('path/to/directory');
       expect(mkdirSyncStub).to.have.been.calledWith('path/to/directory', { recursive: true });
     });
 
     it('should log error if directory creation fails', () => {
       mkdirSyncStub.throws(new Error('Error creating directory'));
 
-      downloadImagesModule.ensureDirSync('path/to/directory');
+      downloadAssetsModule.ensureDirSync('path/to/directory');
       expect(consoleErrorStub).to.have.been.calledWith(sinon.match.string);
     });
   });
 
-  describe('downloadImage', () => {
-    it('should download image and save to file system', async () => {
-      await downloadImagesModule.downloadImage(
+  describe('downloadAsset', () => {
+    it('should download asset and save to file system', async () => {
+      await downloadAssetsModule.downloadAsset(
         { maxRetries: 3 },
-        'http://example.com/image.jpg',
-        '/content/dam/image.jpg',
+        'http://example.com/asset.jpg',
+        '/content/dam/asset.jpg',
       );
 
-      expect(fetchStub).to.have.been.calledWith('http://example.com/image.jpg');
+      expect(fetchStub).to.have.been.calledWith('http://example.com/asset.jpg');
 
-      const finalPath = path.join(process.cwd(), 'image.jpg');
+      const finalPath = path.join(process.cwd(), 'asset.jpg');
       expect(createWriteStreamStub).to.have.been.calledWith(finalPath);
 
-      // Ensure the image data was correctly written to the mock stream
-      expect(imageData).to.equal('image data');
+      // Ensure the asset data was correctly written to the mock stream
+      expect(assetData).to.equal('asset data');
     });
 
     it('should retry download on failure', async () => {
@@ -158,32 +158,32 @@ describe('downloadImages.js', function () {
       fetchStub.callsFake(badRequest);
 
       await expect(
-        downloadImagesModule.downloadImage({ maxRetries: 5 },
-          'http://example.com/image.jpg',
-          '/content/dam/image.jpg',
+        downloadAssetsModule.downloadAsset({ maxRetries: 5 },
+          'http://example.com/asset.jpg',
+          '/content/dam/asset.jpg',
           0))
-        .to.be.rejectedWith('Failed to fetch http://example.com/image.jpg. Status: 404.');
+        .to.be.rejectedWith('Failed to fetch http://example.com/asset.jpg. Status: 404.');
 
       // there should be 3 retry attempts
       expect(fetchStub).to.have.callCount(5);
 
-      // because the image fails to download, the error message should be logged
+      // because the asset fails to download, the error message should be logged
       expectLogContains(consoleErrorStub, 'Failed to download')
     });
   });
 
-  describe('downloadImagesInMarkdown', () => {
-    it('should download images from markdown file', async () => {
-      const mapFileContent = '{"http://example.com/image1.jpg":"/content/dam/image1.jpg"}';
+  describe('downloadAssetsInMarkdown', () => {
+    it('should download assets from markdown file', async () => {
+      const mapFileContent = '{"http://example.com/asset1.jpg":"/content/dam/asset1.jpg"}';
       readFileSyncStub.returns(mapFileContent);
 
       fetchStub.callsFake(fetchHandler);
 
       createWriteStreamStub.returns({ on: sinon.stub().callsArg(1) });
 
-      // test downloadImagesInMarkdown method
-      await downloadImagesInMarkdown({ maxRetries: 3, downloadLocation: 'path/to/download' }, 'path/to/markdown.md');
-      expect(fetchStub).to.have.been.calledWith('http://example.com/image1.jpg');
+      // test downloadAssetsInMarkdown method
+      await downloadAssetsInMarkdown({ maxRetries: 3, downloadLocation: 'path/to/download' }, 'path/to/markdown.md');
+      expect(fetchStub).to.have.been.calledWith('http://example.com/asset1.jpg');
       expect(createWriteStreamStub).to.have.been.called;
     });
   });

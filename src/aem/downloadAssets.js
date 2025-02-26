@@ -29,34 +29,34 @@ export function ensureDirSync(directoryPath) {
 }
 
 /**
- * Function to download an image with retry.
+ * Function to download an asset with retry.
  *
- * @param {{maxRetries: number}} opts - Additional options for downloading the image
- * @param {string} imageUrl - The URL of the image to download
- * @param {string} jcrPath - The JCR path of the image
+ * @param {{maxRetries: number}} opts - Additional options for downloading the asset
+ * @param {string} assetUrl - The URL of the asset to download
+ * @param {string} jcrPath - The JCR path of the asset
  * @param {number} retryDelay - The delay between retries in milliseconds defaults to 5000
  */
 
-export async function downloadImage(opts, imageUrl, jcrPath, retryDelay = 5000) {
+export async function downloadAsset(opts, assetUrl, jcrPath, retryDelay = 5000) {
   const { maxRetries } = opts;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const response = await fetch(imageUrl);
+      const response = await fetch(assetUrl);
 
       if (!response.ok) {
-        const msg = `Failed to fetch ${imageUrl}. Status: ${response.status}.`;
+        const msg = `Failed to fetch ${assetUrl}. Status: ${response.status}.`;
         console.info(chalk.yellow(msg));
         throw new Error(msg);
       }
 
-      // Create the image path
-      let imagePath = path.join(process.cwd(), jcrPath.replace(CONTENT_DAM_PREFIX, ''));
+      // Create the asset path
+      let assetPath = path.join(process.cwd(), jcrPath.replace(CONTENT_DAM_PREFIX, ''));
 
-      ensureDirSync(path.dirname(imagePath));
+      ensureDirSync(path.dirname(assetPath));
 
       // Read response body as a stream and write it to the file
-      const fileStream = fs.createWriteStream(imagePath);
+      const fileStream = fs.createWriteStream(assetPath);
       const reader = response.body.getReader();
 
       await new Promise((resolve, reject) => {
@@ -73,11 +73,11 @@ export async function downloadImage(opts, imageUrl, jcrPath, retryDelay = 5000) 
         fileStream.on('error', reject);
       });
 
-      console.info(chalk.yellow(`Downloaded ${imageUrl} successfully.`));
+      console.info(chalk.yellow(`Downloaded ${assetUrl} successfully.`));
       return;
     } catch (error) {
       if (attempt === maxRetries) {
-        console.error(chalk.red(`Failed to download ${imageUrl} after ${maxRetries} attempts.`));
+        console.error(chalk.red(`Failed to download ${assetUrl} after ${maxRetries} attempts.`));
         throw error;
       } else {
         console.info(chalk.yellow(`Retrying download (${attempt}/${maxRetries})...`));
@@ -91,16 +91,16 @@ export async function downloadImage(opts, imageUrl, jcrPath, retryDelay = 5000) 
 }
 
 /**
- * Function to download all images to given location.
+ * Function to download all assets to given location.
  *
- * @param opts - Options for downloading the images
- * @param imageUrlMap - The map of image urls to their JCR node paths
- * @returns {Promise<void>} A promise that resolves when all images are downloaded
+ * @param opts - Options for downloading the assets
+ * @param assetUrlMap - The map of asset urls to their JCR node paths
+ * @returns {Promise<void>} A promise that resolves when all assets are downloaded
  */
-export async function downloadImages(opts, imageUrlMap) {
-  // Map over the entries and create a promise for each image download.
-  const downloadPromises = Array.from(imageUrlMap.entries()).map(([imageUrl, jcrPath]) =>
-    downloadImage(opts, imageUrl, jcrPath),
+export async function downloadAssets(opts, assetUrlMap) {
+  // Map over the entries and create a promise for each asset download.
+  const downloadPromises = Array.from(assetUrlMap.entries()).map(([assetUrl, jcrPath]) =>
+    downloadAsset(opts, assetUrl, jcrPath),
   );
 
   // Wait for all downloads to complete
@@ -109,13 +109,13 @@ export async function downloadImages(opts, imageUrlMap) {
 }
 
 /**
- * Get a map of image URLs to JCR node paths from a JSON file.
- * @param {string} imageMappingFilePath - The path to the JSON file containing image URLs and JCR node paths
- * @returns {Map<string, string> | undefined} a map of image URLs to JCR node paths, or undefined if the file is invalid
+ * Get a map of asset URLs to JCR node paths from a JSON file.
+ * @param {string} assetMappingFilePath - The path to the JSON file containing asset URLs and JCR node paths
+ * @returns {Map<string, string> | undefined} a map of asset URLs to JCR node paths, or undefined if the file is invalid
  */
-export function getImageUrlMap(imageMappingFilePath) {
+export function getAssetUrlMap(assetMappingFilePath) {
   try {
-    const data = fs.readFileSync(imageMappingFilePath, 'utf8');
+    const data = fs.readFileSync(assetMappingFilePath, 'utf8');
     const jsonData = JSON.parse(data);
 
     if (typeof jsonData === 'object' && jsonData !== null) {
@@ -131,15 +131,15 @@ export function getImageUrlMap(imageMappingFilePath) {
 }
 
 /**
- * Function to download images present in given markdown file.
+ * Function to download assets present in given markdown file.
  *
- * @param opts - The options for downloading images
- * @param imageMappingFilePath - The file containing mappings of image urls to their JCR node paths
+ * @param opts - The options for downloading assets
+ * @param assetMappingFilePath - The file containing mappings of asset urls to their JCR node paths
  * @returns {Promise<void>}
  */
-export async function downloadImagesInMarkdown(opts, imageMappingFilePath) {
-  const imageUrlMap = getImageUrlMap(imageMappingFilePath);
+export async function downloadAssetsInMarkdown(opts, assetMappingFilePath) {
+  const assetUrlMap = getAssetUrlMap(assetMappingFilePath);
 
   // Process the Map entries
-  await downloadImages(opts, imageUrlMap);
+  await downloadAssets(opts, assetUrlMap);
 }
