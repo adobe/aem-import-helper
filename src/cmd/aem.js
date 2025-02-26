@@ -60,8 +60,8 @@ async function getUserCredentials() {
 }
 
 // Validate the files
-function validateFiles(imageMappingFile, contentPackagePath) {
-  if (!contentPackagePath || !imageMappingFile) {
+function validateFiles(assetMappingFile, contentPackagePath) {
+  if (!contentPackagePath || !assetMappingFile) {
     return false;
   }
 
@@ -70,8 +70,8 @@ function validateFiles(imageMappingFile, contentPackagePath) {
     return false;
   }
 
-  if (!fs.existsSync(imageMappingFile)) {
-    console.error(chalk.red(`image-mapping.json file not found: ${imageMappingFile}`));
+  if (!fs.existsSync(assetMappingFile)) {
+    console.error(chalk.red(`image-mapping.json file not found: ${assetMappingFile}`));
     return false;
   }
   return true;
@@ -130,7 +130,7 @@ export function aemCommand(yargs) {
               })
               .option('assetMapping', {
                 type: 'string',
-                describe: 'Absolute path to the asset-mapping.json file',
+                describe: 'Absolute path to the image-mapping.json file',
                 demandOption: true,
               })
           },

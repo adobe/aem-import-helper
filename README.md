@@ -74,7 +74,7 @@ Once the import job is complete, the import result will be downloaded from S3, e
 
 ## AEM Authoring (Crosswalk) Imports
 
-To perform an Crosswalk import, you will need to provide additional parameters to the invocation.  The models, filters, and definition files are 
+To perform a Crosswalk import, you will need to provide additional parameters to the invocation.  The models, filters, and definition files are 
 required. You must also specify the import `type` as `xwalk` and provide the `siteName` and `assetFolder`.
 
 
