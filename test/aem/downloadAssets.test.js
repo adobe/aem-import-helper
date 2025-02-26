@@ -60,7 +60,6 @@ describe('downloadAssets.js', function () {
   }
 
   let fetchHandler = () => {
-    console.log('here');
     return {
       ok: true,
       status: 200,
