@@ -6,7 +6,6 @@ A helpful companion for importing your site to AEM.
 
 - Run large [import](#import) jobs with AEM Import as a Service ([API docs](https://opensource.adobe.com/spacecat-api-service/#tag/import)).
 - [Bundle](#bundle) your import scripts.
-- Develop import scripts with ease using AI-assisted [commands](#assistant).
 - [Import Crosswalk Content](#importing-content-into-AEM) to your AEM author.
 
 ## Install
@@ -167,16 +166,4 @@ Run the script:
 npm run bundle -- --importjs tools/importer/import.js
 ```
 
-
-## Assistant
-
-Run AI-enabled commands to assist with your import script development.
-
-Add an npm script entry to your Edge Delivery project's `package.json`:
-
-```
-"assistant": "aem-import-helper assistant"
-```
-
-See [Import Assistant](./docs/import-assistant.md) for usage.
 

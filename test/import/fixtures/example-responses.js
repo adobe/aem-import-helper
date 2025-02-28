@@ -13,7 +13,7 @@
 export const jobInProgressResponse = {
   id: '318cab4f-f793-4e72-be20-894b3713f102',
   baseURL: 'https://example.com',
-  options: { enableJavascript: false, },
+  options: { enableJavascript: false },
   startTime: '2024-10-04T15:23:35.512Z',
   status: 'RUNNING',
   urlCount: 5,

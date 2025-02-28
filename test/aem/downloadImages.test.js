@@ -119,14 +119,14 @@ describe('downloadImages.js', function () {
       mkdirSyncStub.returns();
 
       downloadImagesModule.ensureDirSync('path/to/directory');
-      expect(mkdirSyncStub).to.have.been.calledWith('path/to/directory', { recursive: true });
+      expect(mkdirSyncStub.calledWith('path/to/directory', { recursive: true })).to.equal(true);
     });
 
     it('should log error if directory creation fails', () => {
       mkdirSyncStub.throws(new Error('Error creating directory'));
 
       downloadImagesModule.ensureDirSync('path/to/directory');
-      expect(consoleErrorStub).to.have.been.calledWith(sinon.match.string);
+      expect(consoleErrorStub.calledWith(sinon.match.string)).to.equal(true);
     });
   });
 
@@ -138,10 +138,10 @@ describe('downloadImages.js', function () {
         '/content/dam/image.jpg',
       );
 
-      expect(fetchStub).to.have.been.calledWith('http://example.com/image.jpg');
+      expect(fetchStub.calledWith('http://example.com/image.jpg')).to.equal(true);
 
       const finalPath = path.join(process.cwd(), 'image.jpg');
-      expect(createWriteStreamStub).to.have.been.calledWith(finalPath);
+      expect(createWriteStreamStub.calledWith(finalPath)).to.equal(true);
 
       // Ensure the image data was correctly written to the mock stream
       expect(imageData).to.equal('image data');
@@ -164,8 +164,8 @@ describe('downloadImages.js', function () {
           0))
         .to.be.rejectedWith('Failed to fetch http://example.com/image.jpg. Status: 404.');
 
-      // there should be 3 retry attempts
-      expect(fetchStub).to.have.callCount(5);
+      // there should be 5 retry attempts
+      expect(fetchStub.callCount).to.equal(5);
 
       // because the image fails to download, the error message should be logged
       expectLogContains(consoleErrorStub, 'Failed to download')
@@ -183,8 +183,9 @@ describe('downloadImages.js', function () {
 
       // test downloadImagesInMarkdown method
       await downloadImagesInMarkdown({ maxRetries: 3, downloadLocation: 'path/to/download' }, 'path/to/markdown.md');
-      expect(fetchStub).to.have.been.calledWith('http://example.com/image1.jpg');
-      expect(createWriteStreamStub).to.have.been.called;
+      expect(fetchStub.calledWith('http://example.com/image1.jpg')).to.equal(true);
+      expect(createWriteStreamStub.callCount).to.equal(3);
+      expect(createWriteStreamStub.called).to.equal(true);
     });
   });
 });

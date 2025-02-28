@@ -53,8 +53,8 @@ describe('uploadImages.js', function() {
 
       const result = await uploadImagesToAEM(opts);
 
-      expect(fileUploadStub).to.have.been.calledWith(sinon.match.instanceOf(FileSystemUploadOptions), [path.join(process.cwd(), 'test')]);
-      expect(rmStub).to.have.been.calledWith(path.join(process.cwd(), 'test'), { recursive: true, force: true });
+      expect(fileUploadStub.calledWith(sinon.match.instanceOf(FileSystemUploadOptions), [path.join(process.cwd(), 'test')])).to.equal(true);
+      expect(rmStub.calledWith(path.join(process.cwd(), 'test'), { recursive: true, force: true })).to.equal(true);
       expect(result).to.deep.equal({});
     });
 
@@ -84,7 +84,7 @@ describe('uploadImages.js', function() {
       };
 
       await expect(uploadImagesToAEM(opts)).to.be.rejectedWith('Upload error');
-      expect(consoleErrorStub).to.have.been.calledWith(sinon.match.string);
+      expect(consoleErrorStub.calledWith(sinon.match.string)).to.equal(true);
     });
   });
 });
