@@ -131,15 +131,15 @@ export function aemCommand(yargs) {
               })
           },
           handler: async (args) => {
+            console.log(chalk.yellow('Checking for files...'));
+            if (!validateFiles(args['asset-mapping'], args['zip'])) {
+              process.exit(1);
+            }
+
             console.log(chalk.yellow('Checking for credentials...'));
             const credentials = loadCredentials();
             if (!credentials) {
               console.log(chalk.red('No credentials found. Run `aem login` first.'));
-              process.exit(1);
-            }
-
-            console.log(chalk.yellow('Checking for files...'));
-            if (!validateFiles(args['asset-mapping'], args['zip'])) {
               process.exit(1);
             }
 
