@@ -61,10 +61,6 @@ async function getUserCredentials() {
 
 // Validate the files
 function validateFiles(assetMappingFile, contentPackagePath) {
-  if (!contentPackagePath || !assetMappingFile) {
-    return false;
-  }
-
   if (!fs.existsSync(contentPackagePath)) {
     console.error(chalk.red(`Content package not found: ${contentPackagePath}`));
     return false;
@@ -128,7 +124,7 @@ export function aemCommand(yargs) {
                 describe: 'Absolute path to the content package ZIP file',
                 demandOption: true,
               })
-              .option('assetMapping', {
+              .option('asset-mapping', {
                 type: 'string',
                 describe: 'Absolute path to the image-mapping.json file',
                 demandOption: true,
@@ -143,8 +139,7 @@ export function aemCommand(yargs) {
             }
 
             console.log(chalk.yellow('Checking for files...'));
-            if (!validateFiles(args.assetMapping, args.zip)) {
-              console.error(chalk.red('Invalid file paths provided.'));
+            if (!validateFiles(args['asset-mapping'], args['zip'])) {
               process.exit(1);
             }
 
@@ -153,8 +148,8 @@ export function aemCommand(yargs) {
               password: credentials.password,
               targetAEMUrl: credentials.url,
               maxRetries: 3,
-              imageMappingFilePath: args.assetMapping,
-              packagePath: args.zip,
+              imageMappingFilePath: args['asset-mapping'],
+              packagePath: args['zip'],
             };
 
             try {
