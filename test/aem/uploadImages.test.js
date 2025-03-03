@@ -12,10 +12,13 @@
 
 import fs from 'fs';
 import path from 'path';
-import { expect } from 'chai';
+import { expect, use } from 'chai';
 import sinon from 'sinon';
+import sinonChai from 'sinon-chai';
 import { FileSystemUpload, FileSystemUploadOptions } from '@adobe/aem-upload';
 import uploadImagesToAEM from '../../src/aem/uploadImages.js';
+
+use(sinonChai); // chai.use
 
 describe('uploadImages.js', function() {
   this.timeout(30000); // Increase timeout to 30 seconds
@@ -53,8 +56,8 @@ describe('uploadImages.js', function() {
 
       const result = await uploadImagesToAEM(opts);
 
-      expect(fileUploadStub.calledWith(sinon.match.instanceOf(FileSystemUploadOptions), [path.join(process.cwd(), 'test')])).to.equal(true);
-      expect(rmStub.calledWith(path.join(process.cwd(), 'test'), { recursive: true, force: true })).to.equal(true);
+      expect(fileUploadStub).to.have.been.calledWith(sinon.match.instanceOf(FileSystemUploadOptions), [path.join(process.cwd(), 'test')]);
+      expect(rmStub).to.have.been.calledWith(path.join(process.cwd(), 'test'), { recursive: true, force: true });
       expect(result).to.deep.equal({});
     });
 
@@ -84,7 +87,7 @@ describe('uploadImages.js', function() {
       };
 
       await expect(uploadImagesToAEM(opts)).to.be.rejectedWith('Upload error');
-      expect(consoleErrorStub.calledWith(sinon.match.string)).to.equal(true);
+      expect(consoleErrorStub).to.have.been.calledWith(sinon.match.string);
     });
   });
 });

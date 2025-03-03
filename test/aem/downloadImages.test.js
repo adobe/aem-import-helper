@@ -13,6 +13,7 @@
 import fs from 'fs';
 import { expect, use } from 'chai';
 import sinon from 'sinon';
+import sinonChai from 'sinon-chai';
 import chaiAsPromised from 'chai-as-promised';
 import * as downloadImagesModule from '../../src/aem/downloadImages.js';
 import { downloadImagesInMarkdown } from '../../src/aem/downloadImages.js';
@@ -20,6 +21,7 @@ import { Readable, Writable } from 'stream';
 import path from 'path';
 import { expectLogContains } from '../utils.js';
 
+use(sinonChai); // chai.use
 use(chaiAsPromised);
 
 describe('downloadImages.js', function () {
@@ -119,14 +121,14 @@ describe('downloadImages.js', function () {
       mkdirSyncStub.returns();
 
       downloadImagesModule.ensureDirSync('path/to/directory');
-      expect(mkdirSyncStub.calledWith('path/to/directory', { recursive: true })).to.equal(true);
+      expect(mkdirSyncStub).to.have.been.calledWith('path/to/directory', { recursive: true });
     });
 
     it('should log error if directory creation fails', () => {
       mkdirSyncStub.throws(new Error('Error creating directory'));
 
       downloadImagesModule.ensureDirSync('path/to/directory');
-      expect(consoleErrorStub.calledWith(sinon.match.string)).to.equal(true);
+      expect(consoleErrorStub).to.have.been.calledWith(sinon.match.string);
     });
   });
 
@@ -138,10 +140,10 @@ describe('downloadImages.js', function () {
         '/content/dam/image.jpg',
       );
 
-      expect(fetchStub.calledWith('http://example.com/image.jpg')).to.equal(true);
+      expect(fetchStub).to.have.been.calledWith('http://example.com/image.jpg');
 
       const finalPath = path.join(process.cwd(), 'image.jpg');
-      expect(createWriteStreamStub.calledWith(finalPath)).to.equal(true);
+      expect(createWriteStreamStub).to.have.been.calledWith(finalPath);
 
       // Ensure the image data was correctly written to the mock stream
       expect(imageData).to.equal('image data');
@@ -165,7 +167,7 @@ describe('downloadImages.js', function () {
         .to.be.rejectedWith('Failed to fetch http://example.com/image.jpg. Status: 404.');
 
       // there should be 5 retry attempts
-      expect(fetchStub.callCount).to.equal(5);
+      expect(fetchStub).to.have.callCount(5);
 
       // because the image fails to download, the error message should be logged
       expectLogContains(consoleErrorStub, 'Failed to download')
@@ -183,9 +185,9 @@ describe('downloadImages.js', function () {
 
       // test downloadImagesInMarkdown method
       await downloadImagesInMarkdown({ maxRetries: 3, downloadLocation: 'path/to/download' }, 'path/to/markdown.md');
-      expect(fetchStub.calledWith('http://example.com/image1.jpg')).to.equal(true);
-      expect(createWriteStreamStub.callCount).to.equal(3);
-      expect(createWriteStreamStub.called).to.equal(true);
+      expect(fetchStub).to.have.been.calledWith('http://example.com/image1.jpg');
+      expect(createWriteStreamStub).to.have.been.called;
+      expect(createWriteStreamStub).to.have.callCount(3);
     });
   });
 });
