@@ -13,6 +13,7 @@
 import fs from 'fs';
 import { expect, use } from 'chai';
 import sinon from 'sinon';
+import sinonChai from 'sinon-chai';
 import chaiAsPromised from 'chai-as-promised';
 import * as downloadImagesModule from '../../src/aem/downloadImages.js';
 import { downloadImagesInMarkdown } from '../../src/aem/downloadImages.js';
@@ -20,6 +21,7 @@ import { Readable, Writable } from 'stream';
 import path from 'path';
 import { expectLogContains } from '../utils.js';
 
+use(sinonChai); // chai.use
 use(chaiAsPromised);
 
 describe('downloadImages.js', function () {
@@ -164,7 +166,7 @@ describe('downloadImages.js', function () {
           0))
         .to.be.rejectedWith('Failed to fetch http://example.com/image.jpg. Status: 404.');
 
-      // there should be 3 retry attempts
+      // there should be 5 retry attempts
       expect(fetchStub).to.have.callCount(5);
 
       // because the image fails to download, the error message should be logged
@@ -185,6 +187,7 @@ describe('downloadImages.js', function () {
       await downloadImagesInMarkdown({ maxRetries: 3, downloadLocation: 'path/to/download' }, 'path/to/markdown.md');
       expect(fetchStub).to.have.been.calledWith('http://example.com/image1.jpg');
       expect(createWriteStreamStub).to.have.been.called;
+      expect(createWriteStreamStub).to.have.callCount(3);
     });
   });
 });

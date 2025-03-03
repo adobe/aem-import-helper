@@ -12,10 +12,13 @@
 
 import fs from 'fs';
 import path from 'path';
-import { expect } from 'chai';
+import { expect, use } from 'chai';
 import sinon from 'sinon';
+import sinonChai from 'sinon-chai';
 import { FileSystemUpload, FileSystemUploadOptions } from '@adobe/aem-upload';
 import uploadImagesToAEM from '../../src/aem/uploadImages.js';
+
+use(sinonChai); // chai.use
 
 describe('uploadImages.js', function() {
   this.timeout(30000); // Increase timeout to 30 seconds

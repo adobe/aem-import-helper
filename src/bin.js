@@ -14,7 +14,6 @@
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import { importCommand } from './cmd/import.js';
-import { assistantCommand } from './cmd/assistant.js';
 import { bundleCommand } from './cmd/bundle.js';
 import { uploadCommand } from './cmd/upload.js';
 import { aemCommand } from './cmd/aem.js';
@@ -24,7 +23,6 @@ const argv = yargs(hideBin(process.argv));
 importCommand(argv);
 uploadCommand(argv);
 bundleCommand(argv);
-assistantCommand(argv);
 aemCommand(argv);
 
 argv
