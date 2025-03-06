@@ -11,6 +11,7 @@
  * governing permissions and limitations under the License.
  */
 
+import chalk from 'chalk';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import { importCommand } from './cmd/import.js';
@@ -31,4 +32,10 @@ argv
   .strictCommands()
   .demandCommand(1, 'You need at least one command before moving on')
   .help()
+  .fail((msg, err, yargs) => {
+    if (err) throw err;
+    console.error(`${chalk.red('Error:')} ${chalk.red(msg)}`);
+    console.log(yargs.help());
+    process.exit(1);
+  })
   .argv;

@@ -60,29 +60,17 @@ async function getUserCredentials() {
 }
 
 // Validate the files
-function validateFiles(imageMappingFile, contentPackagePath) {
-  if (!contentPackagePath || !imageMappingFile) {
-    return false;
-  }
-
+function validateFiles(assetMappingFile, contentPackagePath) {
   if (!fs.existsSync(contentPackagePath)) {
     console.error(chalk.red(`Content package not found: ${contentPackagePath}`));
     return false;
   }
 
-  if (!fs.existsSync(imageMappingFile)) {
-    console.error(chalk.red(`image-mapping.json file not found: ${imageMappingFile}`));
+  if (!fs.existsSync(assetMappingFile)) {
+    console.error(chalk.red(`image-mapping.json file not found: ${assetMappingFile}`));
     return false;
   }
   return true;
-}
-
-// Use inquirer to get required upload inputs
-async function getUserInputs() {
-  return inquirer.prompt([
-    { name: 'contentPackagePath', message: 'Enter the absolute path to the content package:' },
-    { name: 'imageMappingFile', message: 'Enter the absolute path to the image-mapping.json file:' },
-  ]);
 }
 
 // Get, validate and store the user login credentials
@@ -129,20 +117,28 @@ export function aemCommand(yargs) {
         .command({
           command: 'upload',
           describe: 'Upload content to AEM Cloud Service environment',
-          builder: (yargs) => yargs,
-          handler: async () => {
+          builder: (yargs) => {
+            return yargs
+              .option('zip', {
+                type: 'string',
+                describe: 'Absolute path to the content package ZIP file',
+                demandOption: true,
+              })
+              .option('asset-mapping', {
+                type: 'string',
+                describe: 'Absolute path to the image-mapping.json file',
+                demandOption: true,
+              })
+          },
+          handler: async (args) => {
+            if (!validateFiles(args['asset-mapping'], args['zip'])) {
+              process.exit(1);
+            }
+
             console.log(chalk.yellow('Checking for credentials...'));
             const credentials = loadCredentials();
             if (!credentials) {
               console.log(chalk.red('No credentials found. Run `aem login` first.'));
-              process.exit(1);
-            }
-
-            const userInputs = await getUserInputs();
-
-            console.log(chalk.yellow('Checking for files...'));
-            if (!validateFiles(userInputs.imageMappingFile, userInputs.contentPackagePath)) {
-              console.error(chalk.red('Invalid file paths provided.'));
               process.exit(1);
             }
 
@@ -151,8 +147,8 @@ export function aemCommand(yargs) {
               password: credentials.password,
               targetAEMUrl: credentials.url,
               maxRetries: 3,
-              imageMappingFilePath: userInputs.imageMappingFile,
-              packagePath: userInputs.contentPackagePath,
+              imageMappingFilePath: args['asset-mapping'],
+              packagePath: args['zip'],
             };
 
             try {
