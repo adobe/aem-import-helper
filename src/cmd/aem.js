@@ -142,11 +142,6 @@ export function aemCommand(yargs) {
               process.exit(1);
             }
 
-            if (!validateFiles(userInputs.assetMappingFile, userInputs.contentPackagePath)) {
-              console.error(chalk.red('Invalid file paths provided.'));
-              process.exit(1);
-            }
-
             const opts = {
               username: credentials.username,
               password: credentials.password,

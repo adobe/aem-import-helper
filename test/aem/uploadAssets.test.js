@@ -12,9 +12,8 @@
 
 import fs from 'fs';
 import path from 'path';
-import { expect, use } from 'chai';
+import { expect } from 'chai';
 import sinon from 'sinon';
-import sinonChai from 'sinon-chai';
 import { FileSystemUpload, FileSystemUploadOptions } from '@adobe/aem-upload';
 import uploadAssetsToAEM from '../../src/aem/uploadAssets.js';
 
