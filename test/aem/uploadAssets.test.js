@@ -12,15 +12,12 @@
 
 import fs from 'fs';
 import path from 'path';
-import { expect, use } from 'chai';
+import { expect } from 'chai';
 import sinon from 'sinon';
-import sinonChai from 'sinon-chai';
 import { FileSystemUpload, FileSystemUploadOptions } from '@adobe/aem-upload';
-import uploadImagesToAEM from '../../src/aem/uploadImages.js';
+import uploadAssetsToAEM from '../../src/aem/uploadAssets.js';
 
-use(sinonChai); // chai.use
-
-describe('uploadImages.js', function() {
+describe('uploadAssets.js', function() {
   this.timeout(30000); // Increase timeout to 30 seconds
 
   let readFileSyncStub, rmStub, fileUploadStub, createWriteStreamStub, consoleErrorStub;
@@ -38,9 +35,9 @@ describe('uploadImages.js', function() {
     sinon.restore();
   });
 
-  describe('uploadImagesToAEM', () => {
-    it('should upload images to AEM', async () => {
-      const mapFileContent = '{"http://example.com/test/image1.jpg":"/content/dam/test/image1.jpg"}';
+  describe('uploadAssetsToAEM', () => {
+    it('should upload assets to AEM', async () => {
+      const mapFileContent = '{"http://example.com/test/asset1.jpg":"/content/dam/test/asset1.jpg"}';
       readFileSyncStub.returns(mapFileContent);
       fileUploadStub.resolves({});
       const mockResponse = { ok: true, body: { pipe: sinon.stub() } };
@@ -51,10 +48,10 @@ describe('uploadImages.js', function() {
         targetAEMUrl: 'http://aem-instance',
         username: 'admin',
         password: 'admin',
-        imageMappingFilePath: 'path/to/image-mapping.json',
+        assetMappingFilePath: 'path/to/asset-mapping.json',
       };
 
-      const result = await uploadImagesToAEM(opts);
+      const result = await uploadAssetsToAEM(opts);
 
       expect(fileUploadStub).to.have.been.calledWith(sinon.match.instanceOf(FileSystemUploadOptions), [path.join(process.cwd(), 'test')]);
       expect(rmStub).to.have.been.calledWith(path.join(process.cwd(), 'test'), { recursive: true, force: true });
@@ -68,14 +65,14 @@ describe('uploadImages.js', function() {
         targetAEMUrl: 'http://aem-instance',
         username: 'admin',
         password: 'admin',
-        imageMappingFilePath: 'path/to/image-mapping.json',
+        assetMappingFilePath: 'path/to/asset-mapping.json',
       };
 
-      await expect(uploadImagesToAEM(opts)).to.be.rejectedWith('No valid AEM asset path found in the JCR image mapping file.');
+      await expect(uploadAssetsToAEM(opts)).to.be.rejectedWith('No valid AEM asset path found in the JCR asset mapping file.');
     });
 
     it('should log errors during file upload', async () => {
-      const mapFileContent = '{"http://example.com/image1.jpg":"/content/dam/image1.jpg"}';
+      const mapFileContent = '{"http://example.com/asset1.jpg":"/content/dam/asset1.jpg"}';
       readFileSyncStub.returns(mapFileContent);
       fileUploadStub.rejects(new Error('Upload error'));
 
@@ -83,10 +80,10 @@ describe('uploadImages.js', function() {
         targetAEMUrl: 'http://aem-instance',
         username: 'admin',
         password: 'admin',
-        imageMappingFilePath: 'path/to/image-mapping.json',
+        assetMappingFilePath: 'path/to/asset-mapping.json',
       };
 
-      await expect(uploadImagesToAEM(opts)).to.be.rejectedWith('Upload error');
+      await expect(uploadAssetsToAEM(opts)).to.be.rejectedWith('Upload error');
       expect(consoleErrorStub).to.have.been.calledWith(sinon.match.string);
     });
   });
