@@ -131,7 +131,6 @@ export function aemCommand(yargs) {
               })
           },
           handler: async (args) => {
-            console.log(chalk.yellow('Checking for files...'));
             if (!validateFiles(args['asset-mapping'], args['zip'])) {
               process.exit(1);
             }
