@@ -16,7 +16,7 @@ import { cleanup, downloadAssets } from './download-assets.js';
 import { uploadAssets } from './upload-assets.js';
 import { installPackage } from './package-helper.js';
 import fetch from 'node-fetch';
-import {getDamRootFolder} from './aem-util.js';
+import { getDamRootFolder } from './aem-util.js';
 
 /**
  * Validate the existence of the asset-mapping.json and content package files.
@@ -136,7 +136,7 @@ export const aemHandler = async (args) => {
       : args.output;
 
     console.log(chalk.yellow('Downloading origin assets...'));
-    await downloadAssets(3, assetMapping, downloadFolder);
+    await downloadAssets(assetMapping, downloadFolder);
 
     const assetFolder = path.join(downloadFolder, getDamRootFolder(assetMapping));
 

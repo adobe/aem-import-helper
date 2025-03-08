@@ -65,26 +65,30 @@ async function downloadAssetWithRetry(url, maxRetries = 3, retryDelay = 5000) {
 
 /**
  * Function to download assets from the asset mapping file.
- * @param {number} maxRetries - The maximum number of retries for downloading an asset.
  * @param {Map<string, string>} assetMapping - The content of the asset mapping file.
- * @param downloadFolder - The folder to download assets to.
- * @returns {Promise<void>} A promise that resolves when all assets are downloaded.
+ * @param {string} downloadFolder - The folder to download assets to.
+ * @param {number} maxRetries - The maximum number of retries for downloading an asset.
+ * @param {number} retryDelay - The delay between retries in milliseconds.
+ * @return {Promise<Array<PromiseSettledResult<string>>>} A promise that resolves when all assets are downloaded.
+ * Each promise in the array will resolve with the JCR path of the downloaded asset.
  */
-export async function downloadAssets(maxRetries, assetMapping, downloadFolder) {
+export async function downloadAssets(assetMapping, downloadFolder, maxRetries = 3,retryDelay = 5000) {
   const downloadPromises = Array.from(assetMapping.entries())
     .map(async ([assetUrl, jcrPath]) => {
-      const blob = await downloadAssetWithRetry(assetUrl);
+      const blob = await downloadAssetWithRetry(assetUrl, maxRetries, retryDelay);
       await saveBlobToFile(blob, jcrPath, downloadFolder);
+      return jcrPath;
     });
 
-  await Promise.allSettled(downloadPromises);
+  return Promise.allSettled(downloadPromises);
 }
 
 /**
- * Function to clean up the asset folder.
- * @param assetFolder
- * @return {Promise<void>}
+ * Helper function to delete the given folder.
+ * @param {string} folder - The folder to delete
  */
-export async function cleanup(assetFolder) {
-  await fs.promises.rm(assetFolder, { recursive: true, force: true });
+export function cleanup(folder) {
+  if (fs.existsSync(folder)) {
+    fs.rmdirSync(folder, { recursive: true });
+  }
 }

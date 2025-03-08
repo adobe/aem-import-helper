@@ -62,6 +62,7 @@ function buildFileSystemUploadOptions(target, token) {
  *
  * @returns {FileSystemUpload} The file uploader
  */
+/* c8 ignore start */
 function createFileUploader() {
   const fileUpload = new FileSystemUpload();
 
@@ -79,9 +80,18 @@ function createFileUploader() {
 
   return fileUpload;
 }
+/* c8 ignore end */
 
-export async function uploadAssets(target, token, assetFolder) {
-  const fileUpload = createFileUploader();
+/**
+ * Upload assets to AEM.
+ * @param {string} target - The URL of the AEM Assets instance
+ * @param {string} token - The bearer token for authentication
+ * @param {string} assetFolder - The path to the asset folder to upload the assets from
+ * @param fileUploader - The file uploader to use for uploading assets (optional)
+ * @return {Promise<UploadResult>} - The result of the upload operation as JSON.
+ */
+export async function uploadAssets(target, token, assetFolder, fileUploader = null) {
+  const fileUpload = fileUploader || createFileUploader();
   const options = buildFileSystemUploadOptions(target, token);
   return await fileUpload.upload(options, [assetFolder]);
 }

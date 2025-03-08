@@ -9,10 +9,20 @@
  * OF ANY KIND, either express or implied. See the License for the specific language
  * governing permissions and limitations under the License.
  */
+import path from 'path';
+
 export function getDamRootFolder(assetMappings) {
   for (const jcrAssetPath of assetMappings.values()) {
+    // make sure that the asset path is not the root DAM folder, skip it if is
+    const dir = path.dirname(jcrAssetPath);
+    if (dir === '/content/dam') {
+      continue;
+    }
+
     const match = jcrAssetPath?.match(/^\/content\/dam\/([^/]+)/);
-    if (match) return match[1];
+    if (match) {
+      return match[1];
+    }
   }
   throw new Error('Unable to locate the DAM root folder');
 }
