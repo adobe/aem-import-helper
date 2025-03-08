@@ -95,6 +95,11 @@ export const aemBuilder = (yargs) => {
       type: 'string',
       demandOption: true,
     })
+    .option('output', {
+      describe: 'Output directory for downloaded assets',
+      type: 'string',
+      default: 'aem-assets',
+    })
     .option('keep', {
       describe: 'If keep is true, local assets are not deleted after upload',
       type: 'boolean',
@@ -105,6 +110,10 @@ export const aemBuilder = (yargs) => {
 export const aemHandler = async (args) => {
   if (!validateFiles(args['asset-mapping'], args['zip'])) {
     process.exit(1);
+  }
+
+  if (!fs.existsSync(args.output)) {
+    fs.mkdirSync(args.output);
   }
 
   // check to see if the token is a string value or a file
@@ -121,7 +130,10 @@ export const aemHandler = async (args) => {
   try {
     const assetMappingJson = JSON.parse(fs.readFileSync(args['asset-mapping'], 'utf-8'));
     const assetMapping = new Map(Object.entries(assetMappingJson));
-    const downloadFolder = path.join(process.cwd(), 'aem-assets');
+
+    const downloadFolder = args.output === 'aem-assets'
+      ? path.join(process.cwd(), args.output)
+      : args.output;
 
     console.log(chalk.yellow('Downloading origin assets...'));
     await downloadAssets(3, assetMapping, downloadFolder);
@@ -132,7 +144,7 @@ export const aemHandler = async (args) => {
     await uploadAssets(args.target, token, assetFolder);
 
     console.log(chalk.yellow(`Uploading content package ${args.target}...`));
-    //await installPackage(args.target, token, args['zip']);
+    await installPackage(args.target, token, args['zip']);
 
     if (!args.keep) {
       await cleanup(downloadFolder);
