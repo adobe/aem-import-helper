@@ -1,0 +1,105 @@
+/*
+ * Copyright 2025 Adobe. All rights reserved.
+ * This file is licensed to you under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License. You may obtain a copy
+ * of the License at http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under
+ * the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR REPRESENTATIONS
+ * OF ANY KIND, either express or implied. See the License for the specific language
+ * governing permissions and limitations under the License.
+ */
+import { expect } from 'chai';
+import { cleanup, downloadAssets } from '../../src/aem/download-assets.js';
+import nock from 'nock';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import fs from 'fs';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+describe('download assets', function () {
+
+  let downloadFolder;
+
+  beforeEach(() => {
+    downloadFolder = path.join(__dirname, 'assets');
+  });
+
+  afterEach(() => {
+    cleanup(downloadFolder);
+  });
+
+  it('expect download to be successful', async () => {
+    const scope = nock('http://www.aem.com')
+      .get('/asset1.jpg')
+      .replyWithFile(200, path.resolve(__dirname, 'fixtures/image1.jpeg'));
+
+    const mapping = new Map([
+      ['http://www.aem.com/asset1.jpg', '/content/dam/xwalk/image1.jpg'],
+    ]);
+
+    await downloadAssets(mapping, downloadFolder);
+    expect(fs.existsSync(path.join(downloadFolder, 'xwalk/image1.jpg'))).to.be.true;
+
+    await scope.done();
+  });
+
+  it('expect download to be successful after retry', async () => {
+    const scope = nock('http://www.aem.com')
+      .get('/asset1.jpg')
+      .replyWithError('Server error')
+      .get('/asset1.jpg')
+      .replyWithFile(200, path.resolve(__dirname, 'fixtures/image1.jpeg'));
+
+    const mapping = new Map([
+      ['http://www.aem.com/asset1.jpg', '/content/dam/xwalk/image1.jpg'],
+    ]);
+
+    await downloadAssets(mapping, downloadFolder, 3, 0);
+    expect(fs.existsSync(path.join(downloadFolder, 'xwalk/image1.jpg'))).to.be.true;
+
+    await scope.done();
+  });
+
+  // write a test that expect to exhaust retires and throw error
+  it('expect download to fail after max retries', async () => {
+    const scope = nock('http://www.aem.com')
+      .get('/asset1.jpg')
+      .replyWithError('Server error')
+      .get('/asset2.jpg')
+      .replyWithError('Server error')
+      .get('/asset3.jpg')
+      .replyWithFile(200, path.resolve(__dirname, 'fixtures/image3.jpeg'));
+
+    const mapping = new Map([
+      ['http://www.aem.com/asset1.jpg', '/content/dam/xwalk/image1.jpg'],
+      ['http://www.aem.com/asset2.jpg', '/content/dam/xwalk/image2.jpg'],
+      ['http://www.aem.com/asset3.jpg', '/content/dam/xwalk/image3.jpg'],
+    ]);
+
+    const results = await downloadAssets(mapping, downloadFolder, 1, 0);
+    expect(results.filter((result) => result.status === 'rejected').length).to.equal(2);
+    expect(results.filter((result) => result.status === 'fulfilled').length).to.equal(1);
+
+    await scope.done();
+  });
+
+  it('expect download to fail with bad response', async () => {
+    const scope = nock('http://www.aem.com')
+      .get('/asset1.jpg')
+      .reply(404);
+
+    const mapping = new Map([
+      ['http://www.aem.com/asset1.jpg', '/content/dam/xwalk/image1.jpg'],
+    ]);
+
+    try {
+      await downloadAssets(mapping, downloadFolder, 1, 0);
+    } catch (error) {
+      expect(error.message).to.equal('Failed to fetch http://www.aem.com/asset1.jpg. Status: 404.');
+    }
+
+    await scope.done();
+  });
+
+});
