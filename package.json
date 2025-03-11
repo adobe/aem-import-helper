@@ -38,18 +38,19 @@
   "dependencies": {
     "@adobe/aem-upload": "2.0.3",
     "aem-import-builder": "^0.3.2",
-    "chalk": "^5.3.0",
-    "esbuild": "^0.23.0",
-    "express": "^4.21.0",
-    "find-up": "^7.0.0",
-    "form-data": "4.0.1",
+    "chalk": "5.3.0",
+    "esbuild": "0.23.0",
+    "express": "4.21.0",
+    "find-up": "7.0.0",
+    "formdata-node": "6.0.3",
     "inquirer": "12.2.0",
-    "jsdom": "^25.0.1",
-    "node-fetch": "^3.3.2",
-    "ora": "^8.1.0",
-    "puppeteer": "^23.1.0",
-    "unzipper": "^0.12.3",
-    "yargs": "^17.7.2"
+    "jsdom": "25.0.1",
+    "node-fetch": "3.3.2",
+    "ora": "8.1.0",
+    "puppeteer": "23.1.0",
+    "unzipper": "0.12.3",
+    "xml2js": "0.6.2",
+    "yargs": "17.7.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.13.0",
@@ -61,6 +62,7 @@
     "esmock": "^2.6.7",
     "globals": "^15.11.0",
     "mocha": "^10.7.3",
+    "nock": "^14.0.1",
     "sinon": "^18.0.1",
     "sinon-chai": "^4.0.0"
   }
