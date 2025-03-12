@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/adobe/aem-import-helper/compare/v1.0.0...v1.0.1) (2025-03-12)
+
+
+### Bug Fixes
+
+* **release:** release aem-import-helper under the adobe namespace ([b6b53e2](https://github.com/adobe/aem-import-helper/commit/b6b53e299af399dc6fb11700152fdf9eddea70c3))
+
 # 1.0.0 (2025-03-11)
 
 
