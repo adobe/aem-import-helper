@@ -13,7 +13,7 @@ A helpful companion for importing your site to AEM.
 Preferably as a dev dependency, but it can be used globally as well:
 
 ```
-npm install aem-import-helper --save-dev
+npm install @adobe/aem-import-helper --save-dev
 ```
 
 ## Prerequisites For Importing

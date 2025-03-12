@@ -1,5 +1,5 @@
 {
-  "name": "aem-import-helper",
+  "name": "@adobe/aem-import-helper",
   "version": "1.0.0",
   "description": "Helper tool for importing sites to AEM.",
   "author": "AEM Importer Team",
