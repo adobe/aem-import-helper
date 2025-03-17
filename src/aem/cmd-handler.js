@@ -22,15 +22,20 @@ import { getDamRootFolder } from './aem-util.js';
  * Validate the existence of the asset-mapping.json and content package files.
  * @param {string} assetMappingFile - The path to the asset-mapping.json file
  * @param {string} contentPackagePath - The path to the content package ZIP file
+ * @param {boolean} skipAssets - If true, the asset mapping file is not required
  * @return {boolean} True if the files exist, false otherwise
  */
-function validateFiles(assetMappingFile, contentPackagePath) {
+function validateFiles(assetMappingFile, contentPackagePath, skipAssets) {
   const files = [
-    { path: contentPackagePath, message: `Content package not found: ${contentPackagePath}` },
-    { path: assetMappingFile, message: `asset-mapping.json file not found: ${assetMappingFile}` },
+    { path: contentPackagePath, message: `Content package not found: ${contentPackagePath}`, mandatory: true },
+    { path: assetMappingFile, message: `asset-mapping.json file not found: ${assetMappingFile}`, mandatory: !skipAssets },
   ];
 
   for (const file of files) {
+    if (file.mandatory === false) {
+      continue;
+    }
+
     if (!fs.existsSync(file.path)) {
       console.error(chalk.red(file.message));
       return false;
@@ -83,7 +88,6 @@ export const aemBuilder = (yargs) => {
     .option('asset-mapping', {
       type: 'string',
       describe: 'Absolute path to the image-mapping.json file',
-      demandOption: true,
     })
     .option('token', {
       describe: 'AEM login token or path to a file containing the token',
@@ -100,6 +104,11 @@ export const aemBuilder = (yargs) => {
       type: 'string',
       default: 'aem-assets',
     })
+    .option('skip-assets', {
+      describe: 'If skip-download is true, the assets are not downloaded',
+      type: 'boolean',
+      default: false,
+    })
     .option('keep', {
       describe: 'If keep is true, local assets are not deleted after upload',
       type: 'boolean',
@@ -108,7 +117,7 @@ export const aemBuilder = (yargs) => {
 }
 
 export const aemHandler = async (args) => {
-  if (!validateFiles(args['asset-mapping'], args['zip'])) {
+  if (!validateFiles(args['asset-mapping'], args['zip'], args['skip-assets'])) {
     process.exit(1);
   }
 
@@ -128,27 +137,29 @@ export const aemHandler = async (args) => {
   }
 
   try {
-    const assetMappingJson = JSON.parse(fs.readFileSync(args['asset-mapping'], 'utf-8'));
-    const assetMapping = new Map(Object.entries(assetMappingJson));
+    if (!args['skip-assets']) {
+      const assetMappingJson = JSON.parse(fs.readFileSync(args['asset-mapping'], 'utf-8'));
+      const assetMapping = new Map(Object.entries(assetMappingJson));
 
-    const downloadFolder = args.output === 'aem-assets'
-      ? path.join(process.cwd(), args.output)
-      : args.output;
+      const downloadFolder = args.output === 'aem-assets'
+        ? path.join(process.cwd(), args.output)
+        : args.output;
 
-    console.log(chalk.yellow('Downloading origin assets...'));
-    await downloadAssets(assetMapping, downloadFolder);
+      console.log(chalk.yellow('Downloading origin assets...'));
+      await downloadAssets(assetMapping, downloadFolder);
 
-    const assetFolder = path.join(downloadFolder, getDamRootFolder(assetMapping));
+      const assetFolder = path.join(downloadFolder, getDamRootFolder(assetMapping));
 
-    console.log(chalk.yellow(`Uploading downloaded assets to ${args.target}...`));
-    await uploadAssets(args.target, token, assetFolder);
+      console.log(chalk.yellow(`Uploading downloaded assets to ${args.target}...`));
+      await uploadAssets(args.target, token, assetFolder);
+
+      if (!args.keep) {
+        await cleanup(downloadFolder);
+      }
+    }
 
     console.log(chalk.yellow(`Uploading content package ${args.target}...`));
     await installPackage(args.target, token, args['zip']);
-
-    if (!args.keep) {
-      await cleanup(downloadFolder);
-    }
   } catch (err) {
     console.error(chalk.red('Error during upload:', err));
     process.exit(1);
