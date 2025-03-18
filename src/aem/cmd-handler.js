@@ -105,7 +105,7 @@ export const aemBuilder = (yargs) => {
       default: 'aem-assets',
     })
     .option('skip-assets', {
-      describe: 'If skip-download is true, the assets are not downloaded',
+      describe: 'If skip-assets is true, the assets are not downloaded',
       type: 'boolean',
       default: false,
     })
