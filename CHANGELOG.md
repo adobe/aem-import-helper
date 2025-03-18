@@ -1,3 +1,10 @@
+## [1.0.2](https://github.com/adobe/aem-import-helper/compare/v1.0.1...v1.0.2) (2025-03-18)
+
+
+### Bug Fixes
+
+* provide the option to skip image dl/up ([#26](https://github.com/adobe/aem-import-helper/issues/26)) ([a3219d3](https://github.com/adobe/aem-import-helper/commit/a3219d308c652f868273bcdd0f11bd6efc464f44))
+
 ## [1.0.1](https://github.com/adobe/aem-import-helper/compare/v1.0.0...v1.0.1) (2025-03-12)
 
 
