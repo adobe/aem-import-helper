@@ -1,3 +1,10 @@
+## [1.0.3](https://github.com/adobe/aem-import-helper/compare/v1.0.2...v1.0.3) (2025-03-26)
+
+
+### Bug Fixes
+
+* **sites-29591:** [xwalk] - logging is too verbose when uploading assets ([#27](https://github.com/adobe/aem-import-helper/issues/27)) ([ad13da2](https://github.com/adobe/aem-import-helper/commit/ad13da22b579f226dd51bf0a052146a10f1dab03))
+
 ## [1.0.2](https://github.com/adobe/aem-import-helper/compare/v1.0.1...v1.0.2) (2025-03-18)
 
 
