@@ -70,10 +70,5 @@
     "semantic-release": "24.2.3",
     "sinon": "18.0.1",
     "sinon-chai": "4.0.0"
-  },
-  "overrides": {
-    "@adobe/aem-upload": {
-      "@adobe/httptransfer": "5.0.0"
-    }
   }
 }
