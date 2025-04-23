@@ -1,3 +1,10 @@
+## [1.0.5](https://github.com/adobe/aem-import-helper/compare/v1.0.4...v1.0.5) (2025-04-23)
+
+
+### Bug Fixes
+
+* force override ([3df35bd](https://github.com/adobe/aem-import-helper/commit/3df35bd062ed6a0b294dc89ad1f724d479d4110e))
+
 ## [1.0.4](https://github.com/adobe/aem-import-helper/compare/v1.0.3...v1.0.4) (2025-04-23)
 
 
