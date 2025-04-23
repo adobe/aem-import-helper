@@ -1,3 +1,10 @@
+## [1.0.4](https://github.com/adobe/aem-import-helper/compare/v1.0.3...v1.0.4) (2025-04-23)
+
+
+### Bug Fixes
+
+* remove the verbose logging when uploading assets ([3eff81a](https://github.com/adobe/aem-import-helper/commit/3eff81a08acbfa35f892b184e8b10faf3edded37))
+
 ## [1.0.3](https://github.com/adobe/aem-import-helper/compare/v1.0.2...v1.0.3) (2025-03-26)
 
 
