@@ -89,6 +89,10 @@ export async function downloadAssets(assetMapping, downloadFolder, maxRetries = 
  */
 export function cleanup(folder) {
   if (fs.existsSync(folder)) {
-    fs.rmdirSync(folder, { recursive: true });
+    fs.rm(folder, { recursive: true, force: true }, (err) => {
+      if (err) {
+        console.error(chalk.red(`Error deleting folder: ${folder}`, err));
+      }
+    })
   }
 }
