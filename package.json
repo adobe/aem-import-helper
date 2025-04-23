@@ -72,6 +72,8 @@
     "sinon-chai": "4.0.0"
   },
   "overrides": {
-    "@adobe/httptransfer": "5.0.0"
+    "@adobe/aem-upload": {
+       "@adobe/httptransfer": "5.0.0"
+     }
   }
 }
