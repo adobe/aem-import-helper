@@ -106,7 +106,7 @@ describe('download assets', function () {
     const scope = nock('http://www.aem.com')
       .get('/asset1')
       .reply(200, 'image data', {
-        'Content-Type': 'image/jpeg'
+        'Content-Type': 'image/jpeg',
       });
 
     const mapping = new Map([
@@ -123,7 +123,7 @@ describe('download assets', function () {
     const scope = nock('http://www.aem.com')
       .get('/asset1.png')
       .reply(200, 'image data', {
-        'Content-Type': 'image/jpeg'
+        'Content-Type': 'image/jpeg',
       });
 
     const mapping = new Map([
@@ -140,7 +140,7 @@ describe('download assets', function () {
     const scope = nock('http://www.aem.com')
       .get('/asset1')
       .reply(200, 'data', {
-        'Content-Type': 'application/unknown'
+        'Content-Type': 'application/unknown',
       });
 
     const mapping = new Map([
@@ -157,7 +157,7 @@ describe('download assets', function () {
     const scope = nock('http://www.aem.com')
       .get('/asset1')
       .reply(200, 'image data', {
-        'Content-Type': 'image/jpeg; charset=utf-8'
+        'Content-Type': 'image/jpeg; charset=utf-8',
       });
 
     const mapping = new Map([
