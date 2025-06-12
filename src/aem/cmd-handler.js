@@ -145,7 +145,7 @@ export const aemHandler = async (args) => {
         ? path.join(process.cwd(), args.output)
         : args.output;
 
-      console.log(chalk.yellow('Downloading origin assets...'));
+      console.log(chalk.yellow(`Downloading origin assets to ${downloadFolder}...`));
       await downloadAssets(assetMapping, downloadFolder);
 
       const assetFolder = path.join(downloadFolder, getDamRootFolder(assetMapping));
