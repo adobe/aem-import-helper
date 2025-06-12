@@ -1,3 +1,10 @@
+## [1.0.6](https://github.com/adobe/aem-import-helper/compare/v1.0.5...v1.0.6) (2025-06-12)
+
+
+### Bug Fixes
+
+* **sites-31153:** [Xwalk] Use mime type from content-type header for assets with no extension ([#29](https://github.com/adobe/aem-import-helper/issues/29)) ([bebf50a](https://github.com/adobe/aem-import-helper/commit/bebf50a6953926c95e28b82d4d3e567a1587d7fc))
+
 ## [1.0.5](https://github.com/adobe/aem-import-helper/compare/v1.0.4...v1.0.5) (2025-04-23)
 
 
