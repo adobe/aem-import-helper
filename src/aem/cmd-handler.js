@@ -12,7 +12,7 @@
 import fs from 'fs';
 import chalk from 'chalk';
 import path from 'path';
-import { cleanup, downloadAssets } from './download-assets.js';
+import { cleanup, downloadAssets } from '../utils/download-assets.js';
 import { uploadAssets } from './upload-assets.js';
 import { installPackage } from './package-helper.js';
 import fetch from 'node-fetch';
