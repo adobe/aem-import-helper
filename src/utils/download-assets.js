@@ -19,12 +19,12 @@ const CONTENT_DAM_PREFIX = '/content/dam';
 /**
  * Save the given blob to a file in the download folder.
  * @param {Blob} blob - The blob to save.
- * @param {string} jcrPath - The JCR path of the asset.
+ * @param {string} downloadPath - The JCR path of the asset.
  * @param {string} downloadFolder - The folder to download assets to.
  * @return {Promise<void>} A promise that resolves when the blob is saved to a file.
  */
-async function saveBlobToFile(blob, jcrPath, downloadFolder) {
-  let assetPath = path.join(downloadFolder, jcrPath.replace(CONTENT_DAM_PREFIX, ''));
+async function saveBlobToFile(blob, downloadPath, downloadFolder) {
+  let assetPath = path.join(downloadFolder, downloadPath.replace(CONTENT_DAM_PREFIX, ''));
   fs.mkdirSync(path.dirname(assetPath), { recursive: true });
 
   const buffer = Buffer.from(await blob.arrayBuffer());
@@ -74,10 +74,10 @@ async function downloadAssetWithRetry(url, maxRetries = 3, retryDelay = 5000) {
  */
 export async function downloadAssets(assetMapping, downloadFolder, maxRetries = 3,retryDelay = 5000) {
   const downloadPromises = Array.from(assetMapping.entries())
-    .map(async ([assetUrl, jcrPath]) => {
+    .map(async ([assetUrl, downloadPath]) => {
       const blob = await downloadAssetWithRetry(assetUrl, maxRetries, retryDelay);
-      await saveBlobToFile(blob, jcrPath, downloadFolder);
-      return jcrPath;
+      await saveBlobToFile(blob, downloadPath, downloadFolder);
+      return downloadPath;
     });
 
   return Promise.allSettled(downloadPromises);

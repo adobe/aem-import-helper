@@ -13,6 +13,7 @@ import fs from 'fs';
 import chalk from 'chalk';
 import fetch from 'node-fetch';
 import { uploadFolder } from './upload.js';
+import { processAndUpdateHTMLPages } from './da-helper.js';
 
 // DA API base URL
 const DA_BASE_URL = 'https://admin.da.live';
@@ -89,14 +90,19 @@ export const daBuilder = (yargs) => {
       describe: 'Name of the repository',
       demandOption: true,
     })
-    .option('asset-mapping', {
+    .option('asset-list', {
       type: 'string',
-      describe: 'Absolute path to the asset-mapping.json file',
+      describe: 'Absolute path to the assets.json file',
       demandOption: true,
     })
-    .option('html-folder', {
+    .option('da-folder', {
       type: 'string',
-      describe: 'Absolute path to the HTML folder',
+      describe: 'Absolute path to the DA folder',
+      demandOption: true,
+    })
+    .option('download-folder', {
+      type: 'string',
+      describe: 'Path to the download folder',
       demandOption: true,
     })
     .option('auth-token', {
@@ -107,7 +113,7 @@ export const daBuilder = (yargs) => {
 }
 
 export const daHandler = async (args) => {
-  if (!validateFiles(args['asset-mapping'], args['html-folder'])) {
+  if (!validateFiles(args['asset-list'], args['da-folder'])) {
     process.exit(1);
   }
 
@@ -129,12 +135,15 @@ export const daHandler = async (args) => {
   try {
     // TODO: Parse and use asset mapping for asset upload logic
     // const assetMappingJson = JSON.parse(fs.readFileSync(args['asset-mapping'], 'utf-8'));
+    processAndUpdateHTMLPages(daLocation, args['asset-list'], args['download-folder']);
 
     console.log(chalk.yellow(`Uploading assets to ${daLocation}...`));
-    // TODO: Implement asset upload logic
+    // TODO: Implement asset upload logic 
+    // each page -> parse -> find href in list -> download -> upload -> reference asset update
+    //not found in list -> page ref -> update ref
 
     console.log(chalk.yellow('Processing HTML folder...'));
-    await uploadFolder(args['html-folder'], daLocation, token, {
+    await uploadFolder(args['da-folder'], daLocation, token, {
       fileExtensions: ['.html', '.css', '.js'],
       excludePatterns: ['node_modules', '.git'],
       verbose: true,

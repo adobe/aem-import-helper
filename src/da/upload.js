@@ -14,37 +14,7 @@ import path from 'path';
 import FormData from 'form-data';
 import fetch from 'node-fetch';
 import chalk from 'chalk';
-
-/**
- * Recursively get all files from a directory
- * @param {string} dirPath - The directory path to scan
- * @param {Array<string>} fileExtensions - Optional array of file extensions to filter (e.g., ['.html', '.css'])
- * @return {Array<string>} Array of absolute file paths
- */
-function getAllFiles(dirPath, fileExtensions = []) {
-  const files = [];
-  
-  function scanDirectory(currentPath) {
-    const items = fs.readdirSync(currentPath);
-    
-    for (const item of items) {
-      const fullPath = path.join(currentPath, item);
-      const stat = fs.statSync(fullPath);
-      
-      if (stat.isDirectory()) {
-        scanDirectory(fullPath);
-      } else if (stat.isFile()) {
-        // Filter by file extension if specified
-        if (fileExtensions.length === 0 || fileExtensions.includes(path.extname(fullPath))) {
-          files.push(fullPath);
-        }
-      }
-    }
-  }
-  
-  scanDirectory(dirPath);
-  return files;
-}
+import { getAllFiles } from './da-helper.js';
 
 /**
  * Upload a file to the DA system
@@ -172,7 +142,7 @@ export async function uploadFiles(filePaths, uploadUrl, authToken, options = {})
  */
 export async function uploadFolder(folderPath, uploadUrl, authToken, options = {}) {
   const {
-    fileExtensions = [],
+    fileExtensions = ['.html', '.htm'],
     excludePatterns = [],
     verbose = false,
   } = options;
