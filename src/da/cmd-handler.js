@@ -90,9 +90,9 @@ export const daBuilder = (yargs) => {
       describe: 'Name of the repository',
       demandOption: true,
     })
-    .option('asset-list', {
+    .option('asset-url-list', {
       type: 'string',
-      describe: 'Absolute path to the assets.json file',
+      describe: 'Absolute path to the asset-url.json file',
       demandOption: true,
     })
     .option('da-folder', {
@@ -113,7 +113,7 @@ export const daBuilder = (yargs) => {
 }
 
 export const daHandler = async (args) => {
-  if (!validateFiles(args['asset-list'], args['da-folder'])) {
+  if (!validateFiles(args['asset-url-list'], args['da-folder'])) {
     process.exit(1);
   }
 
@@ -133,11 +133,19 @@ export const daHandler = async (args) => {
   }
 
   try {
+    // Read and parse the asset list JSON file
+    const assetListJson = JSON.parse(fs.readFileSync(args['asset-url-list'], 'utf-8'));
+    
     // TODO: Parse and use asset mapping for asset upload logic
     // const assetMappingJson = JSON.parse(fs.readFileSync(args['asset-mapping'], 'utf-8'));
-    processAndUpdateHTMLPages(daLocation, args['asset-list'], args['download-folder']);
+    await processAndUpdateHTMLPages(daLocation, assetListJson, args['da-folder'], args['download-folder']);
 
     console.log(chalk.yellow(`Uploading assets to ${daLocation}...`));
+    await uploadFolder(args['download-folder'], daLocation, token, {
+      fileExtensions: ['.jpg', '.jpeg', '.png', '.gif', '.svg', '.webp', '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx'],
+      excludePatterns: ['node_modules', '.git'],
+      verbose: true,
+    });
     // TODO: Implement asset upload logic 
     // each page -> parse -> find href in list -> download -> upload -> reference asset update
     //not found in list -> page ref -> update ref

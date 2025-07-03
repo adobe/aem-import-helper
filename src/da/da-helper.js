@@ -16,15 +16,13 @@ import { JSDOM } from 'jsdom';
 import { downloadAssets } from '../utils/download-assets.js';
 import chalk from 'chalk';
 
-const DA_HOST = 'https://admin.da.live/source/';
-
 /**
  * Recursively get all files from a directory
  * @param {string} dirPath - The directory path to scan
  * @param {Array<string>} fileExtensions - Optional array of file extensions to filter (e.g., ['.html', '.css'])
  * @return {Array<string>} Array of absolute file paths
  */
-function getAllFiles(dirPath, fileExtensions = []) {
+export function getAllFiles(dirPath, fileExtensions = []) {
   const files = [];
   
   function scanDirectory(currentPath) {
@@ -98,16 +96,24 @@ export function getHTMLFiles(folderPath, excludePatterns = []) {
 }
 
 /**
- * Extract all href attributes from an HTML string
+ * Extract all href attributes from anchor tags and src attributes from img tags in an HTML string
  * @param {string} htmlContent - The HTML content to parse
- * @return {Array<string>} Array of href values found in the HTML
+ * @return {Array<string>} Array of href and src values found in the HTML
  */
 function extractHrefsFromHTML(htmlContent) {
   const dom = new JSDOM(htmlContent);
   const document = dom.window.document;
-  const links = document.querySelectorAll('a[href]');
   
-  return Array.from(links).map(link => link.getAttribute('href'));
+  // Get all href attributes from anchor tags
+  const links = document.querySelectorAll('a[href]');
+  const hrefs = Array.from(links).map(link => link.getAttribute('href'));
+  
+  // Get all src attributes from img tags
+  const images = document.querySelectorAll('img[src]');
+  const srcs = Array.from(images).map(img => img.getAttribute('src'));
+  
+  // Combine both arrays
+  return [...hrefs, ...srcs];
 }
 
 /**
@@ -121,22 +127,51 @@ function isAssetUrl(href, assetUrls) {
 }
 
 /**
- * Update href attributes in HTML to point to DA environment
+ * Update href attributes in anchor tags and src attributes in img tags in HTML to point to DA environment
  * @param {string} htmlContent - The HTML content to update
  * @param {Array<string>} assetUrls - List of asset URLs that should be updated
- * @return {string} Updated HTML content with modified hrefs
+ * @param {string} daLocation - The DA location URL to replace the hostname with
+ * @return {string} Updated HTML content with modified hrefs and srcs
  */
-function updateHrefsInHTML(htmlContent, assetUrls) {
+function updateHrefsInHTML(htmlContent, assetUrls, daLocation) {
   const dom = new JSDOM(htmlContent);
   const document = dom.window.document;
-  const links = document.querySelectorAll('a[href]');
   
+  // Update href attributes in anchor tags
+  const links = document.querySelectorAll('a[href]');
   links.forEach(link => {
     const href = link.getAttribute('href');
     if (isAssetUrl(href, assetUrls)) {
-      // Update the href to point to DA environment
-      const newHref = `${DA_HOST}${href}`;
-      link.setAttribute('href', newHref);
+      try {
+        // Parse the URL to get the pathname
+        const urlObj = new URL(href);
+        // Replace the hostname with DA location
+        const newHref = `${daLocation}/assets${urlObj.pathname}`;
+        link.setAttribute('href', newHref);
+      } catch (error) {
+        // If URL parsing fails, assume it's already a relative path
+        const newHref = `${daLocation}${href}`;
+        link.setAttribute('href', newHref);
+      }
+    }
+  });
+  
+  // Update src attributes in img tags
+  const images = document.querySelectorAll('img[src]');
+  images.forEach(img => {
+    const src = img.getAttribute('src');
+    if (isAssetUrl(src, assetUrls)) {
+      try {
+        // Parse the URL to get the pathname
+        const urlObj = new URL(src);
+        // Replace the hostname with DA location
+        const newSrc = `${daLocation}/assets${urlObj.pathname}`;
+        img.setAttribute('src', newSrc);
+      } catch (error) {
+        // If URL parsing fails, assume it's already a relative path
+        const newSrc = `${daLocation}${src}`;
+        img.setAttribute('src', newSrc);
+      }
     }
   });
   
@@ -155,11 +190,12 @@ export function convertAssetUrlsToMapping(assetUrls) {
     try {
       // Parse the URL to extract the pathname
       const urlObj = new URL(url);
-      const relativePath = urlObj.pathname;
+      const relativePath = `/assets${urlObj.pathname}`;
       assetMapping.set(url, relativePath);
     } catch (error) {
       // If URL parsing fails, assume it's already a relative path
-      assetMapping.set(url, url);
+      const relativePath = `/assets${url}`;
+      assetMapping.set(url, relativePath);
     }
   });
   
@@ -176,7 +212,7 @@ export function convertAssetUrlsToMapping(assetUrls) {
  * @return {Promise<Array<{filePath: string, updatedContent: string, downloadedAssets: Array<string>}>>} 
  *         Promise that resolves with array of processed page results
  */
-export async function processHTMLPages(htmlPages, assetUrls, downloadFolder, maxRetries = 3, retryDelay = 5000) {
+export async function processHTMLPages(daLocation, htmlPages, assetUrls, downloadFolder, maxRetries = 3, retryDelay = 5000) {
   const results = [];
   
   for (const pagePath of htmlPages) {
@@ -212,7 +248,7 @@ export async function processHTMLPages(htmlPages, assetUrls, downloadFolder, max
         }
         
         // Update the HTML content
-        const updatedContent = updateHrefsInHTML(htmlContent, matchingHrefs);
+        const updatedContent = updateHrefsInHTML(htmlContent, matchingHrefs, daLocation);
         
         results.push({
           filePath: pagePath,
@@ -277,13 +313,13 @@ export async function saveUpdatedPages(processedPages) {
  * @return {Promise<Array<{filePath: string, updatedContent: string, downloadedAssets: Array<string>}>>} 
  *         Promise that resolves with array of processed page results
  */
-export async function processAndUpdateHTMLPages(daLocation, assetUrls, downloadFolder, maxRetries = 3, retryDelay = 5000) {
-  const htmlPages = getHTMLFiles(daLocation);
+export async function processAndUpdateHTMLPages(daLocation, assetUrls, htmlFolder, downloadFolder, maxRetries = 3, retryDelay = 5000) {
+  const htmlPages = getHTMLFiles(htmlFolder);
   console.log(chalk.blue(`Starting to process ${htmlPages.length} HTML pages...`));
   console.log(chalk.blue(`Looking for ${assetUrls.length} asset URLs`));
   
   // Process the pages
-  const processedPages = await processHTMLPages(htmlPages, assetUrls, downloadFolder, maxRetries, retryDelay);
+  const processedPages = await processHTMLPages(daLocation, htmlPages, assetUrls, downloadFolder, maxRetries, retryDelay);
   
   // Save updated pages back to original files
   await saveUpdatedPages(processedPages);
