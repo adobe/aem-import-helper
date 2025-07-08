@@ -136,13 +136,23 @@ export const daHandler = async (args) => {
     // Read and parse the asset list JSON file
     const assetListJson = JSON.parse(fs.readFileSync(args['asset-url-list'], 'utf-8'));
     
+    // Extract the assets array from the JSON structure
+    const assetUrls = assetListJson.assets || [];
+    
+    if (!Array.isArray(assetUrls) || assetUrls.length === 0) {
+      console.error(chalk.red('No assets found in the asset-url-list file. Expected format: {"assets": ["url1", "url2", ...]}'));
+      process.exit(1);
+    }
+    
+    console.log(chalk.blue(`Found ${assetUrls.length} assets in the asset list`));
+    
     // TODO: Parse and use asset mapping for asset upload logic
     // const assetMappingJson = JSON.parse(fs.readFileSync(args['asset-mapping'], 'utf-8'));
-    await processAndUpdateHTMLPages(daLocation, assetListJson, args['da-folder'], args['download-folder']);
+    await processAndUpdateHTMLPages(daLocation, assetUrls, args['da-folder'], args['download-folder']);
 
     console.log(chalk.yellow(`Uploading assets to ${daLocation}...`));
     await uploadFolder(args['download-folder'], daLocation, token, {
-      fileExtensions: ['.jpg', '.jpeg', '.png', '.gif', '.svg', '.webp', '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx'],
+      fileExtensions: ['.jpg', '.jpeg', '.png', '.gif', '.svg', '.webp'],
       excludePatterns: ['node_modules', '.git'],
       verbose: true,
     });
