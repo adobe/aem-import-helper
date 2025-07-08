@@ -133,9 +133,13 @@ function isAssetUrl(href, assetUrls) {
  * @param {string} daLocation - The DA location URL to replace the hostname with
  * @return {string} Updated HTML content with modified hrefs and srcs
  */
-function updateHrefsInHTML(htmlContent, assetUrls, daLocation) {
+function updateHrefsInHTML(pagePath, htmlContent, assetUrls, daLocation) {
   const dom = new JSDOM(htmlContent);
   const document = dom.window.document;
+  
+  // Extract page name from pagePath to create shadow folder
+  const pageName = path.basename(pagePath, path.extname(pagePath));
+  const shadowFolder = `.${pageName}`;
   
   // Update href attributes in anchor tags
   const links = document.querySelectorAll('a[href]');
@@ -143,14 +147,16 @@ function updateHrefsInHTML(htmlContent, assetUrls, daLocation) {
     const href = link.getAttribute('href');
     if (isAssetUrl(href, assetUrls)) {
       try {
-        // Parse the URL to get the pathname
+        // Parse the URL to get the filename
         const urlObj = new URL(href);
-        // Replace the hostname with DA location
-        const newHref = `${daLocation}/assets${urlObj.pathname}`;
+        const filename = urlObj.pathname.split('/').pop();
+        // Replace the hostname with DA location and place in shadow folder
+        const newHref = `${daLocation}/${shadowFolder}/${filename}`;
         link.setAttribute('href', newHref);
       } catch (error) {
         // If URL parsing fails, assume it's already a relative path
-        const newHref = `${daLocation}${href}`;
+        const filename = href.split('/').pop();
+        const newHref = `${daLocation}/${shadowFolder}/${filename}`;
         link.setAttribute('href', newHref);
       }
     }
@@ -162,14 +168,16 @@ function updateHrefsInHTML(htmlContent, assetUrls, daLocation) {
     const src = img.getAttribute('src');
     if (isAssetUrl(src, assetUrls)) {
       try {
-        // Parse the URL to get the pathname
+        // Parse the URL to get the filename
         const urlObj = new URL(src);
-        // Replace the hostname with DA location
-        const newSrc = `${daLocation}/assets${urlObj.pathname}`;
+        const filename = urlObj.pathname.split('/').pop();
+        // Replace the hostname with DA location and place in shadow folder
+        const newSrc = `${daLocation}/${shadowFolder}/${filename}`;
         img.setAttribute('src', newSrc);
       } catch (error) {
         // If URL parsing fails, assume it's already a relative path
-        const newSrc = `${daLocation}${src}`;
+        const filename = src.split('/').pop();
+        const newSrc = `${daLocation}/${shadowFolder}/${filename}`;
         img.setAttribute('src', newSrc);
       }
     }
@@ -181,20 +189,27 @@ function updateHrefsInHTML(htmlContent, assetUrls, daLocation) {
 /**
  * Convert a list of asset URLs to an asset mapping where the key is the URL and value is the relative path
  * @param {Array<string>} assetUrls - Array of asset URLs
+ * @param {string} pagePath - The path to the HTML page to create shadow folder structure
  * @return {Map<string, string>} Map where key is the asset URL and value is the relative path
  */
-export function convertAssetUrlsToMapping(assetUrls) {
+export function convertAssetUrlsToMapping(assetUrls, pagePath = '') {
   const assetMapping = new Map();
+  
+  // Extract page name from pagePath to create shadow folder
+  const pageName = pagePath ? path.basename(pagePath, path.extname(pagePath)) : '';
+  const shadowFolder = pageName ? `.${pageName}` : '';
   
   assetUrls.forEach(url => {
     try {
-      // Parse the URL to extract the pathname
+      // Parse the URL to extract the filename
       const urlObj = new URL(url);
-      const relativePath = `/assets${urlObj.pathname}`;
+      const filename = urlObj.pathname.split('/').pop();
+      const relativePath = shadowFolder ? `/${shadowFolder}/${filename}` : `/${filename}`;
       assetMapping.set(url, relativePath);
     } catch (error) {
       // If URL parsing fails, assume it's already a relative path
-      const relativePath = `/assets${url}`;
+      const filename = url.split('/').pop();
+      const relativePath = shadowFolder ? `/${shadowFolder}/${filename}` : `/${filename}`;
       assetMapping.set(url, relativePath);
     }
   });
@@ -232,7 +247,7 @@ export async function processHTMLPages(daLocation, htmlPages, assetUrls, downloa
       
       if (matchingHrefs.length > 0) {
         // Convert asset URLs to mapping with relative paths
-        const assetMapping = convertAssetUrlsToMapping(matchingHrefs);
+        const assetMapping = convertAssetUrlsToMapping(matchingHrefs, pagePath);
         
         // Download the assets
         console.log(chalk.blue(`Downloading ${matchingHrefs.length} assets...`));
@@ -248,7 +263,7 @@ export async function processHTMLPages(daLocation, htmlPages, assetUrls, downloa
         }
         
         // Update the HTML content
-        const updatedContent = updateHrefsInHTML(htmlContent, matchingHrefs, daLocation);
+        const updatedContent = updateHrefsInHTML(pagePath, htmlContent, matchingHrefs, daLocation);
         
         results.push({
           filePath: pagePath,
