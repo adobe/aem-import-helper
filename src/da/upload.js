@@ -14,7 +14,6 @@ import path from 'path';
 import FormData from 'form-data';
 import fetch from 'node-fetch';
 import chalk from 'chalk';
-import { getAllFiles } from './da-helper.js';
 
 // Default dependencies for production use
 const defaultDependencies = {
@@ -23,8 +22,42 @@ const defaultDependencies = {
   FormData,
   fetch,
   chalk,
-  getAllFiles,
 };
+
+/**
+ * Recursively get all files from a directory
+ * @param {string} dirPath - The directory path to scan
+ * @param {Array<string>} fileExtensions - Optional array of file extensions to filter (e.g., ['.html', '.css'])
+ * @param {Object} dependencies - Dependencies for testing (optional)
+ * @return {Array<string>} Array of absolute file paths
+ */
+export function getAllFiles(dirPath, fileExtensions = [], dependencies = defaultDependencies) {
+  const { fs: fsDep, path: pathDep } = dependencies;
+  const files = [];
+  
+  function scanDirectory(currentPath) {
+    const items = fsDep.readdirSync(currentPath);
+    
+    for (const item of items) {
+      const fullPath = pathDep.join(currentPath, item);
+      const stat = fsDep.statSync(fullPath);
+      
+      if (stat.isDirectory()) {
+        scanDirectory(fullPath);
+      } else if (stat.isFile()) {
+        // Filter by file extension if specified
+        if (fileExtensions.length === 0 || fileExtensions.includes(pathDep.extname(fullPath))) {
+          files.push(fullPath);
+        }
+      }
+    }
+  }
+  scanDirectory(dirPath);
+  return files;
+}
+
+// Update default dependencies to include the local getAllFiles
+defaultDependencies.getAllFiles = getAllFiles;
 
 /**
  * Upload a file to the DA system
@@ -152,6 +185,7 @@ export async function uploadFiles(filePaths, uploadUrl, authToken, options = {},
  * @param {Array<string>} options.fileExtensions - Array of file extensions to include (e.g., ['.html', '.css', '.js'])
  * @param {Array<string>} options.excludePatterns - Array of patterns to exclude (e.g., ['node_modules', '.git'])
  * @param {boolean} options.verbose - Whether to show detailed progress (default: false)
+ * @param {string} options.baseFolder - The base folder to calculate relative paths from (default: folderPath)
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Promise<Object>} Upload results with summary
  */
@@ -160,6 +194,7 @@ export async function uploadFolder(folderPath, uploadUrl, authToken, options = {
     fileExtensions = ['.html', '.htm'],
     excludePatterns = [],
     verbose = false,
+    baseFolder = folderPath, // Default to folderPath if not provided
   } = options;
 
   const { fs: fsDep, chalk: chalkDep, getAllFiles: getAllFilesDep } = dependencies;
@@ -176,7 +211,6 @@ export async function uploadFolder(folderPath, uploadUrl, authToken, options = {
     }
 
     console.log(chalkDep.yellow(`Scanning folder: ${folderPath}`));
-    
     // Get all files recursively
     let allFiles = getAllFilesDep(folderPath, fileExtensions);
     
@@ -214,7 +248,7 @@ export async function uploadFolder(folderPath, uploadUrl, authToken, options = {
       try {
         const result = await uploadFile(filePath, uploadUrl, authToken, {
           ...options,
-          baseFolder: folderPath,
+          baseFolder: baseFolder, // Use the baseFolder parameter
         }, dependencies);
         results.push(result);
       } catch (error) {

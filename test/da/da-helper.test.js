@@ -21,9 +21,10 @@ import {
   convertAssetUrlsToMapping,
   updateHrefsInHTML,
   saveUpdatedPages,
-  getAllFiles,
   getHTMLFiles,
+  processPages,
 } from '../../src/da/da-helper.js';
+import { getAllFiles } from '../../src/da/upload.js';
 
 const mockChalk = {
   green: (msg) => msg,
@@ -36,7 +37,7 @@ const mockChalk = {
 describe('da-helper.js', () => {
   let sandbox;
   let dependencies;
-
+  
   beforeEach(() => {
     sandbox = sinon.createSandbox();
     dependencies = {
@@ -46,11 +47,11 @@ describe('da-helper.js', () => {
       JSDOM,
     };
   });
-
+  
   afterEach(() => {
     sandbox.restore();
   });
-
+  
   describe('convertAssetUrlsToMapping', () => {
     it('should map asset URLs to shadow folder paths', () => {
       const assetUrls = [
@@ -145,6 +146,26 @@ describe('da-helper.js', () => {
       const result = updateHrefsInHTML(pagePath, html, assetUrls, daLocation, dependencies);
       expect(result).to.be.a('string');
     });
+
+    it('should handle URLs with query parameters', () => {
+      const html = '<html><body><img src="image.jpg?v=123"></body></html>';
+      const pagePath = '/content/dam/test/page.html';
+      const assetUrls = new Set(['image.jpg?v=123']);
+      const result = updateHrefsInHTML(pagePath, html, assetUrls, daLocation, dependencies);
+      const dom = new JSDOM(result);
+      const doc = dom.window.document;
+      expect(doc.querySelector('img').getAttribute('src')).to.equal('https://da.example.com/.page/image.jpg?v=123');
+    });
+
+    it('should handle URLs with hash fragments', () => {
+      const html = '<html><body><a href="document.pdf#page=2">PDF</a></body></html>';
+      const pagePath = '/content/dam/test/page.html';
+      const assetUrls = new Set(['document.pdf#page=2']);
+      const result = updateHrefsInHTML(pagePath, html, assetUrls, daLocation, dependencies);
+      const dom = new JSDOM(result);
+      const doc = dom.window.document;
+      expect(doc.querySelector('a').getAttribute('href')).to.equal('https://da.example.com/.page/document.pdf#page=2');
+    });
   });
 
   describe('saveUpdatedPages', () => {
@@ -209,7 +230,7 @@ describe('da-helper.js', () => {
   });
 
   describe('getHTMLFiles', () => {
-    it.skip('should get all HTML files and apply exclude patterns', () => {
+    it('should get all HTML files and apply exclude patterns', () => {
       const mockFs = {
         existsSync: sinon.stub().returns(true),
         statSync: sinon.stub().returns({ isDirectory: () => true }),
@@ -226,11 +247,13 @@ describe('da-helper.js', () => {
       expect(mockGetAllFiles.firstCall.args[0]).to.equal('/root');
       expect(mockGetAllFiles.firstCall.args[1]).to.deep.equal(['.html', '.htm']);
     });
+
     it('should throw if folder does not exist', () => {
       const mockFs = { existsSync: sinon.stub().returns(false) };
       const mockChalk = { red: (msg) => msg };
       expect(() => getHTMLFiles('/bad', [], { fs: mockFs, chalk: mockChalk })).to.throw('Folder not found');
     });
+
     it('should throw if not a directory', () => {
       const mockFs = {
         existsSync: sinon.stub().returns(true),
@@ -239,60 +262,315 @@ describe('da-helper.js', () => {
       const mockChalk = { red: (msg) => msg };
       expect(() => getHTMLFiles('/bad', [], { fs: mockFs, chalk: mockChalk })).to.throw('Path is not a directory');
     });
+
+    it('should handle errors gracefully', () => {
+      const mockFs = {
+        existsSync: sinon.stub().throws(new Error('fs error')),
+      };
+      const mockChalk = { red: (msg) => msg };
+      expect(() => getHTMLFiles('/bad', [], { fs: mockFs, chalk: mockChalk })).to.throw('fs error');
+    });
   });
 
-  describe('processHTMLPages', () => {
-    it('should process HTML pages, download assets, and update content', async () => {
+  describe('processPages', () => {
+    it('should process pages one by one, downloading and uploading assets immediately', async () => {
+      const createdFolders = new Set(['/html', '/download', '/test', '/test/.page1']);
       const mockFs = {
-        readFileSync: sinon.stub().returns('<html><body><img src="asset1.jpg"><a href="asset2.pdf"></a></body></html>'),
+        existsSync: sinon.stub().callsFake((p) => createdFolders.has(p)),
+        mkdirSync: sinon.stub().callsFake((p) => createdFolders.add(p)),
+        readFileSync: sinon.stub().returns('<html><img src="image.jpg"></html>'),
+        writeFileSync: sinon.stub(),
+        readdirSync: sinon.stub().returns([]),
+        statSync: sinon.stub().returns({ isFile: () => true, isDirectory: () => false }),
+        unlinkSync: sinon.stub(),
+        rmdirSync: sinon.stub(),
       };
-      const mockDownloadAssets = sinon.stub().resolves([
-        { status: 'fulfilled', value: 'ok' },
-        { status: 'fulfilled', value: 'ok' },
-      ]);
+      const mockPath = path;
+      const mockDownloadAssets = sinon.stub().resolves([{ status: 'fulfilled', value: 'image.jpg' }]);
+      const mockUploadFolder = sinon.stub().resolves({ success: true });
+      const getHTMLFilesStub = sinon.stub().returns(['/test/page1.html']);
       const mockDeps = {
         fs: mockFs,
+        path: mockPath,
         chalk: mockChalk,
         JSDOM,
-        path,
         downloadAssets: mockDownloadAssets,
+        uploadFolder: mockUploadFolder,
+        getHTMLFiles: getHTMLFilesStub,
       };
-      const daLocation = 'https://da.example.com';
-      const htmlPages = ['/root/page1.html'];
-      const assetUrls = new Set(['asset1.jpg', 'asset2.pdf']);
-      const downloadFolder = '/downloads';
-      const result = await (await import('../../src/da/da-helper.js')).processHTMLPages(
-        daLocation,
-        htmlPages,
+      const assetUrls = new Set(['image.jpg']);
+      const results = await processPages(
+        'https://da.example.com',
         assetUrls,
-        downloadFolder,
+        '/html',
+        '/download',
+        'token',
+        {},
         3,
         100,
         mockDeps,
       );
-      expect(result[0].filePath).to.equal('/root/page1.html');
-      const expectedAssets = new Set(['asset1.jpg', 'asset2.pdf']);
-      expect(new Set(result[0].downloadedAssets)).to.deep.equal(expectedAssets);
-      expect(result[0].downloadResults[0].status).to.equal('fulfilled');
-      expect(result[0].updatedContent).to.be.a('string');
+      expect(results).to.be.an('array');
+      expect(results[0].filePath).to.equal('/test/page1.html');
+      expect(results[0].downloadedAssets).to.deep.equal(['image.jpg']);
+      expect(getHTMLFilesStub.calledOnce).to.be.true;
+      expect(mockUploadFolder.calledTwice).to.be.true; // Once for assets, once for HTML
     });
-    it('should handle file read errors gracefully', async () => {
-      const mockFs = { readFileSync: sinon.stub().throws(new Error('fail read')) };
-      const mockDeps = { fs: mockFs, chalk: mockChalk, JSDOM, path, downloadAssets: sinon.stub() };
-      const daLocation = 'https://da.example.com';
-      const htmlPages = ['/root/page1.html'];
-      const assetUrls = new Set(['asset1.jpg']);
-      const downloadFolder = '/downloads';
-      const result = await (await import('../../src/da/da-helper.js')).processHTMLPages(
-        daLocation,
-        htmlPages,
+
+    it('should handle pages with no matching assets', async () => {
+      const createdFolders = new Set(['/html', '/download', '/test']);
+      const mockFs = {
+        existsSync: sinon.stub().callsFake((p) => createdFolders.has(p)),
+        mkdirSync: sinon.stub().callsFake((p) => createdFolders.add(p)),
+        readFileSync: sinon.stub().returns('<html><img src="other.jpg"></html>'),
+        writeFileSync: sinon.stub(),
+        readdirSync: sinon.stub().returns([]),
+        statSync: sinon.stub().returns({ isFile: () => true, isDirectory: () => false }),
+        unlinkSync: sinon.stub(),
+        rmdirSync: sinon.stub(),
+      };
+      const mockPath = path;
+      const mockDownloadAssets = sinon.stub().resolves([]);
+      const mockUploadFolder = sinon.stub().resolves({ success: true });
+      const getHTMLFilesStub = sinon.stub().returns(['/test/page2.html']);
+      const mockDeps = {
+        fs: mockFs,
+        path: mockPath,
+        chalk: mockChalk,
+        JSDOM,
+        downloadAssets: mockDownloadAssets,
+        uploadFolder: mockUploadFolder,
+        getHTMLFiles: getHTMLFilesStub,
+      };
+      const assetUrls = new Set(['image.jpg']);
+      const results = await processPages(
+        'https://da.example.com',
         assetUrls,
-        downloadFolder,
+        '/html',
+        '/download',
+        'token',
+        {},
         3,
         100,
         mockDeps,
       );
-      expect(result[0].error).to.include('fail read');
+      expect(results[0].downloadedAssets).to.deep.equal([]);
+      expect(mockUploadFolder.calledOnce).to.be.true; // Only for HTML, no assets
+      expect(results[0].uploaded).to.be.true;
+    });
+
+    it('should preserve shadow folder structure when uploading assets', async () => {
+      const createdFolders = new Set(['/html', '/download', '/html/subdir', '/download/subdir', '/download/subdir/.page3']);
+      const mockFs = {
+        existsSync: sinon.stub().callsFake((p) => createdFolders.has(p)),
+        mkdirSync: sinon.stub().callsFake((p) => createdFolders.add(p)),
+        readFileSync: sinon.stub().returns('<html><img src="image.jpg"></html>'),
+        writeFileSync: sinon.stub(),
+        readdirSync: sinon.stub().returns([]),
+        statSync: sinon.stub().returns({ isFile: () => true, isDirectory: () => false }),
+        unlinkSync: sinon.stub(),
+        rmdirSync: sinon.stub(),
+      };
+      const mockPath = path;
+      const mockDownloadAssets = sinon.stub().resolves([{ status: 'fulfilled', value: 'image.jpg' }]);
+      const uploadCalls = [];
+      const mockUploadFolder = sinon.stub().callsFake((folderPath, daLocation, token, options) => {
+        uploadCalls.push({ folderPath, options });
+        return Promise.resolve({ success: true });
+      });
+      const getHTMLFilesStub = sinon.stub().returns(['/html/subdir/page3.html']);
+      const mockDeps = {
+        fs: mockFs,
+        path: mockPath,
+        chalk: mockChalk,
+        JSDOM,
+        downloadAssets: mockDownloadAssets,
+        uploadFolder: mockUploadFolder,
+        getHTMLFiles: getHTMLFilesStub,
+      };
+      const assetUrls = new Set(['image.jpg']);
+      await processPages(
+        'https://da.example.com',
+        assetUrls,
+        '/html',
+        '/download',
+        'token',
+        {},
+        3,
+        100,
+        mockDeps,
+      );
+      // Find the asset upload call (should have fileExtensions for images)
+      const assetUploadCall = uploadCalls.find(call => 
+        call.options && call.options.fileExtensions && 
+        call.options.fileExtensions.includes('.jpg'),
+      );
+      expect(assetUploadCall).to.exist;
+      expect(assetUploadCall.folderPath).to.equal('/download/subdir/.page3');
+    });
+
+    it('should handle file read errors gracefully', async () => {
+      const createdFolders = new Set(['/html', '/download', '/test']);
+      const mockFs = {
+        existsSync: sinon.stub().callsFake((p) => createdFolders.has(p)),
+        mkdirSync: sinon.stub().callsFake((p) => createdFolders.add(p)),
+        readFileSync: sinon.stub().throws(new Error('read error')),
+        writeFileSync: sinon.stub(),
+        readdirSync: sinon.stub().returns([]),
+        statSync: sinon.stub().returns({ isFile: () => true, isDirectory: () => false }),
+        unlinkSync: sinon.stub(),
+        rmdirSync: sinon.stub(),
+      };
+      const mockPath = path;
+      const mockDownloadAssets = sinon.stub().resolves([]);
+      const mockUploadFolder = sinon.stub().resolves({ success: true });
+      const getHTMLFilesStub = sinon.stub().returns(['/test/error.html']);
+      const mockDeps = {
+        fs: mockFs,
+        path: mockPath,
+        chalk: mockChalk,
+        JSDOM,
+        downloadAssets: mockDownloadAssets,
+        uploadFolder: mockUploadFolder,
+        getHTMLFiles: getHTMLFilesStub,
+      };
+      const assetUrls = new Set(['image.jpg']);
+      const results = await processPages(
+        'https://da.example.com',
+        assetUrls,
+        '/html',
+        '/download',
+        'token',
+        {},
+        3,
+        100,
+        mockDeps,
+      );
+      expect(results[0].error).to.include('read error');
+      expect(results[0].uploaded).to.be.false;
+    });
+
+    it('should handle upload errors gracefully', async () => {
+      const createdFolders = new Set(['/html', '/download', '/test', '/test/.upload-error']);
+      const mockFs = {
+        existsSync: sinon.stub().callsFake((p) => createdFolders.has(p)),
+        mkdirSync: sinon.stub().callsFake((p) => createdFolders.add(p)),
+        readFileSync: sinon.stub().returns('<html><img src="image.jpg"></html>'),
+        writeFileSync: sinon.stub(),
+        readdirSync: sinon.stub().returns([]),
+        statSync: sinon.stub().returns({ isFile: () => true, isDirectory: () => false }),
+        unlinkSync: sinon.stub(),
+        rmdirSync: sinon.stub(),
+      };
+      const mockPath = path;
+      const mockDownloadAssets = sinon.stub().resolves([{ status: 'fulfilled', value: 'image.jpg' }]);
+      const mockUploadFolder = sinon.stub().rejects(new Error('upload error'));
+      const getHTMLFilesStub = sinon.stub().returns(['/test/upload-error.html']);
+      const mockDeps = {
+        fs: mockFs,
+        path: mockPath,
+        chalk: mockChalk,
+        JSDOM,
+        downloadAssets: mockDownloadAssets,
+        uploadFolder: mockUploadFolder,
+        getHTMLFiles: getHTMLFilesStub,
+      };
+      const assetUrls = new Set(['image.jpg']);
+      const results = await processPages(
+        'https://da.example.com',
+        assetUrls,
+        '/html',
+        '/download',
+        'token',
+        {},
+        3,
+        100,
+        mockDeps,
+      );
+      expect(results[0].error).to.include('upload error');
+      expect(results[0].uploaded).to.be.false;
+    });
+
+    it('should create download folder if it does not exist', async () => {
+      const createdFolders = new Set(['/html', '/test']);
+      const mockFs = {
+        existsSync: sinon.stub().callsFake((p) => createdFolders.has(p)),
+        mkdirSync: sinon.stub().callsFake((p) => createdFolders.add(p)),
+        readFileSync: sinon.stub().returns('<html><img src="image.jpg"></html>'),
+        writeFileSync: sinon.stub(),
+        readdirSync: sinon.stub().returns([]),
+        statSync: sinon.stub().returns({ isFile: () => true, isDirectory: () => false }),
+        unlinkSync: sinon.stub(),
+        rmdirSync: sinon.stub(),
+      };
+      const mockPath = path;
+      const mockDownloadAssets = sinon.stub().resolves([{ status: 'fulfilled', value: 'image.jpg' }]);
+      const mockUploadFolder = sinon.stub().resolves({ success: true });
+      const getHTMLFilesStub = sinon.stub().returns(['/test/page1.html']);
+      const mockDeps = {
+        fs: mockFs,
+        path: mockPath,
+        chalk: mockChalk,
+        JSDOM,
+        downloadAssets: mockDownloadAssets,
+        uploadFolder: mockUploadFolder,
+        getHTMLFiles: getHTMLFilesStub,
+      };
+      const assetUrls = new Set(['image.jpg']);
+      await processPages(
+        'https://da.example.com',
+        assetUrls,
+        '/html',
+        '/download',
+        'token',
+        {},
+        3,
+        100,
+        mockDeps,
+      );
+      expect(mockFs.mkdirSync.calledWith('/download', { recursive: true })).to.be.true;
+    });
+
+    it('should handle cleanup errors gracefully', async () => {
+      const createdFolders = new Set(['/html', '/download', '/test', '/test/.cleanup-error']);
+      const mockFs = {
+        existsSync: sinon.stub().callsFake((p) => createdFolders.has(p)),
+        mkdirSync: sinon.stub().callsFake((p) => createdFolders.add(p)),
+        readFileSync: sinon.stub().returns('<html><img src="image.jpg"></html>'),
+        writeFileSync: sinon.stub(),
+        readdirSync: sinon.stub().returns(['file1.jpg']),
+        statSync: sinon.stub().returns({ isFile: () => true, isDirectory: () => false }),
+        unlinkSync: sinon.stub().throws(new Error('cleanup error')),
+        rmdirSync: sinon.stub(),
+      };
+      const mockPath = path;
+      const mockDownloadAssets = sinon.stub().resolves([{ status: 'fulfilled', value: 'image.jpg' }]);
+      const mockUploadFolder = sinon.stub().resolves({ success: true });
+      const getHTMLFilesStub = sinon.stub().returns(['/test/cleanup-error.html']);
+      const mockDeps = {
+        fs: mockFs,
+        path: mockPath,
+        chalk: mockChalk,
+        JSDOM,
+        downloadAssets: mockDownloadAssets,
+        uploadFolder: mockUploadFolder,
+        getHTMLFiles: getHTMLFilesStub,
+      };
+      const assetUrls = new Set(['image.jpg']);
+      const results = await processPages(
+        'https://da.example.com',
+        assetUrls,
+        '/html',
+        '/download',
+        'token',
+        {},
+        3,
+        100,
+        mockDeps,
+      );
+      // Should still succeed even if cleanup fails
+      expect(results[0].uploaded).to.be.true;
+      expect(results[0].downloadedAssets).to.deep.equal(['image.jpg']);
     });
   });
 }); 

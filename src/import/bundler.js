@@ -26,7 +26,7 @@ function prepareImportScript(importJsPath) {
       format: 'iife',
       platform: 'browser',
       target: ['es2015'],
-    })
+    });
 
     return bundle.outputFiles[0].text;
   } catch (error) {

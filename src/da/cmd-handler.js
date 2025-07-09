@@ -12,8 +12,7 @@
 import fs from 'fs';
 import chalk from 'chalk';
 import fetch from 'node-fetch';
-import { uploadFolder } from './upload.js';
-import { processAndUpdateHTMLPages } from './da-helper.js';
+import { processPages } from './da-helper.js';
 
 // DA API base URL
 const DA_BASE_URL = 'https://admin.da.live';
@@ -145,20 +144,7 @@ export const daHandler = async (args) => {
     
     console.log(chalk.blue(`Found ${assetUrls.size} assets in the asset list`));
     
-    await processAndUpdateHTMLPages(daLocation, assetUrls, args['da-folder'], args['download-folder']);
-
-    console.log(chalk.yellow(`Uploading assets to ${daLocation}...`));
-    await uploadFolder(args['download-folder'], daLocation, token, {
-      fileExtensions: ['.jpg', '.jpeg', '.png', '.gif', '.svg', '.webp'],
-      excludePatterns: ['node_modules', '.git'],
-      verbose: true,
-    });
-
-    console.log(chalk.yellow('Processing HTML folder...'));
-    await uploadFolder(args['da-folder'], daLocation, token, {
-      fileExtensions: ['.html'],
-      verbose: true,
-    });
+    await processPages(daLocation, assetUrls, args['da-folder'], args['download-folder'], token);
 
   } catch (err) {
     console.error(chalk.red('Error during processing:', err));

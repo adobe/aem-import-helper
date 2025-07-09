@@ -655,5 +655,90 @@ describe('upload', function () {
       expect(result.failedFiles).to.equal(1);
       expect(result.results).to.have.length(2);
     });
+
+    it('should use custom baseFolder when provided', async function () {
+      const folderPath = '/custom/base/folder';
+      const uploadUrl = 'https://admin.da.live/source/org/repo';
+      const authToken = 'test-token';
+      const customBaseFolder = '/custom/base';
+      const options = { 
+        fileExtensions: ['.html'],
+        baseFolder: customBaseFolder,
+      };
+      
+      // Mock folder exists
+      mockDependencies.fs.existsSync.returns(true);
+      mockDependencies.fs.statSync.returns({ isDirectory: () => true });
+      mockDependencies.getAllFiles.returns(['/custom/base/folder/file1.html', '/custom/base/folder/sub/file2.html']);
+      
+      // Mock file exists for each file - this is crucial!
+      mockDependencies.fs.existsSync.withArgs('/custom/base/folder/file1.html').returns(true);
+      mockDependencies.fs.existsSync.withArgs('/custom/base/folder/sub/file2.html').returns(true);
+      mockDependencies.fs.createReadStream.returns({ pipe: () => {} });
+      
+      // Mock path operations
+      mockDependencies.path.relative.withArgs(customBaseFolder, '/custom/base/folder/file1.html').returns('folder/file1.html');
+      mockDependencies.path.relative.withArgs(customBaseFolder, '/custom/base/folder/sub/file2.html').returns('folder/sub/file2.html');
+      
+      // Mock fetch
+      mockDependencies.fetch.resolves({ 
+        ok: true, 
+        status: 200, 
+        statusText: 'OK', 
+        text: async () => 'success', 
+      });
+
+      const result = await uploadFolder(folderPath, uploadUrl, authToken, options, mockDependencies);
+      
+      expect(result.success).to.be.true;
+      expect(result.totalFiles).to.equal(2);
+      expect(result.uploadedFiles).to.equal(2);
+      expect(result.failedFiles).to.equal(0);
+      
+      // Verify that path.relative was called with the custom baseFolder
+      expect(mockDependencies.path.relative.calledTwice).to.be.true;
+      expect(mockDependencies.path.relative.firstCall.args[0]).to.equal(customBaseFolder);
+      expect(mockDependencies.path.relative.firstCall.args[1]).to.equal('/custom/base/folder/file1.html');
+      expect(mockDependencies.path.relative.secondCall.args[0]).to.equal(customBaseFolder);
+      expect(mockDependencies.path.relative.secondCall.args[1]).to.equal('/custom/base/folder/sub/file2.html');
+    });
+
+    it('should use folderPath as baseFolder when baseFolder is not provided', async function () {
+      const folderPath = '/test/folder';
+      const uploadUrl = 'https://admin.da.live/source/org/repo';
+      const authToken = 'test-token';
+      const options = { fileExtensions: ['.html'] };
+      
+      // Mock folder exists
+      mockDependencies.fs.existsSync.returns(true);
+      mockDependencies.fs.statSync.returns({ isDirectory: () => true });
+      mockDependencies.getAllFiles.returns(['/test/folder/file1.html']);
+      
+      // Mock file exists
+      mockDependencies.fs.existsSync.withArgs('/test/folder/file1.html').returns(true);
+      mockDependencies.fs.createReadStream.returns({ pipe: () => {} });
+      
+      // Mock path operations
+      mockDependencies.path.relative.withArgs(folderPath, '/test/folder/file1.html').returns('file1.html');
+      
+      // Mock fetch
+      mockDependencies.fetch.resolves({ 
+        ok: true, 
+        status: 200, 
+        statusText: 'OK', 
+        text: async () => 'success', 
+      });
+
+      const result = await uploadFolder(folderPath, uploadUrl, authToken, options, mockDependencies);
+      
+      expect(result.success).to.be.true;
+      expect(result.totalFiles).to.equal(1);
+      expect(result.uploadedFiles).to.equal(1);
+      
+      // Verify that uploadFile was called with folderPath as baseFolder
+      expect(mockDependencies.path.relative.calledOnce).to.be.true;
+      expect(mockDependencies.path.relative.firstCall.args[0]).to.equal(folderPath);
+      expect(mockDependencies.path.relative.firstCall.args[1]).to.equal('/test/folder/file1.html');
+    });
   });
 }); 
