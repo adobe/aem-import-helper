@@ -103,13 +103,12 @@ export const daBuilder = (yargs) => {
     .option('download-folder', {
       type: 'string',
       describe: 'Path to the download folder',
-      demandOption: true,
+      default: 'da-assets',
     })
     .option('auth-token', {
       describe: 'DA authentication token or path to a file containing the token',
       type: 'string',
-      demandOption: false,
-      default: 'da-assets',
+      demandOption: true,
     });
 }
 
