@@ -16,27 +16,38 @@ import { JSDOM } from 'jsdom';
 import { downloadAssets } from '../utils/download-assets.js';
 import chalk from 'chalk';
 
+// Default dependencies for production use
+const defaultDependencies = {
+  fs,
+  path,
+  JSDOM,
+  downloadAssets,
+  chalk,
+};
+
 /**
  * Recursively get all files from a directory
  * @param {string} dirPath - The directory path to scan
  * @param {Array<string>} fileExtensions - Optional array of file extensions to filter (e.g., ['.html', '.css'])
+ * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Array<string>} Array of absolute file paths
  */
-export function getAllFiles(dirPath, fileExtensions = []) {
+export function getAllFiles(dirPath, fileExtensions = [], dependencies = defaultDependencies) {
+  const { fs: fsDep, path: pathDep } = dependencies;
   const files = [];
   
   function scanDirectory(currentPath) {
-    const items = fs.readdirSync(currentPath);
+    const items = fsDep.readdirSync(currentPath);
     
     for (const item of items) {
-      const fullPath = path.join(currentPath, item);
-      const stat = fs.statSync(fullPath);
+      const fullPath = pathDep.join(currentPath, item);
+      const stat = fsDep.statSync(fullPath);
       
       if (stat.isDirectory()) {
         scanDirectory(fullPath);
       } else if (stat.isFile()) {
         // Filter by file extension if specified
-        if (fileExtensions.length === 0 || fileExtensions.includes(path.extname(fullPath))) {
+        if (fileExtensions.length === 0 || fileExtensions.includes(pathDep.extname(fullPath))) {
           files.push(fullPath);
         }
       }
@@ -51,24 +62,27 @@ export function getAllFiles(dirPath, fileExtensions = []) {
  * Get all HTML files from a folder recursively
  * @param {string} folderPath - The absolute path to the folder to scan
  * @param {Array<string>} excludePatterns - Array of patterns to exclude (e.g., ['node_modules', '.git'])
+ * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Array<string>} Array of absolute file paths to HTML files
  */
-export function getHTMLFiles(folderPath, excludePatterns = []) {
+export function getHTMLFiles(folderPath, excludePatterns = [], dependencies = defaultDependencies) {
+  const { fs: fsDep, chalk: chalkDep } = dependencies;
+  
   try {
     // Validate folder exists
-    if (!fs.existsSync(folderPath)) {
+    if (!fsDep.existsSync(folderPath)) {
       throw new Error(`Folder not found: ${folderPath}`);
     }
 
-    const stat = fs.statSync(folderPath);
+    const stat = fsDep.statSync(folderPath);
     if (!stat.isDirectory()) {
       throw new Error(`Path is not a directory: ${folderPath}`);
     }
 
-    console.log(chalk.blue(`Scanning for HTML files in: ${folderPath}`));
+    console.log(chalkDep.blue(`Scanning for HTML files in: ${folderPath}`));
     
     // Get all HTML files recursively
-    let htmlFiles = getAllFiles(folderPath, ['.html', '.htm']);
+    let htmlFiles = getAllFiles(folderPath, ['.html', '.htm'], dependencies);
     
     // Apply exclude patterns
     if (excludePatterns.length > 0) {
@@ -79,18 +93,18 @@ export function getHTMLFiles(folderPath, excludePatterns = []) {
       });
     }
 
-    console.log(chalk.blue(`Found ${htmlFiles.length} HTML files`));
+    console.log(chalkDep.blue(`Found ${htmlFiles.length} HTML files`));
     
     if (htmlFiles.length > 0) {
       htmlFiles.forEach(file => {
-        console.log(chalk.gray(`  - ${file}`));
+        console.log(chalkDep.gray(`  - ${file}`));
       });
     }
 
     return htmlFiles;
 
   } catch (error) {
-    console.error(chalk.red(`Error scanning HTML files: ${error.message}`));
+    console.error(chalkDep.red(`Error scanning HTML files: ${error.message}`));
     throw error;
   }
 }
@@ -98,10 +112,12 @@ export function getHTMLFiles(folderPath, excludePatterns = []) {
 /**
  * Extract all href attributes from anchor tags and src attributes from img tags in an HTML string
  * @param {string} htmlContent - The HTML content to parse
+ * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Array<string>} Array of href and src values found in the HTML
  */
-function extractHrefsFromHTML(htmlContent) {
-  const dom = new JSDOM(htmlContent);
+function extractHrefsFromHTML(htmlContent, dependencies = defaultDependencies) {
+  const { JSDOM: JSDOMDep } = dependencies;
+  const dom = new JSDOMDep(htmlContent);
   const document = dom.window.document;
   
   // Get all href attributes from anchor tags
@@ -128,17 +144,20 @@ function isAssetUrl(href, assetUrls) {
 
 /**
  * Update href attributes in anchor tags and src attributes in img tags in HTML to point to DA environment
+ * @param {string} pagePath - The path to the HTML page to create shadow folder structure
  * @param {string} htmlContent - The HTML content to update
  * @param {Array<string>} assetUrls - List of asset URLs that should be updated
  * @param {string} daLocation - The DA location URL to replace the hostname with
+ * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {string} Updated HTML content with modified hrefs and srcs
  */
-function updateHrefsInHTML(pagePath, htmlContent, assetUrls, daLocation) {
-  const dom = new JSDOM(htmlContent);
+function updateHrefsInHTML(pagePath, htmlContent, assetUrls, daLocation, dependencies = defaultDependencies) {
+  const { JSDOM: JSDOMDep, path: pathDep } = dependencies;
+  const dom = new JSDOMDep(htmlContent);
   const document = dom.window.document;
   
   // Extract page name from pagePath to create shadow folder
-  const pageName = path.basename(pagePath, path.extname(pagePath));
+  const pageName = pathDep.basename(pagePath, pathDep.extname(pagePath));
   const shadowFolder = `.${pageName}`;
   
   // Update href attributes in anchor tags
@@ -190,13 +209,15 @@ function updateHrefsInHTML(pagePath, htmlContent, assetUrls, daLocation) {
  * Convert a list of asset URLs to an asset mapping where the key is the URL and value is the relative path
  * @param {Array<string>} assetUrls - Array of asset URLs
  * @param {string} pagePath - The path to the HTML page to create shadow folder structure
+ * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Map<string, string>} Map where key is the asset URL and value is the relative path
  */
-export function convertAssetUrlsToMapping(assetUrls, pagePath = '') {
+export function convertAssetUrlsToMapping(assetUrls, pagePath = '', dependencies = defaultDependencies) {
+  const { path: pathDep } = dependencies;
   const assetMapping = new Map();
   
   // Extract page name from pagePath to create shadow folder
-  const pageName = pagePath ? path.basename(pagePath, path.extname(pagePath)) : '';
+  const pageName = pagePath ? pathDep.basename(pagePath, pathDep.extname(pagePath)) : '';
   const shadowFolder = pageName ? `.${pageName}` : '';
   
   assetUrls.forEach(url => {
@@ -219,51 +240,54 @@ export function convertAssetUrlsToMapping(assetUrls, pagePath = '') {
 
 /**
  * Process HTML pages and download matching assets
+ * @param {string} daLocation - The DA location URL
  * @param {Array<string>} htmlPages - Array of file paths to HTML pages
  * @param {Array<string>} assetUrls - Array of asset URLs to match and download
  * @param {string} downloadFolder - Folder to download assets to
  * @param {number} maxRetries - Maximum number of retries for downloading an asset
  * @param {number} retryDelay - The delay between retries in milliseconds
+ * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Promise<Array<{filePath: string, updatedContent: string, downloadedAssets: Array<string>}>>} 
  *         Promise that resolves with array of processed page results
  */
-export async function processHTMLPages(daLocation, htmlPages, assetUrls, downloadFolder, maxRetries = 3, retryDelay = 5000) {
+export async function processHTMLPages(daLocation, htmlPages, assetUrls, downloadFolder, maxRetries = 3, retryDelay = 5000, dependencies = defaultDependencies) {
+  const { fs: fsDep, chalk: chalkDep } = dependencies;
   const results = [];
   
   for (const pagePath of htmlPages) {
     try {
-      console.log(chalk.blue(`Processing page: ${pagePath}`));
+      console.log(chalkDep.blue(`Processing page: ${pagePath}`));
       
       // Read the HTML file
-      const htmlContent = fs.readFileSync(pagePath, 'utf-8');
+      const htmlContent = fsDep.readFileSync(pagePath, 'utf-8');
       
       // Extract hrefs from the HTML
-      const hrefs = extractHrefsFromHTML(htmlContent);
-      console.log(chalk.gray(`Found ${hrefs.length} hrefs in ${pagePath}`));
+      const hrefs = extractHrefsFromHTML(htmlContent, dependencies);
+      console.log(chalkDep.gray(`Found ${hrefs.length} hrefs in ${pagePath}`));
       
       // Find hrefs that match asset URLs
       const matchingHrefs = hrefs.filter(href => isAssetUrl(href, assetUrls));
-      console.log(chalk.yellow(`Found ${matchingHrefs.length} matching asset URLs`));
+      console.log(chalkDep.yellow(`Found ${matchingHrefs.length} matching asset URLs`));
       
       if (matchingHrefs.length > 0) {
         // Convert asset URLs to mapping with relative paths
-        const assetMapping = convertAssetUrlsToMapping(matchingHrefs, pagePath);
+        const assetMapping = convertAssetUrlsToMapping(matchingHrefs, pagePath, dependencies);
         
         // Download the assets
-        console.log(chalk.blue(`Downloading ${matchingHrefs.length} assets...`));
-        const downloadResults = await downloadAssets(assetMapping, downloadFolder, maxRetries, retryDelay);
+        console.log(chalkDep.blue(`Downloading ${matchingHrefs.length} assets...`));
+        const downloadResults = await dependencies.downloadAssets(assetMapping, downloadFolder, maxRetries, retryDelay);
         
         // Count successful downloads
         const successfulDownloads = downloadResults.filter(result => result.status === 'fulfilled').length;
         const failedDownloads = downloadResults.filter(result => result.status === 'rejected').length;
         
-        console.log(chalk.green(`Successfully downloaded ${successfulDownloads} assets`));
+        console.log(chalkDep.green(`Successfully downloaded ${successfulDownloads} assets`));
         if (failedDownloads > 0) {
-          console.log(chalk.red(`Failed to download ${failedDownloads} assets`));
+          console.log(chalkDep.red(`Failed to download ${failedDownloads} assets`));
         }
         
         // Update the HTML content
-        const updatedContent = updateHrefsInHTML(pagePath, htmlContent, matchingHrefs, daLocation);
+        const updatedContent = updateHrefsInHTML(pagePath, htmlContent, matchingHrefs, daLocation, dependencies);
         
         results.push({
           filePath: pagePath,
@@ -282,7 +306,7 @@ export async function processHTMLPages(daLocation, htmlPages, assetUrls, downloa
       }
       
     } catch (error) {
-      console.error(chalk.red(`Error processing page ${pagePath}:`, error.message));
+      console.error(chalkDep.red(`Error processing page ${pagePath}:`, error.message));
       results.push({
         filePath: pagePath,
         error: error.message,
@@ -298,54 +322,60 @@ export async function processHTMLPages(daLocation, htmlPages, assetUrls, downloa
 /**
  * Save updated HTML content back to files
  * @param {Array<{filePath: string, updatedContent: string}>} processedPages - Array of processed page results
+ * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Promise<void>} Promise that resolves when all files are saved
  */
-export async function saveUpdatedPages(processedPages) {
+export async function saveUpdatedPages(processedPages, dependencies = defaultDependencies) {
+  const { fs: fsDep, chalk: chalkDep } = dependencies;
+  
   for (const page of processedPages) {
     if (page.error) {
-      console.log(chalk.red(`Skipping ${page.filePath} due to error: ${page.error}`));
+      console.log(chalkDep.red(`Skipping ${page.filePath} due to error: ${page.error}`));
       continue;
     }
     
     try {
       // Save the updated content back to the original file
-      fs.writeFileSync(page.filePath, page.updatedContent, 'utf-8');
-      console.log(chalk.green(`Updated page: ${page.filePath}`));
+      fsDep.writeFileSync(page.filePath, page.updatedContent, 'utf-8');
+      console.log(chalkDep.green(`Updated page: ${page.filePath}`));
       
     } catch (error) {
-      console.error(chalk.red(`Error saving updated page ${page.filePath}:`, error.message));
+      console.error(chalkDep.red(`Error saving updated page ${page.filePath}:`, error.message));
     }
   }
 }
 
 /**
  * Main function to process HTML pages and download assets
- * @param {Array<string>} htmlPages - Array of file paths to HTML pages
+ * @param {string} daLocation - The DA location URL
  * @param {Array<string>} assetUrls - Array of asset URLs to match and download
+ * @param {string} htmlFolder - Folder containing HTML files
  * @param {string} downloadFolder - Folder to download assets to
  * @param {number} maxRetries - Maximum number of retries for downloading
  * @param {number} retryDelay - Delay between retries in milliseconds
+ * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Promise<Array<{filePath: string, updatedContent: string, downloadedAssets: Array<string>}>>} 
  *         Promise that resolves with array of processed page results
  */
-export async function processAndUpdateHTMLPages(daLocation, assetUrls, htmlFolder, downloadFolder, maxRetries = 3, retryDelay = 5000) {
-  const htmlPages = getHTMLFiles(htmlFolder);
-  console.log(chalk.blue(`Starting to process ${htmlPages.length} HTML pages...`));
-  console.log(chalk.blue(`Looking for ${assetUrls.length} asset URLs`));
+export async function processAndUpdateHTMLPages(daLocation, assetUrls, htmlFolder, downloadFolder, maxRetries = 3, retryDelay = 5000, dependencies = defaultDependencies) {
+  const { chalk: chalkDep } = dependencies;
+  const htmlPages = getHTMLFiles(htmlFolder, [], dependencies);
+  console.log(chalkDep.blue(`Starting to process ${htmlPages.length} HTML pages...`));
+  console.log(chalkDep.blue(`Looking for ${assetUrls.length} asset URLs`));
   
   // Process the pages
-  const processedPages = await processHTMLPages(daLocation, htmlPages, assetUrls, downloadFolder, maxRetries, retryDelay);
+  const processedPages = await processHTMLPages(daLocation, htmlPages, assetUrls, downloadFolder, maxRetries, retryDelay, dependencies);
   
   // Save updated pages back to original files
-  await saveUpdatedPages(processedPages);
+  await saveUpdatedPages(processedPages, dependencies);
   
   // Summary
   const totalAssets = processedPages.reduce((sum, page) => sum + page.downloadedAssets.length, 0);
   const successfulPages = processedPages.filter(page => !page.error).length;
   
-  console.log(chalk.green('\nProcessing complete!'));
-  console.log(chalk.green(`- Processed ${successfulPages}/${htmlPages.length} pages successfully`));
-  console.log(chalk.green(`- Downloaded ${totalAssets} assets`));
+  console.log(chalkDep.green('\nProcessing complete!'));
+  console.log(chalkDep.green(`- Processed ${successfulPages}/${htmlPages.length} pages successfully`));
+  console.log(chalkDep.green(`- Downloaded ${totalAssets} assets`));
   
   return processedPages;
 }
@@ -359,26 +389,31 @@ export async function processAndUpdateHTMLPages(daLocation, assetUrls, htmlFolde
  * @param {Array<string>} options.excludePatterns - Array of patterns to exclude from HTML file scanning
  * @param {number} options.maxRetries - Maximum number of retries for downloading an asset
  * @param {number} options.retryDelay - The delay between retries in milliseconds
+ * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Promise<Array<{filePath: string, updatedContent: string, downloadedAssets: Array<string>}>>} 
  *         Promise that resolves with array of processed page results
  */
-export async function processHTMLFolder(folderPath, assetUrls, downloadFolder, options = {}) {
+export async function processHTMLFolder(folderPath, assetUrls, downloadFolder, options = {}, dependencies = defaultDependencies) {
   const {
     excludePatterns = [],
     maxRetries = 3,
     retryDelay = 5000,
   } = options;
 
-  console.log(chalk.blue(`\nProcessing HTML folder: ${folderPath}`));
+  const { chalk: chalkDep } = dependencies;
+
+  console.log(chalkDep.blue(`\nProcessing HTML folder: ${folderPath}`));
   
   // Get all HTML files from the folder
-  const htmlFiles = getHTMLFiles(folderPath, excludePatterns);
+  const htmlFiles = getHTMLFiles(folderPath, excludePatterns, dependencies);
   
   if (htmlFiles.length === 0) {
-    console.log(chalk.yellow('No HTML files found to process'));
+    console.log(chalkDep.yellow('No HTML files found to process'));
     return [];
   }
   
   // Process the HTML files
-  return await processAndUpdateHTMLPages(htmlFiles, assetUrls, downloadFolder, maxRetries, retryDelay);
+  return await processAndUpdateHTMLPages(htmlFiles, assetUrls, downloadFolder, maxRetries, retryDelay, dependencies);
 }
+
+export { updateHrefsInHTML };

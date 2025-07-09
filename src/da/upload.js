@@ -16,6 +16,16 @@ import fetch from 'node-fetch';
 import chalk from 'chalk';
 import { getAllFiles } from './da-helper.js';
 
+// Default dependencies for production use
+const defaultDependencies = {
+  fs,
+  path,
+  FormData,
+  fetch,
+  chalk,
+  getAllFiles,
+};
+
 /**
  * Upload a file to the DA system
  * @param {string} filePath - The absolute path to the file to upload
@@ -25,32 +35,35 @@ import { getAllFiles } from './da-helper.js';
  * @param {string} options.userAgent - Custom User-Agent header (default: 'aem-import-helper/1.0')
  * @param {boolean} options.withCredentials - Whether to include credentials (default: true)
  * @param {string} options.baseFolder - The base folder path to calculate relative path from
+ * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Promise<Object>} The upload response
  */
-export async function uploadFile(filePath, uploadUrl, authToken, options = {}) {
+export async function uploadFile(filePath, uploadUrl, authToken, options = {}, dependencies = defaultDependencies) {
   const {
     userAgent = 'aem-import-helper/1.0',
     baseFolder = '',
   } = options;
 
+  const { fs: fsDep, path: pathDep, FormData: FormDataDep, fetch: fetchDep, chalk: chalkDep } = dependencies;
+
   try {
     // Validate file exists
-    if (!fs.existsSync(filePath)) {
+    if (!fsDep.existsSync(filePath)) {
       throw new Error(`File not found: ${filePath}`);
     }
 
     // Calculate relative path from base folder
     let relativePath = filePath;
     if (baseFolder && filePath.startsWith(baseFolder)) {
-      relativePath = path.relative(baseFolder, filePath);
+      relativePath = pathDep.relative(baseFolder, filePath);
     }
 
     // Construct the full upload URL with the file path
     const fullUploadUrl = `${uploadUrl}/${relativePath}`;
 
     // Create FormData
-    const formData = new FormData();
-    formData.append('data', fs.createReadStream(filePath));
+    const formData = new FormDataDep();
+    formData.append('data', fsDep.createReadStream(filePath));
 
     // Prepare headers
     const headers = {
@@ -70,12 +83,12 @@ export async function uploadFile(filePath, uploadUrl, authToken, options = {}) {
       body: formData,
     };
 
-    console.log(chalk.yellow(`Uploading file: ${filePath}`));
-    console.log(chalk.yellow(`Relative path: ${relativePath}`));
-    console.log(chalk.yellow(`Upload URL: ${fullUploadUrl}`));
+    console.log(chalkDep.yellow(`Uploading file: ${filePath}`));
+    console.log(chalkDep.yellow(`Relative path: ${relativePath}`));
+    console.log(chalkDep.yellow(`Upload URL: ${fullUploadUrl}`));
 
     // Make the upload request
-    const response = await fetch(fullUploadUrl, fetchOptions);
+    const response = await fetchDep(fullUploadUrl, fetchOptions);
 
     if (!response.ok) {
       throw new Error(`Upload failed with status: ${response.status} - ${response.statusText}`);
@@ -83,8 +96,8 @@ export async function uploadFile(filePath, uploadUrl, authToken, options = {}) {
 
     const responseText = await response.text();
     
-    console.debug(chalk.green(`File uploaded successfully: ${filePath}`));
-    console.debug(chalk.blue(`Response: ${responseText}`));
+    console.debug(chalkDep.green(`File uploaded successfully: ${filePath}`));
+    console.debug(chalkDep.blue(`Response: ${responseText}`));
 
     return {
       success: true,
@@ -97,7 +110,7 @@ export async function uploadFile(filePath, uploadUrl, authToken, options = {}) {
     };
 
   } catch (error) {
-    console.error(chalk.red(`Upload failed for ${filePath}: ${error.message}`));
+    console.error(chalkDep.red(`Upload failed for ${filePath}: ${error.message}`));
     throw error;
   }
 }
@@ -108,14 +121,15 @@ export async function uploadFile(filePath, uploadUrl, authToken, options = {}) {
  * @param {string} uploadUrl - The DA upload URL base
  * @param {string} authToken - The authentication token
  * @param {Object} options - Additional options for the upload
+ * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Promise<Array<Object>>} Array of upload results
  */
-export async function uploadFiles(filePaths, uploadUrl, authToken, options = {}) {
+export async function uploadFiles(filePaths, uploadUrl, authToken, options = {}, dependencies = defaultDependencies) {
   const results = [];
   
   for (const filePath of filePaths) {
     try {
-      const result = await uploadFile(filePath, uploadUrl, authToken, options);
+      const result = await uploadFile(filePath, uploadUrl, authToken, options, dependencies);
       results.push(result);
     } catch (error) {
       results.push({
@@ -138,30 +152,33 @@ export async function uploadFiles(filePaths, uploadUrl, authToken, options = {})
  * @param {Array<string>} options.fileExtensions - Array of file extensions to include (e.g., ['.html', '.css', '.js'])
  * @param {Array<string>} options.excludePatterns - Array of patterns to exclude (e.g., ['node_modules', '.git'])
  * @param {boolean} options.verbose - Whether to show detailed progress (default: false)
+ * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Promise<Object>} Upload results with summary
  */
-export async function uploadFolder(folderPath, uploadUrl, authToken, options = {}) {
+export async function uploadFolder(folderPath, uploadUrl, authToken, options = {}, dependencies = defaultDependencies) {
   const {
     fileExtensions = ['.html', '.htm'],
     excludePatterns = [],
     verbose = false,
   } = options;
 
+  const { fs: fsDep, chalk: chalkDep, getAllFiles: getAllFilesDep } = dependencies;
+
   try {
     // Validate folder exists
-    if (!fs.existsSync(folderPath)) {
+    if (!fsDep.existsSync(folderPath)) {
       throw new Error(`Folder not found: ${folderPath}`);
     }
 
-    const stat = fs.statSync(folderPath);
+    const stat = fsDep.statSync(folderPath);
     if (!stat.isDirectory()) {
       throw new Error(`Path is not a directory: ${folderPath}`);
     }
 
-    console.log(chalk.yellow(`Scanning folder: ${folderPath}`));
+    console.log(chalkDep.yellow(`Scanning folder: ${folderPath}`));
     
     // Get all files recursively
-    let allFiles = getAllFiles(folderPath, fileExtensions);
+    let allFiles = getAllFilesDep(folderPath, fileExtensions);
     
     // Apply exclude patterns
     if (excludePatterns.length > 0) {
@@ -173,7 +190,7 @@ export async function uploadFolder(folderPath, uploadUrl, authToken, options = {
     }
 
     if (allFiles.length === 0) {
-      console.log(chalk.yellow('No files found to upload'));
+      console.log(chalkDep.yellow('No files found to upload'));
       return {
         success: true,
         totalFiles: 0,
@@ -183,11 +200,11 @@ export async function uploadFolder(folderPath, uploadUrl, authToken, options = {
       };
     }
 
-    console.log(chalk.yellow(`Found ${allFiles.length} files to upload`));
+    console.log(chalkDep.yellow(`Found ${allFiles.length} files to upload`));
     
     if (verbose) {
       allFiles.forEach(file => {
-        console.log(chalk.blue(`  - ${file}`));
+        console.log(chalkDep.blue(`  - ${file}`));
       });
     }
 
@@ -198,7 +215,7 @@ export async function uploadFolder(folderPath, uploadUrl, authToken, options = {
         const result = await uploadFile(filePath, uploadUrl, authToken, {
           ...options,
           baseFolder: folderPath,
-        });
+        }, dependencies);
         results.push(result);
       } catch (error) {
         results.push({
@@ -222,21 +239,21 @@ export async function uploadFolder(folderPath, uploadUrl, authToken, options = {
     };
 
     // Log summary
-    console.log(chalk.green('\nUpload Summary:'));
-    console.log(chalk.green(`  Total files: ${summary.totalFiles}`));
-    console.log(chalk.green(`  Successfully uploaded: ${summary.uploadedFiles}`));
+    console.log(chalkDep.green('\nUpload Summary:'));
+    console.log(chalkDep.green(`  Total files: ${summary.totalFiles}`));
+    console.log(chalkDep.green(`  Successfully uploaded: ${summary.uploadedFiles}`));
     
     if (summary.failedFiles > 0) {
-      console.log(chalk.red(`  Failed uploads: ${summary.failedFiles}`));
+      console.log(chalkDep.red(`  Failed uploads: ${summary.failedFiles}`));
       failedUploads.forEach(failed => {
-        console.log(chalk.red(`    - ${failed.filePath}: ${failed.error}`));
+        console.log(chalkDep.red(`    - ${failed.filePath}: ${failed.error}`));
       });
     }
 
     return summary;
 
   } catch (error) {
-    console.error(chalk.red(`Folder upload failed: ${error.message}`));
+    console.error(chalkDep.red(`Folder upload failed: ${error.message}`));
     throw error;
   }
 }
