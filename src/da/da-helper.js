@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Adobe. All rights reserved.
+ * Copyright 2025 Adobe. All rights reserved.
  * This file is licensed to you under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License. You may obtain a copy
  * of the License at http://www.apache.org/licenses/LICENSE-2.0
@@ -135,18 +135,18 @@ function extractHrefsFromHTML(htmlContent, dependencies = defaultDependencies) {
 /**
  * Check if a URL is present in the asset URLs list
  * @param {string} href - The href to check
- * @param {Array<string>} assetUrls - List of asset URLs to match against
+ * @param {Set<string>} assetUrls - Set of asset URLs to match against
  * @return {boolean} True if the href is found in assetUrls
  */
 function isAssetUrl(href, assetUrls) {
-  return assetUrls.includes(href);
+  return assetUrls.has(href);
 }
 
 /**
  * Update href attributes in anchor tags and src attributes in img tags in HTML to point to DA environment
  * @param {string} pagePath - The path to the HTML page to create shadow folder structure
  * @param {string} htmlContent - The HTML content to update
- * @param {Array<string>} assetUrls - List of asset URLs that should be updated
+ * @param {Set<string>} assetUrls - Set of asset URLs that should be updated
  * @param {string} daLocation - The DA location URL to replace the hostname with
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {string} Updated HTML content with modified hrefs and srcs
@@ -207,7 +207,7 @@ function updateHrefsInHTML(pagePath, htmlContent, assetUrls, daLocation, depende
 
 /**
  * Convert a list of asset URLs to an asset mapping where the key is the URL and value is the relative path
- * @param {Array<string>} assetUrls - Array of asset URLs
+ * @param {Set<string>} assetUrls - Set of asset URLs
  * @param {string} pagePath - The path to the HTML page to create shadow folder structure
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Map<string, string>} Map where key is the asset URL and value is the relative path
@@ -242,7 +242,7 @@ export function convertAssetUrlsToMapping(assetUrls, pagePath = '', dependencies
  * Process HTML pages and download matching assets
  * @param {string} daLocation - The DA location URL
  * @param {Array<string>} htmlPages - Array of file paths to HTML pages
- * @param {Array<string>} assetUrls - Array of asset URLs to match and download
+ * @param {Set<string>} assetUrls - Set of asset URLs to match and download
  * @param {string} downloadFolder - Folder to download assets to
  * @param {number} maxRetries - Maximum number of retries for downloading an asset
  * @param {number} retryDelay - The delay between retries in milliseconds
@@ -271,7 +271,7 @@ export async function processHTMLPages(daLocation, htmlPages, assetUrls, downloa
       
       if (matchingHrefs.length > 0) {
         // Convert asset URLs to mapping with relative paths
-        const assetMapping = convertAssetUrlsToMapping(matchingHrefs, pagePath, dependencies);
+        const assetMapping = convertAssetUrlsToMapping(new Set(matchingHrefs), pagePath, dependencies);
         
         // Download the assets
         console.log(chalkDep.blue(`Downloading ${matchingHrefs.length} assets...`));
@@ -287,7 +287,7 @@ export async function processHTMLPages(daLocation, htmlPages, assetUrls, downloa
         }
         
         // Update the HTML content
-        const updatedContent = updateHrefsInHTML(pagePath, htmlContent, matchingHrefs, daLocation, dependencies);
+        const updatedContent = updateHrefsInHTML(pagePath, htmlContent, new Set(matchingHrefs), daLocation, dependencies);
         
         results.push({
           filePath: pagePath,
@@ -348,7 +348,7 @@ export async function saveUpdatedPages(processedPages, dependencies = defaultDep
 /**
  * Main function to process HTML pages and download assets
  * @param {string} daLocation - The DA location URL
- * @param {Array<string>} assetUrls - Array of asset URLs to match and download
+ * @param {Set<string>} assetUrls - Set of asset URLs to match and download
  * @param {string} htmlFolder - Folder containing HTML files
  * @param {string} downloadFolder - Folder to download assets to
  * @param {number} maxRetries - Maximum number of retries for downloading
@@ -361,7 +361,7 @@ export async function processAndUpdateHTMLPages(daLocation, assetUrls, htmlFolde
   const { chalk: chalkDep } = dependencies;
   const htmlPages = getHTMLFiles(htmlFolder, [], dependencies);
   console.log(chalkDep.blue(`Starting to process ${htmlPages.length} HTML pages...`));
-  console.log(chalkDep.blue(`Looking for ${assetUrls.length} asset URLs`));
+  console.log(chalkDep.blue(`Looking for ${assetUrls.size} asset URLs`));
   
   // Process the pages
   const processedPages = await processHTMLPages(daLocation, htmlPages, assetUrls, downloadFolder, maxRetries, retryDelay, dependencies);
@@ -383,7 +383,7 @@ export async function processAndUpdateHTMLPages(daLocation, assetUrls, htmlFolde
 /**
  * Process all HTML files in a folder and download matching assets
  * @param {string} folderPath - The absolute path to the folder containing HTML files
- * @param {Array<string>} assetUrls - Array of asset URLs to match and download
+ * @param {Set<string>} assetUrls - Set of asset URLs to match and download
  * @param {string} downloadFolder - Folder to download assets to
  * @param {Object} options - Additional options
  * @param {Array<string>} options.excludePatterns - Array of patterns to exclude from HTML file scanning

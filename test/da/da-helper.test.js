@@ -108,7 +108,7 @@ describe('da-helper.js', () => {
         </html>
       `;
       const pagePath = '/content/dam/test/mypage.html';
-      const assetUrls = ['image.jpg', 'subfolder/icon.png', 'document.pdf'];
+      const assetUrls = new Set(['image.jpg', 'subfolder/icon.png', 'document.pdf']);
       const result = updateHrefsInHTML(pagePath, html, assetUrls, daLocation, dependencies);
       // Parse the result and check the actual attribute values
       const dom = new JSDOM(result);
@@ -125,7 +125,7 @@ describe('da-helper.js', () => {
     it('should not update non-matching asset URLs', () => {
       const html = '<html><body><img src="external.jpg"></body></html>';
       const pagePath = '/content/dam/test/page.html';
-      const assetUrls = ['foo.jpg'];
+      const assetUrls = new Set(['foo.jpg']);
       const result = updateHrefsInHTML(pagePath, html, assetUrls, daLocation, dependencies);
       expect(result).to.include('src="external.jpg"');
     });
@@ -133,7 +133,7 @@ describe('da-helper.js', () => {
     it('should handle empty assetUrls', () => {
       const html = '<html><body><img src="image.jpg"></body></html>';
       const pagePath = '/content/dam/test/page.html';
-      const assetUrls = [];
+      const assetUrls = new Set();
       const result = updateHrefsInHTML(pagePath, html, assetUrls, daLocation, dependencies);
       expect(result).to.include('src="image.jpg"');
     });
@@ -141,7 +141,7 @@ describe('da-helper.js', () => {
     it('should handle empty HTML', () => {
       const html = '';
       const pagePath = '/content/dam/test/page.html';
-      const assetUrls = ['image.jpg'];
+      const assetUrls = new Set(['image.jpg']);
       const result = updateHrefsInHTML(pagePath, html, assetUrls, daLocation, dependencies);
       expect(result).to.be.a('string');
     });
@@ -259,7 +259,7 @@ describe('da-helper.js', () => {
       };
       const daLocation = 'https://da.example.com';
       const htmlPages = ['/root/page1.html'];
-      const assetUrls = ['asset1.jpg', 'asset2.pdf'];
+      const assetUrls = new Set(['asset1.jpg', 'asset2.pdf']);
       const downloadFolder = '/downloads';
       const result = await (await import('../../src/da/da-helper.js')).processHTMLPages(
         daLocation,
@@ -271,7 +271,8 @@ describe('da-helper.js', () => {
         mockDeps,
       );
       expect(result[0].filePath).to.equal('/root/page1.html');
-      expect(result[0].downloadedAssets).to.have.members(['asset1.jpg', 'asset2.pdf']);
+      const expectedAssets = new Set(['asset1.jpg', 'asset2.pdf']);
+      expect(new Set(result[0].downloadedAssets)).to.deep.equal(expectedAssets);
       expect(result[0].downloadResults[0].status).to.equal('fulfilled');
       expect(result[0].updatedContent).to.be.a('string');
     });
@@ -280,7 +281,7 @@ describe('da-helper.js', () => {
       const mockDeps = { fs: mockFs, chalk: mockChalk, JSDOM, path, downloadAssets: sinon.stub() };
       const daLocation = 'https://da.example.com';
       const htmlPages = ['/root/page1.html'];
-      const assetUrls = ['asset1.jpg'];
+      const assetUrls = new Set(['asset1.jpg']);
       const downloadFolder = '/downloads';
       const result = await (await import('../../src/da/da-helper.js')).processHTMLPages(
         daLocation,

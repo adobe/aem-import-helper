@@ -19,15 +19,15 @@ import { processAndUpdateHTMLPages } from './da-helper.js';
 const DA_BASE_URL = 'https://admin.da.live';
 
 /**
- * Validate the existence of the asset-mapping.json and HTML folder.
- * @param {string} assetMappingFile - The path to the asset-mapping.json file
+ * Validate the existence of the asset-list.json and HTML folder.
+ * @param {string} assetListFile - The path to the asset-list.json file
  * @param {string} htmlFolder - The path to the HTML folder
  * @return {boolean} True if the files exist, false otherwise
  */
-function validateFiles(assetMappingFile, htmlFolder) {
+function validateFiles(assetListFile, htmlFolder) {
   const files = [
-    { path: assetMappingFile, message: `asset-mapping.json file not found: ${assetMappingFile}`, mandatory: true },
-    { path: htmlFolder, message: `HTML folder not found: ${htmlFolder}`, mandatory: true },
+    { path: assetListFile, message: `asset-list.json file not found: ${assetListFile}`, mandatory: true },
+    { path: htmlFolder, message: `DA folder not found: ${htmlFolder}`, mandatory: true },
   ];
 
   for (const file of files) {
@@ -90,9 +90,9 @@ export const daBuilder = (yargs) => {
       describe: 'Name of the repository',
       demandOption: true,
     })
-    .option('asset-url-list', {
+    .option('asset-list', {
       type: 'string',
-      describe: 'Absolute path to the asset-url.json file',
+      describe: 'Absolute path to the asset-list.json file',
       demandOption: true,
     })
     .option('da-folder', {
@@ -108,12 +108,13 @@ export const daBuilder = (yargs) => {
     .option('auth-token', {
       describe: 'DA authentication token or path to a file containing the token',
       type: 'string',
-      demandOption: true,
+      demandOption: false,
+      default: 'da-assets',
     });
 }
 
 export const daHandler = async (args) => {
-  if (!validateFiles(args['asset-url-list'], args['da-folder'])) {
+  if (!validateFiles(args['asset-list'], args['da-folder'])) {
     process.exit(1);
   }
 
@@ -134,20 +135,17 @@ export const daHandler = async (args) => {
 
   try {
     // Read and parse the asset list JSON file
-    const assetListJson = JSON.parse(fs.readFileSync(args['asset-url-list'], 'utf-8'));
+    const assetListJson = JSON.parse(fs.readFileSync(args['asset-list'], 'utf-8'));
     
     // Extract the assets array from the JSON structure
-    const assetUrls = assetListJson.assets || [];
+    const assetUrls = new Set(assetListJson.assets || []);
     
-    if (!Array.isArray(assetUrls) || assetUrls.length === 0) {
-      console.error(chalk.red('No assets found in the asset-url-list file. Expected format: {"assets": ["url1", "url2", ...]}'));
-      process.exit(1);
+    if (!Array.isArray(assetListJson.assets) || assetListJson.assets.length === 0) {
+      console.warn(chalk.red('No assets found in the asset-list file. Expected format: {"assets": ["url1", "url2", ...]}'));
     }
     
-    console.log(chalk.blue(`Found ${assetUrls.length} assets in the asset list`));
+    console.log(chalk.blue(`Found ${assetUrls.size} assets in the asset list`));
     
-    // TODO: Parse and use asset mapping for asset upload logic
-    // const assetMappingJson = JSON.parse(fs.readFileSync(args['asset-mapping'], 'utf-8'));
     await processAndUpdateHTMLPages(daLocation, assetUrls, args['da-folder'], args['download-folder']);
 
     console.log(chalk.yellow(`Uploading assets to ${daLocation}...`));
@@ -156,14 +154,10 @@ export const daHandler = async (args) => {
       excludePatterns: ['node_modules', '.git'],
       verbose: true,
     });
-    // TODO: Implement asset upload logic 
-    // each page -> parse -> find href in list -> download -> upload -> reference asset update
-    //not found in list -> page ref -> update ref
 
     console.log(chalk.yellow('Processing HTML folder...'));
     await uploadFolder(args['da-folder'], daLocation, token, {
-      fileExtensions: ['.html', '.css', '.js'],
-      excludePatterns: ['node_modules', '.git'],
+      fileExtensions: ['.html'],
       verbose: true,
     });
 
