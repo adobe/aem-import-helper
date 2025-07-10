@@ -301,9 +301,6 @@ async function uploadPageAssets(shadowFolderPath, daLocation, token, uploadOptio
   try {
     await uploadFolderDep(shadowFolderPath, daLocation, token, {
       ...uploadOptions,
-      fileExtensions: ['.jpg', '.jpeg', '.png', '.gif', '.svg', '.webp', '.pdf'],
-      excludePatterns: ['node_modules', '.git'],
-      verbose: false, // Less verbose for individual page uploads
       baseFolder: downloadFolder, // preserve shadow folder structure
     });
     console.log(chalkDep.green(`Successfully uploaded assets for page ${pageIndex} to ${shadowFolderPath}`));
