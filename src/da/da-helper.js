@@ -462,7 +462,7 @@ async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls
       
     } else {
       // No matching assets found, just upload the HTML page as-is
-      console.log(chalkDep.gray(`No matching assets found for page ${pageIndex}, uploading HTML as-is...`));
+      console.log(chalkDep.gray(`No asset references found for page ${pageIndex}, uploading HTML as-is...`));
       try {
         const { uploadFolder: uploadFolderDep } = dependencies;
         await uploadFolderDep(pathDep.dirname(pagePath), daLocation, token, {
