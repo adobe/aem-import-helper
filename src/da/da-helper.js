@@ -43,15 +43,6 @@ export function getHTMLFiles(folderPath, excludePatterns = [], dependencies = de
   const { fs: fsDep, chalk: chalkDep } = dependencies;
   const getAllFilesFn = dependencies.getAllFiles || getAllFiles;
   try {
-    // Validate folder exists
-    if (!fsDep.existsSync(folderPath)) {
-      throw new Error(`Folder not found: ${folderPath}`);
-    }
-
-    const stat = fsDep.statSync(folderPath);
-    if (!stat.isDirectory()) {
-      throw new Error(`Path is not a directory: ${folderPath}`);
-    }
 
     console.log(chalkDep.blue(`Scanning for HTML files in: ${folderPath}`));
     
