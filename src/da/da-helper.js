@@ -352,7 +352,6 @@ async function uploadHTMLPage(pageDir, daLocation, token, uploadOptions, htmlFol
 async function cleanupPageAssets(shadowFolderPath, pageIndex, dependencies = defaultDependencies) {
   const { fs: fsDep, path: pathDep, chalk: chalkDep } = dependencies;
   
-  console.log(chalkDep.gray(`Cleaning up downloaded assets for page ${pageIndex}...`));
   try {
     if (fsDep.existsSync(shadowFolderPath)) {
       fsDep.rmdir(shadowFolderPath, { recursive: true }, (err) => {
