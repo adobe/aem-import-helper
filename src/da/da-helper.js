@@ -237,18 +237,17 @@ export { updateHrefsInHTML };
 function createSimplifiedAssetMapping(matchingHrefs, fullShadowPath) {
   const simplifiedAssetMapping = new Map();
   
-  matchingHrefs.forEach(url => {
+  const getFilename = (url) => {
     try {
-      // Parse the URL to extract the filename
-      const urlObj = new URL(url);
-      const filename = urlObj.pathname.split('/').pop();
-      simplifiedAssetMapping.set(url, `/${fullShadowPath}/${filename}`);
-    } catch (error) {
-      // If URL parsing fails, assume it's already a relative path
-      const filename = url.split('/').pop();
-      simplifiedAssetMapping.set(url, `/${fullShadowPath}/${filename}`);
+      return new URL(url).pathname.split('/').pop();
+    } catch {
+      return url.split('?')[0].split('#')[0].split('/').pop();
     }
-  });
+  };
+
+  return new Map(
+    matchingHrefs.map(url => [url, `/${fullShadowPath}/${getFilename(url)}`])
+  );
   
   return simplifiedAssetMapping;
 }
