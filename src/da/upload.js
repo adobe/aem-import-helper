@@ -31,29 +31,12 @@ const defaultDependencies = {
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Array<string>} Array of absolute file paths
  */
-export function getAllFiles(dirPath, fileExtensions = [], dependencies = defaultDependencies) {
+export function getAllHtmlFiles(dirPath, dependencies = defaultDependencies) {
   const { fs: fsDep, path: pathDep } = dependencies;
-  const files = [];
   
-  function scanDirectory(currentPath) {
-    const items = fsDep.readdirSync(currentPath);
-    
-    for (const item of items) {
-      const fullPath = pathDep.join(currentPath, item);
-      const stat = fsDep.statSync(fullPath);
-      
-      if (stat.isDirectory()) {
-        scanDirectory(fullPath);
-      } else if (stat.isFile()) {
-        // Filter by file extension if specified
-        if (fileExtensions.length === 0 || fileExtensions.includes(pathDep.extname(fullPath))) {
-          files.push(fullPath);
-        }
-      }
-    }
-  }
-  scanDirectory(dirPath);
-  return files;
+  return fsDep.readdirSync(dirPath, { recursive: true, withFileTypes: true })
+    .filter(entry => entry.isFile())
+    .map(entry => pathDep.join(dirPath, entry.path, entry.name));
 }
 
 // Update default dependencies to include the local getAllFiles
