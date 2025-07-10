@@ -60,11 +60,6 @@ export function getHTMLFiles(folderPath, excludePatterns = [], dependencies = de
 
     console.log(chalkDep.blue(`Found ${htmlFiles.length} HTML files`));
     
-    if (htmlFiles.length > 0) {
-      htmlFiles.forEach(file => {
-        console.log(chalkDep.gray(`  - ${file}`));
-      });
-    }
 
     return htmlFiles;
 
