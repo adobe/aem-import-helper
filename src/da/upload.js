@@ -130,7 +130,6 @@ export async function uploadFile(filePath, uploadUrl, authToken, options = {}, d
     const responseText = await response.text();
     
     console.debug(chalkDep.green(`File uploaded successfully: ${filePath}`));
-    console.debug(chalkDep.blue(`Response: ${responseText}`));
 
     return {
       success: true,
