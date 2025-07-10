@@ -519,7 +519,6 @@ export async function processPages(daLocation, assetUrls, htmlFolder, downloadFo
   const results = [];
   
   console.log(chalkDep.blue(`Starting to process ${htmlPages.length} HTML pages one by one...`));
-  console.log(chalkDep.blue(`Looking for ${assetUrls.size} asset URLs`));
   
   // Ensure download folder exists
   if (!fsDep.existsSync(downloadFolder)) {
