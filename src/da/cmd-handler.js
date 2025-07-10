@@ -105,7 +105,7 @@ export const daBuilder = (yargs) => {
       default: 'da-assets',
     })
     .option('auth-token', {
-      describe: 'DA authentication token or path to a file containing the token',
+      describe: ' Path to a file containing the DA authentication token',
       type: 'string',
       demandOption: true,
     });
