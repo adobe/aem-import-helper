@@ -49,14 +49,6 @@ export function getHTMLFiles(folderPath, excludePatterns = [], dependencies = de
     // Get all HTML files recursively
     let htmlFiles = getAllFilesFn(folderPath, ['.html', '.htm'], dependencies);
     
-    // Apply exclude patterns
-    if (excludePatterns.length > 0) {
-      htmlFiles = htmlFiles.filter(filePath => {
-        return !excludePatterns.some(pattern => {
-          return filePath.includes(pattern);
-        });
-      });
-    }
 
     console.log(chalkDep.blue(`Found ${htmlFiles.length} HTML files`));
     
