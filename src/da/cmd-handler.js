@@ -20,16 +20,9 @@ const DA_BASE_URL = 'https://admin.da.live';
 /**
  * Validate the existence of the asset-list.json and HTML folder.
  * @param {string} assetListFile - The path to the asset-list.json file
- * @param {string} htmlFolder - The path to the HTML folder
+ * @param {string} daFolder - The path to the HTML folder
  * @return {boolean} True if the files exist, false otherwise
  */
-function validateFiles(assetListFile, htmlFolder) {
-  const files = [
-    { path: assetListFile, message: `asset-list.json file not found: ${assetListFile}`, mandatory: true },
-    { path: htmlFolder, message: `DA folder not found: ${htmlFolder}`, mandatory: true },
-  ];
-
-  for (const file of files) {
 function validateFiles(assetListFile, daFolder) {
   // Check if asset list file exists and is a file
   if (!fs.existsSync(assetListFile) || !fs.statSync(assetListFile).isFile()) {
@@ -41,17 +34,6 @@ function validateFiles(assetListFile, daFolder) {
   if (!fs.existsSync(daFolder) || !fs.statSync(daFolder).isDirectory()) {
     console.error(chalk.red(`DA folder not found or not a directory: ${daFolder}`));
     return false;
-  }
-
-  return true;
-}
-      continue;
-    }
-
-    if (!fs.existsSync(file.path)) {
-      console.error(chalk.red(file.message));
-      return false;
-    }
   }
   return true;
 }
@@ -153,10 +135,8 @@ export const daHandler = async (args) => {
     const assetUrls = new Set(assetListJson.assets || []);
     
     if (!Array.isArray(assetListJson.assets) || assetListJson.assets.length === 0) {
-      console.warn(chalk.red('No assets found in the asset-list file. Expected format: {"assets": ["url1", "url2", ...]}'));
+      console.warn(chalk.yellow('No assets found in the asset-list file. Expected format: {"assets": ["url1", "url2", ...]}'));
     }
-    
-    console.log(chalk.blue(`Found ${assetUrls.size} assets in the asset list`));
     
     await processPages(daLocation, assetUrls, args['da-folder'], args['download-folder'], token);
 

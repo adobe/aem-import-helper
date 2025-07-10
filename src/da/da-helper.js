@@ -15,7 +15,7 @@ import path from 'path';
 import { JSDOM } from 'jsdom';
 import { downloadAssets } from '../utils/download-assets.js';
 import chalk from 'chalk';
-import { getAllFiles } from './upload.js';
+import { getAllHtmlFiles } from './upload.js';
 
 // Default dependencies for production use
 const defaultDependencies = {
@@ -24,7 +24,7 @@ const defaultDependencies = {
   JSDOM,
   downloadAssets,
   chalk,
-  getAllFiles,
+  getAllHtmlFiles,
   uploadFolder: null, // Will be set below
 };
 
@@ -35,26 +35,18 @@ defaultDependencies.uploadFolder = uploadFolder;
 /**
  * Get all HTML files from a folder recursively
  * @param {string} folderPath - The absolute path to the folder to scan
- * @param {Array<string>} excludePatterns - Array of patterns to exclude (e.g., ['node_modules', '.git'])
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Array<string>} Array of absolute file paths to HTML files
  */
-export function getHTMLFiles(folderPath, excludePatterns = [], dependencies = defaultDependencies) {
-  const { fs: fsDep, chalk: chalkDep } = dependencies;
-  const getAllFilesFn = dependencies.getAllFiles || getAllFiles;
+export function getHTMLFiles(folderPath, dependencies = defaultDependencies) {
+  const { chalk: chalkDep } = dependencies;
+  const getAllFilesFn = dependencies.getAllHtmlFiles || getAllHtmlFiles;
   try {
-
     console.log(chalkDep.blue(`Scanning for HTML files in: ${folderPath}`));
-    
     // Get all HTML files recursively
-    let htmlFiles = getAllFilesFn(folderPath, ['.html', '.htm'], dependencies);
-    
-
+    let htmlFiles = getAllFilesFn(folderPath, { fileExtensions: ['.html', '.htm'] }, dependencies);
     console.log(chalkDep.blue(`Found ${htmlFiles.length} HTML files`));
-    
-
     return htmlFiles;
-
   } catch (error) {
     console.error(chalkDep.red(`Error scanning HTML files: ${error.message}`));
     throw error;
@@ -112,108 +104,29 @@ function updateHrefsInHTML(pagePath, htmlContent, assetUrls, daLocation, depende
   const pageName = pathDep.basename(pagePath, pathDep.extname(pagePath));
   const shadowFolder = `.${pageName}`;
   
-  // Update href attributes in anchor tags
-  const links = document.querySelectorAll('a[href]');
-  links.forEach(link => {
-    const href = link.getAttribute('href');
-    if (isAssetUrl(href, assetUrls)) {
-      try {
-        // Parse the URL to get the filename
-        const urlObj = new URL(href);
-        const filename = urlObj.pathname.split('/').pop();
-        // Replace the hostname with DA location and place in shadow folder
-        const newHref = `${daLocation}/${shadowFolder}/${filename}`;
-        link.setAttribute('href', newHref);
-      } catch (error) {
-        // If URL parsing fails, assume it's already a relative path
-        const filename = href.split('/').pop();
-        const newHref = `${daLocation}/${shadowFolder}/${filename}`;
-        link.setAttribute('href', newHref);
-      }
+  // Helper to extract clean filename (no query params or fragments)
+  const getFilename = (url) => {
+    try {
+      // Handle absolute URLs - pathname excludes query params and fragments
+      return new URL(url).pathname.split('/').pop();
+    } catch {
+      // Handle relative paths - manually strip query params and fragments
+      return url.split('?')[0].split('#')[0].split('/').pop();
     }
-  });
-  
-  // Update src attributes in img tags
-  const images = document.querySelectorAll('img[src]');
-  images.forEach(img => {
-    const src = img.getAttribute('src');
-    if (isAssetUrl(src, assetUrls)) {
-      try {
-        // Parse the URL to get the filename
-        const urlObj = new URL(src);
-        const filename = urlObj.pathname.split('/').pop();
-        // Replace the hostname with DA location and place in shadow folder
-        const newSrc = `${daLocation}/${shadowFolder}/${filename}`;
-        img.setAttribute('src', newSrc);
-      } catch (error) {
-        // If URL parsing fails, assume it's already a relative path
-        const filename = src.split('/').pop();
-        const newSrc = `${daLocation}/${shadowFolder}/${filename}`;
-        img.setAttribute('src', newSrc);
+  };
+  ['a[href]', 'img[src]'].forEach(selector => {
+    const attribute = selector.includes('href') ? 'href' : 'src';
+    
+    document.querySelectorAll(selector).forEach(element => {
+      const url = element.getAttribute(attribute);
+      if (assetUrls.has(url)) {
+        const filename = getFilename(url);
+        element.setAttribute(attribute, `${daLocation}/${shadowFolder}/${filename}`);
       }
-    }
+    });
   });
   
   return dom.serialize();
-}
-
-/**
- * Convert a list of asset URLs to an asset mapping where the key is the URL and value is the relative path
- * @param {Set<string>} assetUrls - Set of asset URLs
- * @param {string} pagePath - The path to the HTML page to create shadow folder structure
- * @param {Object} dependencies - Dependencies for testing (optional)
- * @return {Map<string, string>} Map where key is the asset URL and value is the relative path
- */
-export function convertAssetUrlsToMapping(assetUrls, pagePath = '', dependencies = defaultDependencies) {
-  const { path: pathDep } = dependencies;
-  const assetMapping = new Map();
-  
-  // Extract page name from pagePath to create shadow folder
-  const pageName = pagePath ? pathDep.basename(pagePath, pathDep.extname(pagePath)) : '';
-  const shadowFolder = pageName ? `.${pageName}` : '';
-  
-  assetUrls.forEach(url => {
-    try {
-      // Parse the URL to extract the filename
-      const urlObj = new URL(url);
-      const filename = urlObj.pathname.split('/').pop();
-      const relativePath = shadowFolder ? `/${shadowFolder}/${filename}` : `/${filename}`;
-      assetMapping.set(url, relativePath);
-    } catch (error) {
-      // If URL parsing fails, assume it's already a relative path
-      const filename = url.split('/').pop();
-      const relativePath = shadowFolder ? `/${shadowFolder}/${filename}` : `/${filename}`;
-      assetMapping.set(url, relativePath);
-    }
-  });
-  
-  return assetMapping;
-}
-
-/**
- * Save updated HTML content back to files
- * @param {Array<{filePath: string, updatedContent: string}>} processedPages - Array of processed page results
- * @param {Object} dependencies - Dependencies for testing (optional)
- * @return {Promise<void>} Promise that resolves when all files are saved
- */
-export async function saveUpdatedPages(processedPages, dependencies = defaultDependencies) {
-  const { fs: fsDep, chalk: chalkDep } = dependencies;
-  
-  for (const page of processedPages) {
-    if (page.error) {
-      console.log(chalkDep.red(`Skipping ${page.filePath} due to error: ${page.error}`));
-      continue;
-    }
-    
-    try {
-      // Save the updated content back to the original file
-      fsDep.writeFileSync(page.filePath, page.updatedContent, 'utf-8');
-      console.log(chalkDep.green(`Updated page: ${page.filePath}`));
-      
-    } catch (error) {
-      console.error(chalkDep.red(`Error saving updated page ${page.filePath}:`, error.message));
-    }
-  }
 }
 
 // Export updateHrefsInHTML for testing
@@ -226,9 +139,7 @@ export { updateHrefsInHTML };
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Map<string, string>} Asset mapping for download
  */
-function createSimplifiedAssetMapping(matchingHrefs, fullShadowPath) {
-  const simplifiedAssetMapping = new Map();
-  
+export function createSimplifiedAssetMapping(matchingHrefs, fullShadowPath) {
   const getFilename = (url) => {
     try {
       return new URL(url).pathname.split('/').pop();
@@ -238,10 +149,8 @@ function createSimplifiedAssetMapping(matchingHrefs, fullShadowPath) {
   };
 
   return new Map(
-    matchingHrefs.map(url => [url, `/${fullShadowPath}/${getFilename(url)}`])
+    matchingHrefs.map(url => [url, `/${fullShadowPath}/${getFilename(url)}`]),
   );
-  
-  return simplifiedAssetMapping;
 }
 
 /**
@@ -333,21 +242,18 @@ async function uploadHTMLPage(pageDir, daLocation, token, uploadOptions, htmlFol
  * @param {string} shadowFolderPath - Path to the shadow folder to clean up
  * @param {number} pageIndex - Page index for logging
  * @param {Object} dependencies - Dependencies for testing (optional)
- * @return {Promise<void>}
+ * @param {Function} callback - The callback function to execute after cleanup
  */
-async function cleanupPageAssets(shadowFolderPath, pageIndex, dependencies = defaultDependencies) {
-  const { fs: fsDep, path: pathDep, chalk: chalkDep } = dependencies;
-  
-  try {
-    if (fsDep.existsSync(shadowFolderPath)) {
-      fsDep.rmdir(shadowFolderPath, { recursive: true }, (err) => {
-        if (err) throw err;
-        console.log(chalkDep.gray(`Cleaned up assets for page ${pageIndex}`));
-      });
+function cleanupPageAssets(shadowFolderPath, dependencies, callback) {
+  const { fs: fsDep, chalk: chalkDep } = dependencies;
+  fsDep.rm(shadowFolderPath, { recursive: true, force: true }, (err) => {
+    if (err) {
+      console.warn(chalkDep.yellow(`Warning: Could not clean up folder ${shadowFolderPath}:`, err));
     }
-  } catch (cleanupError) {
-    console.warn(chalkDep.yellow(`Warning: Could not clean up assets for page ${pageIndex}:`, cleanupError.message));
-  }
+    if (callback) {
+      callback();
+    }
+  });
 }
 
 /**
@@ -413,7 +319,8 @@ async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls
       await uploadHTMLPage(pathDep.dirname(pagePath), daLocation, token, uploadOptions, htmlFolder, pageIndex, dependencies);
       
       // Clean up downloaded assets for this page to free disk space
-      await cleanupPageAssets(shadowFolderPath, pageIndex, dependencies);
+      cleanupPageAssets(shadowFolderPath, dependencies, () => {
+      });
       
       return {
         filePath: pagePath,
@@ -427,14 +334,7 @@ async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls
       // No matching assets found, just upload the HTML page as-is
       console.log(chalkDep.gray(`No asset references found for page ${pageIndex}, uploading HTML as-is...`));
       try {
-        const { uploadFolder: uploadFolderDep } = dependencies;
-        await uploadFolderDep(pathDep.dirname(pagePath), daLocation, token, {
-          ...uploadOptions,
-          fileExtensions: ['.html'],
-          verbose: false,
-          baseFolder: htmlFolder,
-        });
-        console.log(chalkDep.green(`Successfully uploaded HTML page ${pageIndex} (no assets)`));
+        await uploadHTMLPage(pathDep.dirname(pagePath), daLocation, token, uploadOptions, htmlFolder, pageIndex, dependencies);
       } catch (uploadError) {
         console.error(chalkDep.red(`Error uploading HTML page ${pageIndex}:`, uploadError.message));
       }
@@ -477,8 +377,8 @@ async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls
  */
 export async function processPages(daLocation, assetUrls, htmlFolder, downloadFolder, token, uploadOptions = {}, maxRetries = 3, retryDelay = 5000, dependencies = defaultDependencies) {
   const { fs: fsDep, chalk: chalkDep } = dependencies;
-  const getHTMLFilesFn = dependencies.getHTMLFiles || getHTMLFiles;
-  const htmlPages = getHTMLFilesFn(htmlFolder, [], dependencies);
+  const getHTMLFilesFn = dependencies.getAllHtmlFiles || getHTMLFiles;
+  const htmlPages = getHTMLFilesFn(htmlFolder, { fileExtensions: ['.html', '.htm'] }, dependencies);
   const results = [];
   
   console.log(chalkDep.blue(`Processing ${htmlPages.length} HTML pages sequentially...`));

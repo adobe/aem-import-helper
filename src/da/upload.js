@@ -31,16 +31,28 @@ const defaultDependencies = {
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Array<string>} Array of absolute file paths
  */
-export function getAllHtmlFiles(dirPath, dependencies = defaultDependencies) {
+export function getAllHtmlFiles(dirPath, options = {}, dependencies = defaultDependencies) {
+  const { fileExtensions = [] } = options;
   const { fs: fsDep, path: pathDep } = dependencies;
   
-  return fsDep.readdirSync(dirPath, { recursive: true, withFileTypes: true })
-    .filter(entry => entry.isFile())
-    .map(entry => pathDep.join(dirPath, entry.path, entry.name));
+  let files;
+  try {
+    files = fsDep.readdirSync(dirPath, { recursive: true, withFileTypes: true })
+      .filter((entry) => entry.isFile())
+      .map((entry) => pathDep.join(entry.parentPath, entry.name));
+  } catch (e) {
+    if (e.code === 'ENOENT') {
+      throw new Error(`Folder not found: ${dirPath}`);
+    }
+    throw e;
+  }
+
+  if (fileExtensions.length > 0) {
+    return files.filter((file) => fileExtensions.includes(pathDep.extname(file)));
+  }
+  return files;
 }
 
-// Update default dependencies to include the local getAllFiles
-defaultDependencies.getAllFiles = getAllFiles;
 
 /**
  * Upload a file to the DA system
@@ -58,104 +70,94 @@ export async function uploadFile(filePath, uploadUrl, authToken, options = {}, d
   const {
     userAgent = 'aem-import-helper/1.0',
     baseFolder = '',
+    retries = 3, // New option: number of retries
+    retryDelay = 1000, // New option: delay in ms between retries
   } = options;
 
   const { fs: fsDep, path: pathDep, FormData: FormDataDep, fetch: fetchDep, chalk: chalkDep } = dependencies;
 
-  try {
-    // Validate file exists
-    if (!fsDep.existsSync(filePath)) {
-      throw new Error(`File not found: ${filePath}`);
-    }
-
-    // Calculate relative path from base folder
-    let relativePath = filePath;
-    if (baseFolder && filePath.startsWith(baseFolder)) {
-      relativePath = pathDep.relative(baseFolder, filePath);
-    }
-
-    // Construct the full upload URL with the file path
-    const fullUploadUrl = `${uploadUrl}/${relativePath}`;
-
-    // Create FormData
-    const formData = new FormDataDep();
-    formData.append('data', fsDep.createReadStream(filePath));
-
-    // Prepare headers
-    const headers = {
-      'User-Agent': userAgent,
-      ...formData.getHeaders(),
-    };
-
-    // Add authorization header if token is provided
-    if (authToken) {
-      headers['Authorization'] = `Bearer ${authToken}`;
-    }
-
-    // Prepare fetch options
-    const fetchOptions = {
-      method: 'POST',
-      headers,
-      body: formData,
-    };
-
-    console.log(chalkDep.yellow(`Uploading file: ${filePath}`));
-    console.log(chalkDep.yellow(`Relative path: ${relativePath}`));
-    console.log(chalkDep.yellow(`Upload URL: ${fullUploadUrl}`));
-
-    // Make the upload request
-    const response = await fetchDep(fullUploadUrl, fetchOptions);
-
-    if (!response.ok) {
-      throw new Error(`Upload failed with status: ${response.status} - ${response.statusText}`);
-    }
-
-    const responseText = await response.text();
-    
-    console.debug(chalkDep.green(`File uploaded successfully: ${filePath}`));
-
-    return {
-      success: true,
-      status: response.status,
-      statusText: response.statusText,
-      responseText,
-      filePath,
-      relativePath,
-      uploadUrl: fullUploadUrl,
-    };
-
-  } catch (error) {
-    console.error(chalkDep.red(`Upload failed for ${filePath}: ${error.message}`));
-    throw error;
-  }
-}
-
-/**
- * Upload multiple files to the DA system
- * @param {Array<string>} filePaths - Array of absolute file paths to upload
- * @param {string} uploadUrl - The DA upload URL base
- * @param {string} authToken - The authentication token
- * @param {Object} options - Additional options for the upload
- * @param {Object} dependencies - Dependencies for testing (optional)
- * @return {Promise<Array<Object>>} Array of upload results
- */
-export async function uploadFiles(filePaths, uploadUrl, authToken, options = {}, dependencies = defaultDependencies) {
-  const results = [];
-  
-  for (const filePath of filePaths) {
+  let attempts = 0;
+  while (attempts <= retries) {
     try {
-      const result = await uploadFile(filePath, uploadUrl, authToken, options, dependencies);
-      results.push(result);
-    } catch (error) {
-      results.push({
-        success: false,
-        error: error.message,
+      // Validate file exists
+      if (!fsDep.existsSync(filePath)) {
+        throw new Error(`File not found: ${filePath}`);
+      }
+
+      // Calculate relative path from base folder
+      let relativePath = filePath;
+      if (baseFolder && filePath.startsWith(baseFolder)) {
+        relativePath = pathDep.relative(baseFolder, filePath);
+      }
+
+      // Construct the full upload URL with the file path
+      const fullUploadUrl = `${uploadUrl}/${relativePath}`;
+
+      // Create FormData
+      const formData = new FormDataDep();
+      formData.append('data', fsDep.createReadStream(filePath));
+
+      // Prepare headers
+      const headers = {
+        'User-Agent': userAgent,
+        ...formData.getHeaders(),
+      };
+
+      // Add authorization header if token is provided
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+      }
+
+      // Prepare fetch options
+      const fetchOptions = {
+        method: 'POST',
+        headers,
+        body: formData,
+      };
+
+      console.log(chalkDep.yellow(`Uploading file '${filePath}' to '${fullUploadUrl}' (Attempt ${attempts + 1}/${retries + 1})`));
+
+      // Make the upload request
+      const response = await fetchDep(fullUploadUrl, fetchOptions);
+
+      if (!response.ok) {
+        // If it's the last attempt and still not OK, throw the error
+        if (attempts === retries) {
+          throw new Error(`Upload failed with status: ${response.status} - ${response.statusText}`);
+        } else {
+          // Log retry attempt and continue to next iteration
+          console.warn(chalkDep.yellow(`Upload failed for ${filePath} with status: ${response.status}. Retrying in ${retryDelay}ms...`));
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+          attempts++;
+          continue; // Skip to the next iteration of the while loop
+        }
+      }
+
+      const responseText = await response.text();
+
+      console.debug(chalkDep.green(`File uploaded successfully: ${filePath}`));
+
+      return {
+        success: true,
+        status: response.status,
+        statusText: response.statusText,
+        responseText,
         filePath,
-      });
+        relativePath,
+        uploadUrl: fullUploadUrl,
+      };
+
+    } catch (error) {
+      if (attempts === retries) {
+        console.error(chalkDep.red(`Upload failed for ${filePath} after ${retries + 1} attempts: ${error.message}`));
+        throw error; // Re-throw error after all retries are exhausted
+      } else {
+        console.warn(chalkDep.yellow(`Upload failed for ${filePath}: ${error.message}. Retrying in ${retryDelay}ms...`));
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+        attempts++;
+      }
     }
   }
-
-  return results;
 }
 
 /**
@@ -174,27 +176,18 @@ export async function uploadFiles(filePaths, uploadUrl, authToken, options = {},
 export async function uploadFolder(folderPath, uploadUrl, authToken, options = {}, dependencies = defaultDependencies) {
   const {
     fileExtensions = ['.html', '.htm'],
-    excludePatterns = [],
-    verbose = false,
     baseFolder = folderPath, // Default to folderPath if not provided
   } = options;
 
-  const { fs: fsDep, chalk: chalkDep, getAllFiles: getAllFilesDep } = dependencies;
+  const { chalk: chalkDep } = dependencies;
+  const getFiles = dependencies.getAllHtmlFiles || getAllHtmlFiles;
+
 
   try {
     // Validate folder exists
     // Get all files recursively
-    let allFiles = getAllFilesDep(folderPath, fileExtensions);
+    let allFiles = getFiles(folderPath, { fileExtensions }, dependencies);
     
-    // Apply exclude patterns
-    if (excludePatterns.length > 0) {
-      allFiles = allFiles.filter(filePath => {
-        return !excludePatterns.some(pattern => {
-          return filePath.includes(pattern);
-        });
-      });
-    }
-
     if (allFiles.length === 0) {
       console.log(chalkDep.yellow('No files found to upload'));
       return {
