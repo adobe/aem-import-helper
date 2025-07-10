@@ -416,7 +416,7 @@ async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls
     
     // Find hrefs that match asset URLs
     const matchingHrefs = hrefs.filter(href => isAssetUrl(href, assetUrls));
-    console.log(chalkDep.yellow(`Found ${matchingHrefs.length} matching asset URLs`));
+    console.log(chalkDep.yellow(`Found ${matchingHrefs.length} asset references.`));
     
     if (matchingHrefs.length > 0) {
       // Extract page name from pagePath to create shadow folder
