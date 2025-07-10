@@ -403,7 +403,6 @@ async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls
     
     // Extract hrefs from the HTML
     const hrefs = extractHrefsFromHTML(htmlContent, dependencies);
-    console.log(chalkDep.gray(`Found ${hrefs.length} hrefs in ${pagePath}`));
     
     // Find hrefs that match asset URLs
     const matchingHrefs = hrefs.filter(href => isAssetUrl(href, assetUrls));
