@@ -30,7 +30,21 @@ function validateFiles(assetListFile, htmlFolder) {
   ];
 
   for (const file of files) {
-    if (file.mandatory === false) {
+function validateFiles(assetListFile, daFolder) {
+  // Check if asset list file exists and is a file
+  if (!fs.existsSync(assetListFile) || !fs.statSync(assetListFile).isFile()) {
+    console.error(chalk.red(`asset-list.json file not found: ${assetListFile}`));
+    return false;
+  }
+
+  // Check if DA folder exists and is a directory
+  if (!fs.existsSync(daFolder) || !fs.statSync(daFolder).isDirectory()) {
+    console.error(chalk.red(`DA folder not found or not a directory: ${daFolder}`));
+    return false;
+  }
+
+  return true;
+}
       continue;
     }
 
