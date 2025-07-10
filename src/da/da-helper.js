@@ -331,8 +331,6 @@ async function uploadHTMLPage(pageDir, daLocation, token, uploadOptions, htmlFol
   try {
     await uploadFolderDep(pageDir, daLocation, token, {
       ...uploadOptions,
-      fileExtensions: ['.html'],
-      verbose: false,
       baseFolder: htmlFolder,
     });
     console.log(chalkDep.green(`Successfully uploaded HTML page ${pageIndex}`));
