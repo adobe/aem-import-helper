@@ -225,11 +225,6 @@ export async function uploadFolder(folderPath, uploadUrl, authToken, options = {
 
     console.log(chalkDep.yellow(`Found ${allFiles.length} files to upload`));
     
-    if (verbose) {
-      allFiles.forEach(file => {
-        console.log(chalkDep.blue(`  - ${file}`));
-      });
-    }
 
     // Upload files individually using uploadFile
     const results = [];
