@@ -354,18 +354,11 @@ async function cleanupPageAssets(shadowFolderPath, pageIndex, dependencies = def
   
   console.log(chalkDep.gray(`Cleaning up downloaded assets for page ${pageIndex}...`));
   try {
-    // Remove the entire shadow folder for this page
     if (fsDep.existsSync(shadowFolderPath)) {
-      const files = fsDep.readdirSync(shadowFolderPath);
-      for (const file of files) {
-        const filePath = pathDep.join(shadowFolderPath, file);
-        const stat = fsDep.statSync(filePath);
-        if (stat.isFile()) {
-          fsDep.unlinkSync(filePath);
-        }
-      }
-      fsDep.rmdirSync(shadowFolderPath);
-      console.log(chalkDep.gray(`Cleaned up assets for page ${pageIndex}`));
+      fsDep.rmdir(shadowFolderPath, { recursive: true }, (err) => {
+        if (err) throw err;
+        console.log(chalkDep.gray(`Cleaned up assets for page ${pageIndex}`));
+      });
     }
   } catch (cleanupError) {
     console.warn(chalkDep.yellow(`Warning: Could not clean up assets for page ${pageIndex}:`, cleanupError.message));
