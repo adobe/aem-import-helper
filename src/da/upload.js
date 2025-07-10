@@ -200,16 +200,6 @@ export async function uploadFolder(folderPath, uploadUrl, authToken, options = {
 
   try {
     // Validate folder exists
-    if (!fsDep.existsSync(folderPath)) {
-      throw new Error(`Folder not found: ${folderPath}`);
-    }
-
-    const stat = fsDep.statSync(folderPath);
-    if (!stat.isDirectory()) {
-      throw new Error(`Path is not a directory: ${folderPath}`);
-    }
-
-    console.log(chalkDep.yellow(`Scanning folder: ${folderPath}`));
     // Get all files recursively
     let allFiles = getAllFilesDep(folderPath, fileExtensions);
     
