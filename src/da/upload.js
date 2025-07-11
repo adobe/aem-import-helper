@@ -55,6 +55,42 @@ export function getAllHtmlFiles(dirPath, options = {}, dependencies = defaultDep
 
 
 /**
+ * Create FormData and fetch options for file upload
+ * @param {string} filePath - The absolute path to the file to upload
+ * @param {string} userAgent - Custom User-Agent header
+ * @param {string} authToken - The authentication token
+ * @param {Object} dependencies - Dependencies for testing (optional)
+ * @return {Object} Object containing formData and fetchOptions
+ */
+function createUploadRequest(filePath, userAgent, authToken, dependencies = defaultDependencies) {
+  const { fs: fsDep, FormData: FormDataDep } = dependencies;
+  
+  // Create FormData
+  const formData = new FormDataDep();
+  formData.append('data', fsDep.createReadStream(filePath));
+
+  // Prepare headers
+  const headers = {
+    'User-Agent': userAgent,
+    ...formData.getHeaders(),
+  };
+
+  // Add authorization header if token is provided
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`;
+  }
+
+  // Prepare fetch options
+  const fetchOptions = {
+    method: 'POST',
+    headers,
+    body: formData,
+  };
+
+  return { formData, fetchOptions };
+}
+
+/**
  * Upload a file to the Author Bus.
  * @param {string} filePath - The absolute path to the file to upload
  * @param {string} uploadUrl - The DA upload URL base
@@ -74,7 +110,7 @@ export async function uploadFile(filePath, uploadUrl, authToken, options = {}, d
     retryDelay = 1000, // delay in ms between retries
   } = options;
 
-  const { fs: fsDep, path: pathDep, FormData: FormDataDep, fetch: fetchDep, chalk: chalkDep } = dependencies;
+  const { fs: fsDep, path: pathDep, fetch: fetchDep, chalk: chalkDep } = dependencies;
 
   let attempts = 0;
   while (attempts <= retries) {
@@ -93,27 +129,8 @@ export async function uploadFile(filePath, uploadUrl, authToken, options = {}, d
       // Construct the full upload URL with the file path
       const fullUploadUrl = `${uploadUrl}/${relativePath}`;
 
-      // Create FormData
-      const formData = new FormDataDep();
-      formData.append('data', fsDep.createReadStream(filePath));
-
-      // Prepare headers
-      const headers = {
-        'User-Agent': userAgent,
-        ...formData.getHeaders(),
-      };
-
-      // Add authorization header if token is provided
-      if (authToken) {
-        headers['Authorization'] = `Bearer ${authToken}`;
-      }
-
-      // Prepare fetch options
-      const fetchOptions = {
-        method: 'POST',
-        headers,
-        body: formData,
-      };
+      // Create upload request
+      const { fetchOptions } = createUploadRequest(filePath, userAgent, authToken, dependencies);
 
       console.log(chalkDep.yellow(`Uploading file '${filePath}' to '${fullUploadUrl}' (Attempt ${attempts + 1}/${retries + 1})`));
 
@@ -158,6 +175,42 @@ export async function uploadFile(filePath, uploadUrl, authToken, options = {}, d
       }
     }
   }
+}
+
+/**
+ * Generate summary from upload results
+ * @param {Array<Object>} results - Array of upload results
+ * @param {number} totalFiles - Total number of files that were attempted to upload
+ * @param {Object} dependencies - Dependencies for testing (optional)
+ * @return {Object} Summary object with success status and counts
+ */
+function getSummaryFromUploadResults(results, totalFiles, dependencies = defaultDependencies) {
+  const { chalk: chalkDep } = dependencies;
+  
+  const successfulUploads = results.filter(r => r.success);
+  const failedUploads = results.filter(r => !r.success);
+  
+  const summary = {
+    success: failedUploads.length === 0,
+    totalFiles: totalFiles,
+    uploadedFiles: successfulUploads.length,
+    failedFiles: failedUploads.length,
+    results: results,
+  };
+
+  // Log summary
+  console.log(chalkDep.green('\nUpload Summary:'));
+  console.log(chalkDep.green(`  Total files: ${summary.totalFiles}`));
+  console.log(chalkDep.green(`  Successfully uploaded: ${summary.uploadedFiles}`));
+  
+  if (summary.failedFiles > 0) {
+    console.log(chalkDep.red(`  Failed uploads: ${summary.failedFiles}`));
+    failedUploads.forEach(failed => {
+      console.log(chalkDep.red(`    - ${failed.filePath}: ${failed.error}`));
+    });
+  }
+
+  return summary;
 }
 
 /**
@@ -215,29 +268,8 @@ export async function uploadFolder(folderPath, uploadUrl, authToken, options = {
       }
     }
     
-    // Calculate summary
-    const successfulUploads = results.filter(r => r.success);
-    const failedUploads = results.filter(r => !r.success);
-    
-    const summary = {
-      success: failedUploads.length === 0,
-      totalFiles: allFiles.length,
-      uploadedFiles: successfulUploads.length,
-      failedFiles: failedUploads.length,
-      results: results,
-    };
-
-    // Log summary
-    console.log(chalkDep.green('\nUpload Summary:'));
-    console.log(chalkDep.green(`  Total files: ${summary.totalFiles}`));
-    console.log(chalkDep.green(`  Successfully uploaded: ${summary.uploadedFiles}`));
-    
-    if (summary.failedFiles > 0) {
-      console.log(chalkDep.red(`  Failed uploads: ${summary.failedFiles}`));
-      failedUploads.forEach(failed => {
-        console.log(chalkDep.red(`    - ${failed.filePath}: ${failed.error}`));
-      });
-    }
+    // Calculate and log summary
+    const summary = getSummaryFromUploadResults(results, allFiles.length, dependencies);
 
     return summary;
 

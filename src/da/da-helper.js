@@ -15,9 +15,8 @@ import path from 'path';
 import { JSDOM } from 'jsdom';
 import { downloadAssets } from '../utils/download-assets.js';
 import chalk from 'chalk';
-import { getAllHtmlFiles } from './upload.js';
+import { getAllHtmlFiles, uploadFolder, uploadFile } from './upload.js';
 
-// Default dependencies for production use
 const defaultDependencies = {
   fs,
   path,
@@ -25,33 +24,9 @@ const defaultDependencies = {
   downloadAssets,
   chalk,
   getAllHtmlFiles,
-  uploadFolder: null, // Will be set below
+  uploadFolder,
+  uploadFile,
 };
-
-// Import uploadFolder for default dependencies
-import { uploadFolder } from './upload.js';
-defaultDependencies.uploadFolder = uploadFolder;
-
-/**
- * Get all HTML files from a folder recursively
- * @param {string} folderPath - The absolute path to the folder to scan
- * @param {Object} dependencies - Dependencies for testing (optional)
- * @return {Array<string>} Array of absolute file paths to HTML files
- */
-export function getHTMLFiles(folderPath, dependencies = defaultDependencies) {
-  const { chalk: chalkDep } = dependencies;
-  const getAllFilesFn = dependencies.getAllHtmlFiles || getAllHtmlFiles;
-  try {
-    console.log(chalkDep.blue(`Scanning for HTML files in: ${folderPath}`));
-    // Get all HTML files recursively
-    let htmlFiles = getAllFilesFn(folderPath, { fileExtensions: ['.html', '.htm'] }, dependencies);
-    console.log(chalkDep.blue(`Found ${htmlFiles.length} HTML files`));
-    return htmlFiles;
-  } catch (error) {
-    console.error(chalkDep.red(`Error scanning HTML files: ${error.message}`));
-    throw error;
-  }
-}
 
 /**
  * Extract all href attributes from anchor tags and src attributes from img tags in an HTML string
@@ -74,16 +49,6 @@ function extractHrefsFromHTML(htmlContent, dependencies = defaultDependencies) {
   
   // Combine both arrays
   return [...hrefs, ...srcs];
-}
-
-/**
- * Check if a URL is present in the asset URLs list
- * @param {string} href - The href to check
- * @param {Set<string>} assetUrls - Set of asset URLs to match against
- * @return {boolean} True if the href is found in assetUrls
- */
-function isAssetUrl(href, assetUrls) {
-  return assetUrls.has(href);
 }
 
 /**
@@ -165,7 +130,7 @@ export function createAssetMapping(matchingHrefs, fullShadowPath) {
 async function downloadPageAssets(matchingHrefs, fullShadowPath, downloadFolder, maxRetries, retryDelay, dependencies = defaultDependencies) {
   const { chalk: chalkDep } = dependencies;
   
-  const simplifiedAssetMapping = createSimplifiedAssetMapping(matchingHrefs, fullShadowPath, dependencies);
+  const simplifiedAssetMapping = createAssetMapping(matchingHrefs, fullShadowPath, dependencies);
   
   console.log(chalkDep.blue(`Downloading ${matchingHrefs.length} assets for this page...`));
   const downloadResults = await dependencies.downloadAssets(simplifiedAssetMapping, downloadFolder, maxRetries, retryDelay);
@@ -220,12 +185,12 @@ async function uploadPageAssets(shadowFolderPath, daLocation, token, uploadOptio
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Promise<void>}
  */
-async function uploadHTMLPage(pageDir, daLocation, token, uploadOptions, htmlFolder, pageIndex, dependencies = defaultDependencies) {
-  const { chalk: chalkDep, uploadFolder: uploadFolderDep } = dependencies;
+async function uploadHTMLPage(pagePath, daLocation, token, uploadOptions, htmlFolder, pageIndex, dependencies = defaultDependencies) {
+  const { chalk: chalkDep, uploadFile: uploadFileDep } = dependencies;
   
   console.log(chalkDep.yellow(`Uploading updated HTML page ${pageIndex}...`));
   try {
-    await uploadFolderDep(pageDir, daLocation, token, {
+    await uploadFileDep(pagePath, daLocation, token, {
       ...uploadOptions,
       baseFolder: htmlFolder,
     });
@@ -283,7 +248,7 @@ async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls
     const hrefs = extractHrefsFromHTML(htmlContent, dependencies);
     
     // Find hrefs that match asset URLs
-    const matchingHrefs = hrefs.filter(href => isAssetUrl(href, assetUrls));
+    const matchingHrefs = hrefs.filter(href => assetUrls.has(href));
     console.log(chalkDep.yellow(`Found ${matchingHrefs.length} asset references.`));
     
     if (matchingHrefs.length > 0) {
@@ -315,7 +280,7 @@ async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls
       console.log(chalkDep.green(`Updated and saved page: ${pagePath}`));
       
       // Upload the updated HTML page
-      await uploadHTMLPage(pathDep.dirname(pagePath), daLocation, token, uploadOptions, htmlFolder, pageIndex, dependencies);
+      await uploadHTMLPage(pagePath, daLocation, token, uploadOptions, htmlFolder, pageIndex, dependencies);
       
       // Clean up downloaded assets for this page to free disk space
       cleanupPageAssets(shadowFolderPath, dependencies, () => {
@@ -333,7 +298,7 @@ async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls
       // No matching assets found, just upload the HTML page as-is
       console.log(chalkDep.gray(`No asset references found for page ${pageIndex}, uploading HTML as-is...`));
       try {
-        await uploadHTMLPage(pathDep.dirname(pagePath), daLocation, token, uploadOptions, htmlFolder, pageIndex, dependencies);
+        await uploadHTMLPage(pagePath, daLocation, token, uploadOptions, htmlFolder, pageIndex, dependencies);
       } catch (uploadError) {
         console.error(chalkDep.red(`Error uploading HTML page ${pageIndex}:`, uploadError.message));
       }
@@ -376,7 +341,7 @@ async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls
  */
 export async function processPages(daLocation, assetUrls, htmlFolder, downloadFolder, token, uploadOptions = {}, maxRetries = 3, retryDelay = 5000, dependencies = defaultDependencies) {
   const { fs: fsDep, chalk: chalkDep } = dependencies;
-  const getHTMLFilesFn = dependencies.getAllHtmlFiles || getHTMLFiles;
+  const getHTMLFilesFn = dependencies.getAllHtmlFiles || getAllHtmlFiles;
   const htmlPages = getHTMLFilesFn(htmlFolder, { fileExtensions: ['.html', '.htm'] }, dependencies);
   const results = [];
   
