@@ -87,7 +87,7 @@ function isAssetUrl(href, assetUrls) {
 }
 
 /**
- * Update href attributes in anchor tags and src attributes in img tags in HTML to point to DA environment
+ * Update href attributes in anchor tags and src attributes in img tags in HTML to point to Author Bus.
  * @param {string} pagePath - The path to the HTML page to create shadow folder structure
  * @param {string} htmlContent - The HTML content to update
  * @param {Set<string>} assetUrls - Set of asset URLs that should be updated
