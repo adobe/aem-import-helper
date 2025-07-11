@@ -133,7 +133,7 @@ function updateHrefsInHTML(pagePath, htmlContent, assetUrls, daLocation, depende
 export { updateHrefsInHTML };
 
 /**
- * Convert asset URLs to a simplified mapping for direct download to shadow folder
+ * Create a mapping for asset urls and their storage location.
  * @param {Array<string>} matchingHrefs - Array of matching asset URLs
  * @param {string} fullShadowPath - The full shadow folder path
  * @param {Object} dependencies - Dependencies for testing (optional)
