@@ -139,7 +139,7 @@ export { updateHrefsInHTML };
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Map<string, string>} Asset mapping for download
  */
-export function createSimplifiedAssetMapping(matchingHrefs, fullShadowPath) {
+export function createAssetMapping(matchingHrefs, fullShadowPath) {
   const getFilename = (url) => {
     try {
       return new URL(url).pathname.split('/').pop();
