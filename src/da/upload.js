@@ -55,7 +55,7 @@ export function getAllHtmlFiles(dirPath, options = {}, dependencies = defaultDep
 
 
 /**
- * Upload a file to the DA system
+ * Upload a file to the Author Bus.
  * @param {string} filePath - The absolute path to the file to upload
  * @param {string} uploadUrl - The DA upload URL base
  * @param {string} authToken - The authentication token
