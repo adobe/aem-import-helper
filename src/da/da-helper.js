@@ -130,7 +130,6 @@ function updateHrefsInHTML(pagePath, htmlContent, assetUrls, daLocation, depende
 }
 
 // Export updateHrefsInHTML for testing
-export { updateHrefsInHTML };
 
 /**
  * Create a mapping for asset urls and their storage location.
