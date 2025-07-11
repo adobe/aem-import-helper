@@ -182,7 +182,6 @@ export async function uploadFolder(folderPath, uploadUrl, authToken, options = {
   const { chalk: chalkDep } = dependencies;
   const getFiles = dependencies.getAllHtmlFiles || getAllHtmlFiles;
 
-
   try {
     // Validate folder exists
     // Get all files recursively
