@@ -70,8 +70,8 @@ export async function uploadFile(filePath, uploadUrl, authToken, options = {}, d
   const {
     userAgent = 'aem-import-helper/1.0',
     baseFolder = '',
-    retries = 3, // New option: number of retries
-    retryDelay = 1000, // New option: delay in ms between retries
+    retries = 3, // number of retries
+    retryDelay = 1000, // delay in ms between retries
   } = options;
 
   const { fs: fsDep, path: pathDep, FormData: FormDataDep, fetch: fetchDep, chalk: chalkDep } = dependencies;
