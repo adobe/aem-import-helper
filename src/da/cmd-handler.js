@@ -135,7 +135,7 @@ export const daHandler = async (args) => {
     const assetUrls = new Set(assetListJson.assets || []);
     
     if (!Array.isArray(assetListJson.assets) || assetListJson.assets.length === 0) {
-      console.warn(chalk.yellow('No assets found in the asset-list file. Expected format: {"assets": ["url1", "url2", ...]}'));
+      console.warn(chalk.yellow('No asset urls found in the asset-list file. Expected format: {"assets": ["url1", "url2", ...]}'));
     }
     
     await processPages(daLocation, assetUrls, args['da-folder'], args['download-folder'], token);
