@@ -100,7 +100,6 @@ function updateHrefsInHTML(pagePath, htmlContent, assetUrls, daLocation, depende
  * Create a mapping for asset urls and their storage location.
  * @param {Array<string>} matchingHrefs - Array of matching asset URLs
  * @param {string} fullShadowPath - The full shadow folder path
- * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Map<string, string>} Asset mapping for download
  */
 export function createAssetMapping(matchingHrefs, fullShadowPath) {
