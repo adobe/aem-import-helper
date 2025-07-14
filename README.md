@@ -177,7 +177,7 @@ If you choose to store the token in a file, create a file and simply paste the t
 --token </path/to/token.txt> OR <token>
 ```
 
-### Uploading content to DA
+### Uploading content to Author bus
 
 Run the following command to upload content (HTML pages) and associated assets to your DA env:
 
