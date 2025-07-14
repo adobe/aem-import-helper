@@ -185,7 +185,7 @@ async function uploadPageAssets(shadowFolderPath, daLocation, token, uploadOptio
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Promise<void>}
  */
-async function uploadHTMLPage(pagePath, daLocation, token, uploadOptions, htmlFolder, pageIndex, dependencies = defaultDependencies) {
+async function uploadHTMLPage(pagePath, daLocation, token, uploadOptions, htmlFolder, dependencies = defaultDependencies) {
   const { chalk: chalkDep, uploadFile: uploadFileDep } = dependencies;
   
   console.log(chalkDep.yellow(`Uploading updated HTML page ${pageIndex}...`));
