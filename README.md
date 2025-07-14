@@ -201,7 +201,7 @@ npm run da-upload -- \
 **Optional:**
 * download-folder [default='aem-assets']: Absolute path to the output folder where the downloaded assets will be stored.
 
-Once the command is executed, the HTML pages and associated assets are uploaded to your Author Bus.
+Once the command is executed, the HTML pages and associated assets are uploaded to Author Bus.
 
 ## Bundling Multiple Import Scripts
 
