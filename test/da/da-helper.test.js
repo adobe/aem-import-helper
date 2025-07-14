@@ -106,7 +106,7 @@ describe('da-helper.js', () => {
         downloadAssets: mockDownloadAssets,
         uploadFolder: mockUploadFolder,
         uploadFile: mockUploadFile,
-        getAllHtmlFiles: sinon.stub().returns(getHTMLFilesStub()),
+        getAllFiles: sinon.stub().returns(getHTMLFilesStub()),
       };
       const assetUrls = new Set(['image.jpg']);
       const results = await processPages(
@@ -115,9 +115,7 @@ describe('da-helper.js', () => {
         '/html',
         '/download',
         'token',
-        {},
-        3,
-        100,
+        { maxRetries: 3, retryDelay: 100 },
         mockDeps,
       );
       expect(results).to.be.an('array');
@@ -154,7 +152,7 @@ describe('da-helper.js', () => {
         downloadAssets: mockDownloadAssets,
         uploadFolder: mockUploadFolder,
         uploadFile: mockUploadFile,
-        getAllHtmlFiles: sinon.stub().returns(getHTMLFilesStub()),
+        getAllFiles: sinon.stub().returns(getHTMLFilesStub()),
       };
       const assetUrls = new Set(['image.jpg']);
       const results = await processPages(
@@ -163,9 +161,7 @@ describe('da-helper.js', () => {
         '/html',
         '/download',
         'token',
-        {},
-        3,
-        100,
+        { maxRetries: 3, retryDelay: 100 },
         mockDeps,
       );
       expect(results[0].downloadedAssets).to.deep.equal([]);
@@ -200,7 +196,7 @@ describe('da-helper.js', () => {
         downloadAssets: mockDownloadAssets,
         uploadFolder: mockUploadFolder,
         uploadFile: mockUploadFile,
-        getAllHtmlFiles: sinon.stub().returns(getHTMLFilesStub()),
+        getAllFiles: sinon.stub().returns(getHTMLFilesStub()),
       };
       const assetUrls = new Set(['image.jpg']);
       await processPages(
@@ -209,9 +205,7 @@ describe('da-helper.js', () => {
         '/html',
         '/download',
         'token',
-        {},
-        3,
-        100,
+        { maxRetries: 3, retryDelay: 100 },
         mockDeps,
       );
       
@@ -250,7 +244,7 @@ describe('da-helper.js', () => {
         downloadAssets: mockDownloadAssets,
         uploadFolder: mockUploadFolder,
         uploadFile: mockUploadFile,
-        getAllHtmlFiles: sinon.stub().returns(getHTMLFilesStub()),
+        getAllFiles: sinon.stub().returns(getHTMLFilesStub()),
       };
       const assetUrls = new Set(['image.jpg']);
       const results = await processPages(
@@ -259,9 +253,7 @@ describe('da-helper.js', () => {
         '/html',
         '/download',
         'token',
-        {},
-        3,
-        100,
+        { maxRetries: 3, retryDelay: 100 },
         mockDeps,
       );
       expect(results[0].error).to.include('read error');
@@ -294,7 +286,7 @@ describe('da-helper.js', () => {
         downloadAssets: mockDownloadAssets,
         uploadFolder: mockUploadFolder,
         uploadFile: mockUploadFile,
-        getAllHtmlFiles: sinon.stub().returns(getHTMLFilesStub()),
+        getAllFiles: sinon.stub().returns(getHTMLFilesStub()),
       };
       const assetUrls = new Set(['image.jpg']);
       const results = await processPages(
@@ -303,9 +295,7 @@ describe('da-helper.js', () => {
         '/html',
         '/download',
         'token',
-        {},
-        3,
-        100,
+        { maxRetries: 3, retryDelay: 100 },
         mockDeps,
       );
       expect(results[0].error).to.include('upload error');
@@ -338,7 +328,7 @@ describe('da-helper.js', () => {
         downloadAssets: mockDownloadAssets,
         uploadFolder: mockUploadFolder,
         uploadFile: mockUploadFile,
-        getAllHtmlFiles: sinon.stub().returns(getHTMLFilesStub()),
+        getAllFiles: sinon.stub().returns(getHTMLFilesStub()),
       };
       const assetUrls = new Set(['image.jpg']);
       await processPages(
@@ -347,9 +337,7 @@ describe('da-helper.js', () => {
         '/html',
         '/download',
         'token',
-        {},
-        3,
-        100,
+        { maxRetries: 3, retryDelay: 100 },
         mockDeps,
       );
       expect(mockFs.mkdirSync.calledWith('/download', { recursive: true })).to.be.true;
@@ -381,7 +369,7 @@ describe('da-helper.js', () => {
         downloadAssets: mockDownloadAssets,
         uploadFolder: mockUploadFolder,
         uploadFile: mockUploadFile,
-        getAllHtmlFiles: sinon.stub().returns(getHTMLFilesStub()),
+        getAllFiles: sinon.stub().returns(getHTMLFilesStub()),
       };
       const assetUrls = new Set(['image.jpg']);
       const results = await processPages(
@@ -390,9 +378,7 @@ describe('da-helper.js', () => {
         '/html',
         '/download',
         'token',
-        {},
-        3,
-        100,
+        { maxRetries: 3, retryDelay: 100 },
         mockDeps,
       );
       // Should still succeed even if cleanup fails

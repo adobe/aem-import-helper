@@ -15,7 +15,10 @@ import path from 'path';
 import { JSDOM } from 'jsdom';
 import { downloadAssets } from '../utils/download-assets.js';
 import chalk from 'chalk';
-import { getAllHtmlFiles, uploadFolder, uploadFile } from './upload.js';
+import { getAllFiles, uploadFolder, uploadFile } from './upload.js';
+
+// File encoding constant
+const UTF8_ENCODING = 'utf-8';
 
 const defaultDependencies = {
   fs,
@@ -23,7 +26,7 @@ const defaultDependencies = {
   JSDOM,
   downloadAssets,
   chalk,
-  getAllHtmlFiles,
+  getAllFiles,
   uploadFolder,
   uploadFile,
 };
@@ -153,22 +156,21 @@ async function downloadPageAssets(matchingHrefs, fullShadowPath, downloadFolder,
  * @param {string} token - Authentication token
  * @param {Object} uploadOptions - Upload options
  * @param {string} downloadFolder - Base download folder for relative path calculation
- * @param {number} pageIndex - Page index for logging
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Promise<void>}
  */
-async function uploadPageAssets(shadowFolderPath, daLocation, token, uploadOptions, downloadFolder, pageIndex, dependencies = defaultDependencies) {
+async function uploadPageAssets(shadowFolderPath, daLocation, token, uploadOptions, downloadFolder, dependencies = defaultDependencies) {
   const { chalk: chalkDep, uploadFolder: uploadFolderDep } = dependencies;
   
-  console.log(chalkDep.yellow(`Uploading assets for page ${pageIndex} to ${shadowFolderPath}...`));
+  console.log(chalkDep.yellow(`Uploading assets for page to ${shadowFolderPath}...`));
   try {
     await uploadFolderDep(shadowFolderPath, daLocation, token, {
       ...uploadOptions,
       baseFolder: downloadFolder, // preserve shadow folder structure
     });
-    console.log(chalkDep.green(`Successfully uploaded assets for page ${pageIndex} to ${shadowFolderPath}`));
+    console.log(chalkDep.green(`Successfully uploaded assets for page to ${shadowFolderPath}`));
   } catch (uploadError) {
-    console.error(chalkDep.red(`Error uploading assets for page ${pageIndex}:`, uploadError.message));
+    console.error(chalkDep.red('Error uploading assets for page', uploadError.message));
     throw uploadError;
   }
 }
@@ -186,15 +188,15 @@ async function uploadPageAssets(shadowFolderPath, daLocation, token, uploadOptio
 async function uploadHTMLPage(pagePath, daLocation, token, uploadOptions, htmlFolder, dependencies = defaultDependencies) {
   const { chalk: chalkDep, uploadFile: uploadFileDep } = dependencies;
   
-  console.log(chalkDep.yellow(`Uploading updated HTML page ${pageIndex}...`));
+  console.log(chalkDep.yellow(`Uploading updated HTML page: ${pagePath}...`));
   try {
     await uploadFileDep(pagePath, daLocation, token, {
       ...uploadOptions,
       baseFolder: htmlFolder,
     });
-    console.log(chalkDep.green(`Successfully uploaded HTML page ${pageIndex}`));
+    console.log(chalkDep.green(`Successfully uploaded HTML page: ${pagePath}`));
   } catch (uploadError) {
-    console.error(chalkDep.red(`Error uploading HTML page ${pageIndex}:`, uploadError.message));
+    console.error(chalkDep.red(`Error uploading HTML page: ${pagePath}:`, uploadError.message));
     throw uploadError;
   }
 }
@@ -211,9 +213,6 @@ function cleanupPageAssets(shadowFolderPath, dependencies) {
     if (err) {
       console.warn(chalkDep.yellow(`Warning: Could not clean up folder ${shadowFolderPath}:`, err));
     }
-    if (callback) {
-      callback();
-    }
   });
 }
 
@@ -225,21 +224,19 @@ function cleanupPageAssets(shadowFolderPath, dependencies) {
  * @param {Set<string>} assetUrls - Set of asset URLs to match
  * @param {string} daLocation - DA location URL
  * @param {string} token - Authentication token
- * @param {Object} uploadOptions - Upload options
- * @param {number} maxRetries - Maximum retries for download
- * @param {number} retryDelay - Delay between retries
- * @param {number} pageIndex - Page index for logging
+ * @param {Object} uploadOptions - Upload options including maxRetries and retryDelay
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Promise<Object>} Processing result for the page
  */
-async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls, daLocation, token, uploadOptions, maxRetries, retryDelay, pageIndex, dependencies = defaultDependencies) {
+async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls, daLocation, token, uploadOptions, dependencies = defaultDependencies) {
   const { fs: fsDep, chalk: chalkDep, path: pathDep } = dependencies;
+  const { maxRetries = 3, retryDelay = 5000 } = uploadOptions;
   
-  console.log(chalkDep.blue(`\nProcessing page ${pageIndex}: ${pagePath}`));
+  console.log(chalkDep.blue(`\nProcessing page: ${pagePath}`));
   
   try {
     // Read the HTML file
-    const htmlContent = fsDep.readFileSync(pagePath, 'utf-8');
+    const htmlContent = fsDep.readFileSync(pagePath, UTF8_ENCODING);
     
     // Extract hrefs from the HTML
     const hrefs = extractHrefsFromHTML(htmlContent, dependencies);
@@ -267,17 +264,17 @@ async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls
       const downloadResults = await downloadPageAssets(matchingHrefs, fullShadowPath, downloadFolder, maxRetries, retryDelay, dependencies);
       
       // Upload assets for this page immediately
-      await uploadPageAssets(shadowFolderPath, daLocation, token, uploadOptions, downloadFolder, pageIndex, dependencies);
+      await uploadPageAssets(shadowFolderPath, daLocation, token, uploadOptions, downloadFolder, dependencies);
       
       // Update the HTML content
       const updatedContent = updateHrefsInHTML(pagePath, htmlContent, new Set(matchingHrefs), daLocation, dependencies);
       
       // Save updated HTML content
-      fsDep.writeFileSync(pagePath, updatedContent, 'utf-8');
+      fsDep.writeFileSync(pagePath, updatedContent, UTF8_ENCODING);
       console.log(chalkDep.green(`Updated and saved page: ${pagePath}`));
       
       // Upload the updated HTML page
-      await uploadHTMLPage(pagePath, daLocation, token, uploadOptions, htmlFolder, pageIndex, dependencies);
+      await uploadHTMLPage(pagePath, daLocation, token, uploadOptions, htmlFolder, dependencies);
       
       // Clean up downloaded assets for this page to free disk space
       cleanupPageAssets(shadowFolderPath, dependencies, () => {
@@ -293,11 +290,11 @@ async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls
       
     } else {
       // No matching assets found, just upload the HTML page as-is
-      console.log(chalkDep.gray(`No asset references found for page ${pageIndex}, uploading HTML as-is...`));
+      console.log(chalkDep.gray(`No asset references found for page ${pagePath}, uploading HTML as-is...`));
       try {
-        await uploadHTMLPage(pagePath, daLocation, token, uploadOptions, htmlFolder, pageIndex, dependencies);
+        await uploadHTMLPage(pagePath, daLocation, token, uploadOptions, htmlFolder, dependencies);
       } catch (uploadError) {
-        console.error(chalkDep.red(`Error uploading HTML page ${pageIndex}:`, uploadError.message));
+        console.error(chalkDep.red(`Error uploading HTML page ${pagePath}:`, uploadError.message));
       }
       
       return {
@@ -310,7 +307,7 @@ async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls
     }
     
   } catch (error) {
-    console.error(chalkDep.red(`Error processing page ${pageIndex} ${pagePath}:`, error.message));
+    console.error(chalkDep.red(`Error processing page ${pagePath}:`, error.message));
     return {
       filePath: pagePath,
       error: error.message,
@@ -329,16 +326,14 @@ async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls
  * @param {string} htmlFolder - Folder containing HTML files
  * @param {string} downloadFolder - Folder to download assets to (temporary)
  * @param {string} token - DA authentication token
- * @param {Object} uploadOptions - Options for upload operations
- * @param {number} maxRetries - Maximum number of retries for downloading
- * @param {number} retryDelay - Delay between retries in milliseconds
+ * @param {Object} uploadOptions - Options for upload operations including maxRetries and retryDelay
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Promise<Array<{filePath: string, updatedContent: string, downloadedAssets: Array<string>}>>} 
  *         Promise that resolves with array of processed page results
  */
-export async function processPages(daLocation, assetUrls, htmlFolder, downloadFolder, token, uploadOptions = {}, maxRetries = 3, retryDelay = 5000, dependencies = defaultDependencies) {
+export async function processPages(daLocation, assetUrls, htmlFolder, downloadFolder, token, uploadOptions = {}, dependencies = defaultDependencies) {
   const { fs: fsDep, chalk: chalkDep } = dependencies;
-  const getHTMLFilesFn = dependencies.getAllHtmlFiles || getAllHtmlFiles;
+  const getHTMLFilesFn = dependencies.getAllFiles || getAllFiles;
   const htmlPages = getHTMLFilesFn(htmlFolder, { fileExtensions: ['.html', '.htm'] }, dependencies);
   const results = [];
   
@@ -352,7 +347,6 @@ export async function processPages(daLocation, assetUrls, htmlFolder, downloadFo
   // Process each page individually
   for (let i = 0; i < htmlPages.length; i++) {
     const pagePath = htmlPages[i];
-    const pageIndex = i + 1;
     
     const result = await processSinglePage(
       pagePath,
@@ -362,9 +356,6 @@ export async function processPages(daLocation, assetUrls, htmlFolder, downloadFo
       daLocation,
       token,
       uploadOptions,
-      maxRetries,
-      retryDelay,
-      pageIndex,
       dependencies,
     );
     

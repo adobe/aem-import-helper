@@ -229,11 +229,11 @@ export async function uploadFolder(folderPath, uploadUrl, authToken, options = {
   } = options;
 
   const { chalk: chalkDep } = dependencies;
-  const getFiles = dependencies.getAllHtmlFiles || getAllHtmlFiles;
+  const getFiles = dependencies.getAllFiles || getAllFiles;
 
   try {
     // Get all files recursively
-    let allFiles = getFiles(folderPath, { fileExtensions }, dependencies);
+    let allFiles = getFiles(folderPath, dependencies);
     
     if (allFiles.length === 0) {
       console.log(chalkDep.yellow('No files found to upload'));
