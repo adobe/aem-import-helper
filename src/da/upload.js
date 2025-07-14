@@ -31,7 +31,7 @@ const defaultDependencies = {
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Array<string>} Array of absolute file paths
  */
-export function getAllHtmlFiles(dirPath, options = {}, dependencies = defaultDependencies) {
+export function getAllFiles(dirPath, options = {}, dependencies = defaultDependencies) {
   const { fileExtensions = [] } = options;
   const { fs: fsDep, path: pathDep } = dependencies;
   
