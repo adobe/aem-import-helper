@@ -7,7 +7,7 @@ A helpful companion for importing your site to AEM.
 - Run large [import](#import) jobs with AEM Import as a Service ([API docs](https://opensource.adobe.com/spacecat-api-service/#tag/import)).
 - [Bundle](#bundle) your import scripts.
 - [Import Crosswalk Content](#importing-content-into-AEM) to your AEM author.
-- [Import DA Content](#importing-content-into-DA) to Document Authoring.
+- [Import DA Content](#importing-content-into-DA) to Author Bus.
 
 ## Install
 
