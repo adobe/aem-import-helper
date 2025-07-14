@@ -53,7 +53,6 @@ export function getAllHtmlFiles(dirPath, options = {}, dependencies = defaultDep
   return files;
 }
 
-
 /**
  * Create FormData and fetch options for file upload
  * @param {string} filePath - The absolute path to the file to upload
