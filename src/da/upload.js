@@ -226,7 +226,6 @@ function getSummaryFromUploadResults(results, totalFiles, dependencies = default
  */
 export async function uploadFolder(folderPath, uploadUrl, authToken, options = {}, dependencies = defaultDependencies) {
   const {
-    fileExtensions = ['.html', '.htm'],
     baseFolder = folderPath, // Default to folderPath if not provided
   } = options;
 
