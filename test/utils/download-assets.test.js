@@ -102,4 +102,72 @@ describe('download assets', function () {
     await scope.done();
   });
 
-}); 
+  it('should add extension based on content-type when file has no extension', async () => {
+    const scope = nock('http://www.aem.com')
+      .get('/asset1')
+      .reply(200, 'image data', {
+        'Content-Type': 'image/jpeg',
+      });
+
+    const mapping = new Map([
+      ['http://www.aem.com/asset1', '/content/dam/xwalk/image1'],
+    ]);
+
+    await downloadAssets(mapping, downloadFolder);
+    expect(fs.existsSync(path.join(downloadFolder, 'xwalk/image1.jpg'))).to.be.true;
+
+    await scope.done();
+  });
+
+  it('should not add extension when file already has one', async () => {
+    const scope = nock('http://www.aem.com')
+      .get('/asset1.png')
+      .reply(200, 'image data', {
+        'Content-Type': 'image/jpeg',
+      });
+
+    const mapping = new Map([
+      ['http://www.aem.com/asset1.png', '/content/dam/xwalk/image1.png'],
+    ]);
+
+    await downloadAssets(mapping, downloadFolder);
+    expect(fs.existsSync(path.join(downloadFolder, 'xwalk/image1.png'))).to.be.true;
+
+    await scope.done();
+  });
+
+  it('should handle unknown content-types gracefully', async () => {
+    const scope = nock('http://www.aem.com')
+      .get('/asset1')
+      .reply(200, 'data', {
+        'Content-Type': 'application/unknown',
+      });
+
+    const mapping = new Map([
+      ['http://www.aem.com/asset1', '/content/dam/xwalk/image1'],
+    ]);
+
+    await downloadAssets(mapping, downloadFolder);
+    expect(fs.existsSync(path.join(downloadFolder, 'xwalk/image1'))).to.be.true;
+
+    await scope.done();
+  });
+
+  it('should handle content-type with parameters', async () => {
+    const scope = nock('http://www.aem.com')
+      .get('/asset1')
+      .reply(200, 'image data', {
+        'Content-Type': 'image/jpeg; charset=utf-8',
+      });
+
+    const mapping = new Map([
+      ['http://www.aem.com/asset1', '/content/dam/xwalk/image1'],
+    ]);
+
+    await downloadAssets(mapping, downloadFolder);
+    expect(fs.existsSync(path.join(downloadFolder, 'xwalk/image1.jpg'))).to.be.true;
+
+    await scope.done();
+  });
+
+});

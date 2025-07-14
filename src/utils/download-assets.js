@@ -16,15 +16,57 @@ import chalk from 'chalk';
 
 const CONTENT_DAM_PREFIX = '/content/dam';
 
+// Common MIME type to extension mapping
+const MIME_TO_EXTENSION = {
+  // Images
+  'image/jpeg': '.jpg',
+  'image/jpg': '.jpg',
+  'image/png': '.png',
+  'image/gif': '.gif',
+  'image/webp': '.webp',
+  'image/svg+xml': '.svg',
+  'image/tiff': '.tiff',
+  'image/bmp': '.bmp',
+  'image/x-icon': '.ico',
+  'image/vnd.microsoft.icon': '.ico',
+  'image/heic': '.heic',
+  'image/heif': '.heif',
+  'image/avif': '.avif',
+  'image/apng': '.apng',
+  // Documents
+  'application/pdf': '.pdf',
+  'application/msword': '.doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+  'application/vnd.ms-excel': '.xls',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+  'application/vnd.ms-powerpoint': '.ppt',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': '.pptx',
+};
+
 /**
  * Save the given blob to a file in the download folder.
  * @param {Blob} blob - The blob to save.
  * @param {string} downloadPath - The JCR path of the asset.
  * @param {string} downloadFolder - The folder to download assets to.
+ * @param {string} contentType - The content type from the response headers.
  * @return {Promise<void>} A promise that resolves when the blob is saved to a file.
  */
-async function saveBlobToFile(blob, downloadPath, downloadFolder) {
-  let assetPath = path.join(downloadFolder, downloadPath.replace(CONTENT_DAM_PREFIX, ''));
+async function saveBlobToFile(blob, jcrPath, downloadFolder, contentType) {
+  let assetPath = path.join(downloadFolder, jcrPath.replace(CONTENT_DAM_PREFIX, ''));
+
+  let extension = '';
+  
+  if (contentType) {
+    // Extract the main MIME type (remove any parameters like charset)
+    const mainType = contentType.split(';')[0].trim();
+    extension = MIME_TO_EXTENSION[mainType] || '';
+  }
+
+  // If the file doesn't have an extension and we found one from content-type, append it
+  if (extension && !path.extname(assetPath)) {
+    assetPath += extension;
+  }
+
   fs.mkdirSync(path.dirname(assetPath), { recursive: true });
 
   const buffer = Buffer.from(await blob.arrayBuffer());
@@ -36,7 +78,7 @@ async function saveBlobToFile(blob, downloadPath, downloadFolder) {
  * @param {string} url - The URL of the asset to download.
  * @param {number} maxRetries - The maximum number of retries for downloading an asset.
  * @param {number} retryDelay - The delay between retries in milliseconds.
- * @return {Promise<Blob>} A promise that resolves with the downloaded asset.
+ * @return {Promise<{blob: Blob, contentType: string}>} A promise that resolves with the downloaded asset and its content type.
  */
 async function downloadAssetWithRetry(url, maxRetries = 3, retryDelay = 5000) {
   let attempts = 0;
@@ -48,7 +90,9 @@ async function downloadAssetWithRetry(url, maxRetries = 3, retryDelay = 5000) {
         console.info(chalk.yellow(msg));
         throw new Error(msg);
       }
-      return await response.blob();
+      const contentType = response.headers.get('content-type');
+      const blob = await response.blob();
+      return { blob, contentType };
     } catch (error) {
       attempts++;
       if (attempts >= maxRetries) {
@@ -72,12 +116,12 @@ async function downloadAssetWithRetry(url, maxRetries = 3, retryDelay = 5000) {
  * @return {Promise<Array<PromiseSettledResult<string>>>} A promise that resolves when all assets are downloaded.
  * Each promise in the array will resolve with the JCR path of the downloaded asset.
  */
-export async function downloadAssets(assetMapping, downloadFolder, maxRetries = 3,retryDelay = 5000) {
+export async function downloadAssets(assetMapping, downloadFolder, maxRetries = 3, retryDelay = 5000) {
   const downloadPromises = Array.from(assetMapping.entries())
-    .map(async ([assetUrl, downloadPath]) => {
-      const blob = await downloadAssetWithRetry(assetUrl, maxRetries, retryDelay);
-      await saveBlobToFile(blob, downloadPath, downloadFolder);
-      return downloadPath;
+    .map(async ([assetUrl, jcrPath]) => {
+      const { blob, contentType } = await downloadAssetWithRetry(assetUrl, maxRetries, retryDelay);
+      await saveBlobToFile(blob, jcrPath, downloadFolder, contentType);
+      return jcrPath;
     });
 
   return Promise.allSettled(downloadPromises);
