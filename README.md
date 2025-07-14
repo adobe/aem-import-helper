@@ -174,7 +174,7 @@ You can store this token in a file on your local machine, or pass the token as a
 If you choose to store the token in a file, create a file and simply paste the token into the file and save it. 
 
 ```
---token </path/to/token.txt> OR <token>
+--token </path/to/token.txt>
 ```
 
 ### Uploading content to Author bus
