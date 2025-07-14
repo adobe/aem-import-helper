@@ -203,7 +203,6 @@ async function uploadHTMLPage(pagePath, daLocation, token, uploadOptions, htmlFo
 /**
  * Clean up downloaded assets for a page to free disk space
  * @param {string} shadowFolderPath - Path to the shadow folder to clean up
- * @param {number} pageIndex - Page index for logging
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @param {Function} callback - The callback function to execute after cleanup
  */
