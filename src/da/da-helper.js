@@ -181,7 +181,6 @@ async function uploadPageAssets(shadowFolderPath, daLocation, token, uploadOptio
  * @param {string} token - Authentication token
  * @param {Object} uploadOptions - Upload options
  * @param {string} htmlFolder - Base HTML folder for relative path calculation
- * @param {number} pageIndex - Page index for logging
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Promise<void>}
  */
