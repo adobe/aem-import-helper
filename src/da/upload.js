@@ -219,7 +219,6 @@ function getSummaryFromUploadResults(results, totalFiles, dependencies = default
  * @param {string} authToken - The authentication token
  * @param {Object} options - Additional options for the upload
  * @param {Array<string>} options.fileExtensions - Array of file extensions to include (e.g., ['.html', '.html'])
- * @param {boolean} options.verbose - Whether to show detailed progress (default: false)
  * @param {string} options.baseFolder - The base folder to calculate relative paths from (default: folderPath)
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Promise<Object>} Upload results with summary
