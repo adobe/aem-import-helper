@@ -208,7 +208,7 @@ async function uploadHTMLPage(pagePath, daLocation, token, uploadOptions, htmlFo
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @param {Function} callback - The callback function to execute after cleanup
  */
-function cleanupPageAssets(shadowFolderPath, dependencies, callback) {
+function cleanupPageAssets(shadowFolderPath, dependencies) {
   const { fs: fsDep, chalk: chalkDep } = dependencies;
   fsDep.rm(shadowFolderPath, { recursive: true, force: true }, (err) => {
     if (err) {
