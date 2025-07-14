@@ -46,13 +46,13 @@ const MIME_TO_EXTENSION = {
 /**
  * Save the given blob to a file in the download folder.
  * @param {Blob} blob - The blob to save.
- * @param {string} downloadPath - The JCR path of the asset.
+ * @param {string} downloadPath - The path of the asset.
  * @param {string} downloadFolder - The folder to download assets to.
  * @param {string} contentType - The content type from the response headers.
  * @return {Promise<void>} A promise that resolves when the blob is saved to a file.
  */
-async function saveBlobToFile(blob, jcrPath, downloadFolder, contentType) {
-  let assetPath = path.join(downloadFolder, jcrPath.replace(CONTENT_DAM_PREFIX, ''));
+async function saveBlobToFile(blob, downloadPath, downloadFolder, contentType) {
+  let assetPath = path.join(downloadFolder, downloadPath.replace(CONTENT_DAM_PREFIX, ''));
 
   let extension = '';
   
@@ -114,14 +114,14 @@ async function downloadAssetWithRetry(url, maxRetries = 3, retryDelay = 5000) {
  * @param {number} maxRetries - The maximum number of retries for downloading an asset.
  * @param {number} retryDelay - The delay between retries in milliseconds.
  * @return {Promise<Array<PromiseSettledResult<string>>>} A promise that resolves when all assets are downloaded.
- * Each promise in the array will resolve with the JCR path of the downloaded asset.
+ * Each promise in the array will resolve with the path of the downloaded asset.
  */
 export async function downloadAssets(assetMapping, downloadFolder, maxRetries = 3, retryDelay = 5000) {
   const downloadPromises = Array.from(assetMapping.entries())
-    .map(async ([assetUrl, jcrPath]) => {
+    .map(async ([assetUrl, downloadPath]) => {
       const { blob, contentType } = await downloadAssetWithRetry(assetUrl, maxRetries, retryDelay);
-      await saveBlobToFile(blob, jcrPath, downloadFolder, contentType);
-      return jcrPath;
+      await saveBlobToFile(blob, downloadPath, downloadFolder, contentType);
+      return downloadPath;
     });
 
   return Promise.allSettled(downloadPromises);
