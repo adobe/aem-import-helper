@@ -32,7 +32,7 @@ const defaultDependencies = {
 };
 
 /**
- * Extract all href attributes from anchor tags and src attributes from img tags in an HTML string
+ * Extract all href attributes from anchor tags and src attributes, from img tags in an HTML string, returning an array of urls.
  * @param {string} htmlContent - The HTML content to parse
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Array<string>} Array of href and src values found in the HTML
