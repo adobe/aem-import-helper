@@ -40,7 +40,7 @@ function validateFiles(assetListFile, daFolder) {
 
 /**
  * Validate the DA authentication token by making a HEAD request to the target environment.
- * @param {string} daLocation - The DA target environment
+ * @param {string} listUrl - The DA list URL constructed from org and site (e.g., https://admin.da.live/list/geometrixx/outdoors)
  * @param {string} token - The DA authentication token
  * @return {Promise<boolean>} True if the token is valid, false otherwise
  */
@@ -80,9 +80,9 @@ export const daBuilder = (yargs) => {
       describe: 'The organization',
       demandOption: true,
     })
-    .option('repo', {
+    .option('site', {
       type: 'string',
-      describe: 'Name of the repository',
+      describe: 'The name of the site.',
       demandOption: true,
     })
     .option('asset-list', {
@@ -95,13 +95,13 @@ export const daBuilder = (yargs) => {
       describe: 'Absolute path to the DA folder',
       demandOption: true,
     })
-    .option('download-folder', {
+    .option('output', {
       type: 'string',
-      describe: 'Path to the download folder',
+      describe: 'Absolute path to the output folder where the downloaded assets will be stored',
       default: 'da-assets',
     })
-    .option('auth-token', {
-      describe: 'Path to a file containing the DA authentication token',
+    .option('token', {
+      describe: 'Path to a file containing the DA authentication token or the token value',
       type: 'string',
       demandOption: true,
     });
@@ -112,13 +112,15 @@ export const daHandler = async (args) => {
     process.exit(1);
   }
 
-  // Construct the DA URL from org and repo
-  const daLocation = `${DA_BASE_URL}/source/${args.org}/${args.repo}`;
-  const listUrl = `${DA_BASE_URL}/list/${args.org}/${args.repo}`;
+  // Construct the DA URL from org and site
+  const daLocation = `${DA_BASE_URL}/source/${args.org}/${args.site}`;
+  const listUrl = `${DA_BASE_URL}/list/${args.org}/${args.site}`;
 
   // check to see if the token is a string value or a file
   let token = args.token;
-  if (fs.existsSync(token)) {
+  
+  // Check if it's a file path (exists as a file)
+  if (fs.existsSync(token) && fs.statSync(token).isFile()) {
     token = fs.readFileSync(token, 'utf-8').trim();
   }
 
@@ -134,11 +136,11 @@ export const daHandler = async (args) => {
     // Extract the assets array from the JSON structure
     const assetUrls = new Set(assetListJson.assets || []);
     
-    if (!Array.isArray(assetListJson.assets) || assetListJson.assets.length === 0) {
+    if (assetUrls.size === 0) {
       console.warn(chalk.yellow('No asset urls found in the asset-list file. Expected format: {"assets": ["url1", "url2", ...]}'));
     }
     
-    await processPages(daLocation, assetUrls, args['da-folder'], args['download-folder'], token);
+    await processPages(daLocation, assetUrls, args['da-folder'], args['output'], token);
 
   } catch (err) {
     console.error(chalk.red('Error during processing:', err));

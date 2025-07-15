@@ -31,15 +31,17 @@ const defaultDependencies = {
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Array<string>} Array of absolute file paths
  */
-export function getAllFiles(dirPath, options = {}, dependencies = defaultDependencies) {
-  const { fileExtensions = [] } = options;
+export function getAllFiles(dirPath, fileExtensions = [], dependencies = defaultDependencies) {
   const { fs: fsDep, path: pathDep } = dependencies;
   
   let files;
   try {
     files = fsDep.readdirSync(dirPath, { recursive: true, withFileTypes: true })
       .filter((entry) => entry.isFile())
-      .map((entry) => pathDep.join(entry.parentPath, entry.name));
+      .map((entry) => pathDep.join(entry.parentPath, entry.name))
+      .filter((file) => 
+        fileExtensions.length === 0 || fileExtensions.includes(pathDep.extname(file)),
+      );
   } catch (e) {
     if (e.code === 'ENOENT') {
       throw new Error(`Folder not found: ${dirPath}`);
@@ -47,9 +49,6 @@ export function getAllFiles(dirPath, options = {}, dependencies = defaultDepende
     throw e;
   }
 
-  if (fileExtensions.length > 0) {
-    return files.filter((file) => fileExtensions.includes(pathDep.extname(file)));
-  }
   return files;
 }
 
@@ -57,11 +56,11 @@ export function getAllFiles(dirPath, options = {}, dependencies = defaultDepende
  * Create FormData and fetch options for file upload
  * @param {string} filePath - The absolute path to the file to upload
  * @param {string} userAgent - Custom User-Agent header
- * @param {string} authToken - The authentication token
+ * @param {string} token - The authentication token
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Object} Object containing formData and fetchOptions
  */
-function createUploadRequest(filePath, userAgent, authToken, dependencies = defaultDependencies) {
+function createUploadRequest(filePath, userAgent, token, dependencies = defaultDependencies) {
   const { fs: fsDep, FormData: FormDataDep } = dependencies;
   
   // Create FormData
@@ -75,8 +74,8 @@ function createUploadRequest(filePath, userAgent, authToken, dependencies = defa
   };
 
   // Add authorization header if token is provided
-  if (authToken) {
-    headers['Authorization'] = `Bearer ${authToken}`;
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
   }
 
   // Prepare fetch options
@@ -93,15 +92,14 @@ function createUploadRequest(filePath, userAgent, authToken, dependencies = defa
  * Upload a file to the Author Bus.
  * @param {string} filePath - The absolute path to the file to upload
  * @param {string} uploadUrl - The DA upload URL base
- * @param {string} authToken - The authentication token
+ * @param {string} token - The authentication token
  * @param {Object} options - Additional options for the upload
  * @param {string} options.userAgent - Custom User-Agent header (default: 'aem-import-helper/1.0')
- * @param {boolean} options.withCredentials - Whether to include credentials (default: true)
  * @param {string} options.baseFolder - The base folder path to calculate relative path from
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Promise<Object>} The upload response
  */
-export async function uploadFile(filePath, uploadUrl, authToken, options = {}, dependencies = defaultDependencies) {
+export async function uploadFile(filePath, uploadUrl, token, options = {}, dependencies = defaultDependencies) {
   const {
     userAgent = 'aem-import-helper/1.0',
     baseFolder = '',
@@ -129,7 +127,7 @@ export async function uploadFile(filePath, uploadUrl, authToken, options = {}, d
       const fullUploadUrl = `${uploadUrl}/${relativePath}`;
 
       // Create upload request
-      const { fetchOptions } = createUploadRequest(filePath, userAgent, authToken, dependencies);
+      const { fetchOptions } = createUploadRequest(filePath, userAgent, token, dependencies);
 
       console.log(chalkDep.yellow(`Uploading file '${filePath}' to '${fullUploadUrl}' (Attempt ${attempts + 1}/${retries + 1})`));
 
@@ -216,24 +214,26 @@ function getSummaryFromUploadResults(results, totalFiles, dependencies = default
  * Upload all files from a folder recursively to the DA system
  * @param {string} folderPath - The absolute path to the folder to upload
  * @param {string} uploadUrl - The DA upload URL base
- * @param {string} authToken - The authentication token
+ * @param {string} token - The authentication token
  * @param {Object} options - Additional options for the upload
  * @param {Array<string>} options.fileExtensions - Array of file extensions to include (e.g., ['.html', '.html'])
  * @param {string} options.baseFolder - The base folder to calculate relative paths from (default: folderPath)
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Promise<Object>} Upload results with summary
  */
-export async function uploadFolder(folderPath, uploadUrl, authToken, options = {}, dependencies = defaultDependencies) {
-  const {
-    baseFolder = folderPath, // Default to folderPath if not provided
-  } = options;
-
+export async function uploadFolder(folderPath, uploadUrl, token, options = {}, dependencies = defaultDependencies) {
   const { chalk: chalkDep } = dependencies;
   const getFiles = dependencies.getAllFiles || getAllFiles;
 
+  // Set default baseFolder to folderPath if not provided
+  const uploadOptions = {
+    ...options,
+    baseFolder: options.baseFolder || folderPath,
+  };
+
   try {
     // Get all files recursively
-    let allFiles = getFiles(folderPath, dependencies);
+    let allFiles = getFiles(folderPath, options.fileExtensions || [], dependencies);
     
     if (allFiles.length === 0) {
       console.log(chalkDep.yellow('No files found to upload'));
@@ -251,10 +251,7 @@ export async function uploadFolder(folderPath, uploadUrl, authToken, options = {
     const results = [];
     for (const filePath of allFiles) {
       try {
-        const result = await uploadFile(filePath, uploadUrl, authToken, {
-          ...options,
-          baseFolder: baseFolder, // Use the baseFolder parameter
-        }, dependencies);
+        const result = await uploadFile(filePath, uploadUrl, token, uploadOptions, dependencies);
         results.push(result);
       } catch (error) {
         results.push({

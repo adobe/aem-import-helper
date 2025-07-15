@@ -32,26 +32,41 @@ const defaultDependencies = {
 };
 
 /**
- * Extract all href attributes from anchor tags and src attributes, from img tags in an HTML string, returning an array of urls.
+ * Extract clean filename from URL (no query params or fragments)
+ * @param {string} url - The URL to extract filename from
+ * @param {Object} dependencies - Dependencies for testing (optional)
+ * @return {string} The filename extracted from the URL
+ */
+function getFilename(url, dependencies = defaultDependencies) {
+  const { chalk: chalkDep } = dependencies;
+  if (!url.startsWith('http')) {
+    console.warn(chalkDep.yellow(`Warning: Relative path found: ${url}`));
+  }
+  const urlObj = url.startsWith('http') ? new URL(url) : new URL(url, 'http://localhost');
+  return urlObj.pathname.split('/').pop();
+}
+
+/**
+ * Extract all URL attributes from anchor tags and img tags in an HTML string, returning an array of URLs.
  * @param {string} htmlContent - The HTML content to parse
  * @param {Object} dependencies - Dependencies for testing (optional)
- * @return {Array<string>} Array of href and src values found in the HTML
+ * @return {Array<string>} Array of URLs found in the HTML
  */
-function extractHrefsFromHTML(htmlContent, dependencies = defaultDependencies) {
+function extractUrlsFromHTML(htmlContent, dependencies = defaultDependencies) {
   const { JSDOM: JSDOMDep } = dependencies;
   const dom = new JSDOMDep(htmlContent);
   const document = dom.window.document;
   
   // Get all href attributes from anchor tags
   const links = document.querySelectorAll('a[href]');
-  const hrefs = Array.from(links).map(link => link.getAttribute('href'));
+  const linkUrls = Array.from(links).map(link => link.getAttribute('href'));
   
   // Get all src attributes from img tags
   const images = document.querySelectorAll('img[src]');
-  const srcs = Array.from(images).map(img => img.getAttribute('src'));
+  const imageUrls = Array.from(images).map(img => img.getAttribute('src'));
   
   // Combine both arrays
-  return [...hrefs, ...srcs];
+  return [...linkUrls, ...imageUrls];
 }
 
 /**
@@ -63,7 +78,7 @@ function extractHrefsFromHTML(htmlContent, dependencies = defaultDependencies) {
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {string} Updated HTML content with modified hrefs and srcs
  */
-function updateHrefsInHTML(pagePath, htmlContent, assetUrls, daLocation, dependencies = defaultDependencies) {
+function updateImagesInHTML(pagePath, htmlContent, assetUrls, daLocation, dependencies = defaultDependencies) {
   const { JSDOM: JSDOMDep, path: pathDep } = dependencies;
   const dom = new JSDOMDep(htmlContent);
   const document = dom.window.document;
@@ -72,19 +87,14 @@ function updateHrefsInHTML(pagePath, htmlContent, assetUrls, daLocation, depende
   const pageName = pathDep.basename(pagePath, pathDep.extname(pagePath));
   const shadowFolder = `.${pageName}`;
   
-  // Helper to extract clean filename (no query params or fragments)
-  const getFilename = (url) => {
-    try {
-      // Handle absolute URLs - pathname excludes query params and fragments
-      return new URL(url).pathname.split('/').pop();
-    } catch {
-      // Handle relative paths - manually strip query params and fragments
-      return url.split('?')[0].split('#')[0].split('/').pop();
-    }
-  };
-  ['a[href]', 'img[src]'].forEach(selector => {
-    const attribute = selector.includes('href') ? 'href' : 'src';
-    
+  // Map of CSS selectors to their corresponding attribute names
+  const selectorAttrMap = new Map([
+    ['a[href]', 'href'],
+    ['img[src]', 'src'],
+    // Add more pairs as needed
+  ]);
+  
+  selectorAttrMap.forEach((attribute, selector) => {
     document.querySelectorAll(selector).forEach(element => {
       const url = element.getAttribute(attribute);
       if (assetUrls.has(url)) {
@@ -97,25 +107,15 @@ function updateHrefsInHTML(pagePath, htmlContent, assetUrls, daLocation, depende
   return dom.serialize();
 }
 
-// Export updateHrefsInHTML for testing
-
 /**
  * Create a mapping for asset urls and their storage location.
  * @param {Array<string>} matchingHrefs - Array of matching asset URLs
  * @param {string} fullShadowPath - The full shadow folder path
  * @return {Map<string, string>} Asset mapping for download
  */
-export function createAssetMapping(matchingHrefs, fullShadowPath) {
-  const getFilename = (url) => {
-    try {
-      return new URL(url).pathname.split('/').pop();
-    } catch {
-      return url.split('?')[0].split('#')[0].split('/').pop();
-    }
-  };
-
+export function createAssetMapping(matchingHrefs, fullShadowPath, dependencies = defaultDependencies) {
   return new Map(
-    matchingHrefs.map(url => [url, `/${fullShadowPath}/${getFilename(url)}`]),
+    matchingHrefs.map(url => [url, `/${fullShadowPath}/${getFilename(url, dependencies)}`]),
   );
 }
 
@@ -228,7 +228,8 @@ function cleanupPageAssets(shadowFolderPath, dependencies) {
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Promise<Object>} Processing result for the page
  */
-async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls, daLocation, token, uploadOptions, dependencies = defaultDependencies) {
+async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls, daLocation,
+  token, uploadOptions, dependencies = defaultDependencies) {
   const { fs: fsDep, chalk: chalkDep, path: pathDep } = dependencies;
   const { maxRetries = 3, retryDelay = 5000 } = uploadOptions;
   
@@ -238,14 +239,14 @@ async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls
     // Read the HTML file
     const htmlContent = fsDep.readFileSync(pagePath, UTF8_ENCODING);
     
-    // Extract hrefs from the HTML
-    const hrefs = extractHrefsFromHTML(htmlContent, dependencies);
+    // Extract URLs from the HTML
+    const urls = extractUrlsFromHTML(htmlContent, dependencies);
     
-    // Find hrefs that match asset URLs
-    const matchingHrefs = hrefs.filter(href => assetUrls.has(href));
-    console.log(chalkDep.yellow(`Found ${matchingHrefs.length} asset references.`));
+    // Find URLs that match asset URLs
+    const matchingUrls = urls.filter(url => assetUrls.has(url));
+    console.log(chalkDep.yellow(`Found ${matchingUrls.length} asset references.`));
     
-    if (matchingHrefs.length > 0) {
+    if (matchingUrls.length > 0) {
       // Extract page name from pagePath to create shadow folder
       const pageName = pathDep.basename(pagePath, pathDep.extname(pagePath));
       const shadowFolder = `.${pageName}`;
@@ -261,13 +262,13 @@ async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls
       }
       
       // Download assets for this page
-      const downloadResults = await downloadPageAssets(matchingHrefs, fullShadowPath, downloadFolder, maxRetries, retryDelay, dependencies);
+      const downloadResults = await downloadPageAssets(matchingUrls, fullShadowPath, downloadFolder, maxRetries, retryDelay, dependencies);
       
       // Upload assets for this page immediately
       await uploadPageAssets(shadowFolderPath, daLocation, token, uploadOptions, downloadFolder, dependencies);
       
       // Update the HTML content
-      const updatedContent = updateHrefsInHTML(pagePath, htmlContent, new Set(matchingHrefs), daLocation, dependencies);
+      const updatedContent = updateImagesInHTML(pagePath, htmlContent, new Set(matchingUrls), daLocation, dependencies);
       
       // Save updated HTML content
       fsDep.writeFileSync(pagePath, updatedContent, UTF8_ENCODING);
@@ -283,7 +284,7 @@ async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls
       return {
         filePath: pagePath,
         updatedContent,
-        downloadedAssets: matchingHrefs,
+        downloadedAssets: matchingUrls,
         downloadResults,
         uploaded: true,
       };
@@ -326,15 +327,31 @@ async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls
  * @param {string} htmlFolder - Folder containing HTML files
  * @param {string} downloadFolder - Folder to download assets to (temporary)
  * @param {string} token - DA authentication token
- * @param {Object} uploadOptions - Options for upload operations including maxRetries and retryDelay
+ * @param {Object} uploadOptions - Options for upload operations
+ * @param {number} uploadOptions.maxRetries - Maximum number of retry attempts for upload operations (default: 3)
+ * @param {number} uploadOptions.retryDelay - Delay in milliseconds between retry attempts (default: 5000)
+ * @param {string} uploadOptions.userAgent - Custom User-Agent header for HTTP requests (default: 'aem-import-helper/1.0')
+ * @param {string} uploadOptions.baseFolder - Base folder path to calculate relative paths from
+ * @param {Array<string>} uploadOptions.fileExtensions - Array of file extensions to include (e.g., ['.html', '.htm'])
+ * @param {boolean} uploadOptions.withCredentials - Whether to include credentials in requests (default: true)
  * @param {Object} dependencies - Dependencies for testing (optional)
+ * @param {Object} dependencies.fs - Node.js file system module
+ * @param {Object} dependencies.path - Node.js path module
+ * @param {Object} dependencies.JSDOM - JSDOM library for HTML parsing
+ * @param {Object} dependencies.chalk - Chalk library for colored console output
+ * @param {Function} dependencies.fetch - Fetch function for HTTP requests
+ * @param {Object} dependencies.FormData - FormData constructor for multipart uploads
+ * @param {Function} dependencies.downloadAssets - Function to download assets from URLs
+ * @param {Function} dependencies.getAllFiles - Function to recursively get all files from a directory
+ * @param {Function} dependencies.uploadFolder - Function to upload a folder to DA
+ * @param {Function} dependencies.uploadFile - Function to upload a single file to DA
  * @return {Promise<Array<{filePath: string, updatedContent: string, downloadedAssets: Array<string>}>>} 
  *         Promise that resolves with array of processed page results
  */
 export async function processPages(daLocation, assetUrls, htmlFolder, downloadFolder, token, uploadOptions = {}, dependencies = defaultDependencies) {
   const { fs: fsDep, chalk: chalkDep } = dependencies;
   const getHTMLFilesFn = dependencies.getAllFiles || getAllFiles;
-  const htmlPages = getHTMLFilesFn(htmlFolder, { fileExtensions: ['.html', '.htm'] }, dependencies);
+  const htmlPages = getHTMLFilesFn(htmlFolder, ['.html', '.htm'], dependencies);
   const results = [];
   
   console.log(chalkDep.blue(`Processing ${htmlPages.length} HTML pages sequentially...`));
