@@ -173,7 +173,7 @@ To authenticate with DA, it is suggested to obtain a an IMS JWT bearer token for
 You can store this token in a file on your local machine; simply create a file and simply paste the token into the file and save it.
 
 ```
---token </path/to/token.txt>
+--token </path/to/token.txt> OR <token>
 ```
 
 ### Uploading content to Author Bus
