@@ -176,7 +176,7 @@ You can store this token in a file on your local machine; simply create a file a
 --token </path/to/token.txt>
 ```
 
-### Uploading content to Author bus
+### Uploading content to Author Bus
 
 Run the following command to upload content (HTML pages) and associated assets to your DA env:
 
