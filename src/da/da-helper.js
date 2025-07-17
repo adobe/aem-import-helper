@@ -236,20 +236,36 @@ async function uploadHTMLPage(pagePath, daAdminUrl, token, uploadOptions, htmlFo
 }
 
 /**
- * Save HTML content to download folder preserving relative path structure
+ * Calculate the HTML path and base folder for saving to download folder
  * @param {string} pagePath - Original path to the HTML page
  * @param {string} htmlFolder - Base HTML folder
  * @param {string} downloadFolder - Base download folder
- * @param {string} htmlContent - HTML content to save
  * @param {Object} dependencies - Dependencies for testing (optional)
- * @return {Object} Object containing the new path and base folder for upload
+ * @return {Object} Object containing the updated HTML path and base folder
  */
-function saveHtmlToDownloadFolder(pagePath, htmlFolder, downloadFolder, htmlContent, dependencies = defaultDependencies) {
-  const { fs: fsDep, chalk: chalkDep, path: pathDep } = dependencies;
+function calculateHtmlPathAndBaseFolder(pagePath, htmlFolder, downloadFolder, dependencies = defaultDependencies) {
+  const { path: pathDep } = dependencies;
   
   // Calculate relative path from HTML folder to preserve folder structure
   const htmlRelativePath = pathDep.relative(htmlFolder, pagePath);
   const updatedHtmlPath = pathDep.join(downloadFolder, 'html', htmlRelativePath);
+  const htmlBaseFolder = pathDep.join(downloadFolder, 'html');
+  
+  return {
+    updatedHtmlPath,
+    htmlBaseFolder,
+  };
+}
+
+/**
+ * Save HTML content to download folder
+ * @param {string} htmlContent - HTML content to save
+ * @param {string} updatedHtmlPath - Path where to save the HTML content
+ * @param {Object} dependencies - Dependencies for testing (optional)
+ */
+function saveHtmlToDownloadFolder(htmlContent, updatedHtmlPath, dependencies = defaultDependencies) {
+  const { fs: fsDep, chalk: chalkDep, path: pathDep } = dependencies;
+  
   const updatedHtmlDir = pathDep.dirname(updatedHtmlPath);
   
   // Create directory structure for HTML
@@ -260,11 +276,6 @@ function saveHtmlToDownloadFolder(pagePath, htmlFolder, downloadFolder, htmlCont
   // Save HTML content to download folder
   fsDep.writeFileSync(updatedHtmlPath, htmlContent, UTF8_ENCODING);
   console.log(chalkDep.green(`Saved page to download folder: ${updatedHtmlPath}`));
-  
-  return {
-    htmlPath: updatedHtmlPath,
-    baseFolder: pathDep.join(downloadFolder, 'html'),
-  };
 }
 
 /**
@@ -406,14 +417,11 @@ async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls
       // 2. Update the asset references in the HTML content
       updatedHtmlContent = updateImagesInHTML(fullShadowPath, updatedHtmlContent, new Set(matchingAssetUrls), daContentUrl, dependencies);
 
+      // Calculate the path for updated HTML content
+      const { updatedHtmlPath, htmlBaseFolder } = calculateHtmlPathAndBaseFolder(pagePath, htmlFolder, downloadFolder, dependencies);
+      
       // Save updated HTML content to download folder
-      const { htmlPath: updatedHtmlPath, baseFolder: htmlBaseFolder } = saveHtmlToDownloadFolder(
-        pagePath, 
-        htmlFolder, 
-        downloadFolder, 
-        updatedHtmlContent, 
-        dependencies,
-      );
+      saveHtmlToDownloadFolder(updatedHtmlContent, updatedHtmlPath, dependencies);
       
       // Upload the updated HTML page from the download folder
       await uploadHTMLPage(updatedHtmlPath, daAdminUrl, token, uploadOptions, htmlBaseFolder, dependencies);
@@ -434,14 +442,10 @@ async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls
       // No matching assets found, save HTML to download folder and upload as-is
       console.log(chalkDep.gray(`No asset references found for page ${pagePath}, saving to download folder and uploading as-is...`));
       
-      // Save HTML content to download folder
-      const { htmlPath: updatedHtmlPath, baseFolder: htmlBaseFolder } = saveHtmlToDownloadFolder(
-        pagePath, 
-        htmlFolder, 
-        downloadFolder, 
-        htmlContent, 
-        dependencies,
-      );
+      // Calculate the path for HTML content
+      const { updatedHtmlPath, htmlBaseFolder } = calculateHtmlPathAndBaseFolder(pagePath, htmlFolder, downloadFolder, dependencies);
+      
+      saveHtmlToDownloadFolder(htmlContent, updatedHtmlPath, dependencies);
       
       try {
         await uploadHTMLPage(updatedHtmlPath, daAdminUrl, token, uploadOptions, htmlBaseFolder, dependencies);

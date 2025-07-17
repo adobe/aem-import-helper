@@ -148,7 +148,7 @@ export const daHandler = async (args) => {
   if (token) {
     console.log(chalk.green('Token validation successful.'));
   } else {
-    console.log(chalk.green('Site accessible without authentication.'));
+    console.log(chalk.green('Site accessible.'));
   }
 
   try {
