@@ -81,7 +81,7 @@ describe('da-helper.js', () => {
 
   describe('processPages', () => {
     it('should process pages one by one, downloading and uploading assets immediately', async () => {
-      const createdFolders = new Set(['/html', '/download', '/test', '/test/.page1']);
+      const createdFolders = new Set(['/html', '/download', '/download/assets', '/test', '/download/assets/test/.page1']);
       const mockFs = {
         existsSync: sinon.stub().callsFake((p) => createdFolders.has(p)),
         mkdirSync: sinon.stub().callsFake((p) => createdFolders.add(p)),
@@ -111,6 +111,7 @@ describe('da-helper.js', () => {
       const assetUrls = new Set(['image.jpg']);
       const results = await processPages(
         'https://da.example.com',
+        'https://da.example.com/images',
         assetUrls,
         '/html',
         '/download',
@@ -124,6 +125,8 @@ describe('da-helper.js', () => {
       expect(getHTMLFilesStub.calledOnce).to.be.true;
       expect(mockUploadFolder.calledOnce).to.be.true; // Once for assets
       expect(mockUploadFile.calledOnce).to.be.true; // Once for HTML
+      // Final cleanup should be called for the download folder
+      expect(mockFs.unlinkSync.calledWith('/download')).to.be.true;
     });
 
     it('should handle pages with no matching assets', async () => {
@@ -157,6 +160,7 @@ describe('da-helper.js', () => {
       const assetUrls = new Set(['image.jpg']);
       const results = await processPages(
         'https://da.example.com',
+        'https://da.example.com/images',
         assetUrls,
         '/html',
         '/download',
@@ -168,10 +172,12 @@ describe('da-helper.js', () => {
       expect(mockUploadFolder.called).to.be.false; // No assets to upload
       expect(mockUploadFile.calledOnce).to.be.true; // Only for HTML
       expect(results[0].uploaded).to.be.true;
+      // Final cleanup should be called for the download folder
+      expect(mockFs.unlinkSync.calledWith('/download')).to.be.true;
     });
 
     it('should preserve shadow folder structure when uploading assets', async () => {
-      const createdFolders = new Set(['/html', '/download', '/html/subdir', '/download/subdir', '/download/subdir/.page3']);
+      const createdFolders = new Set(['/html', '/download', '/download/assets', '/html/subdir', '/download/subdir', '/download/assets/subdir/.page3']);
       const mockFs = {
         existsSync: sinon.stub().callsFake((p) => createdFolders.has(p)),
         mkdirSync: sinon.stub().callsFake((p) => createdFolders.add(p)),
@@ -201,6 +207,7 @@ describe('da-helper.js', () => {
       const assetUrls = new Set(['image.jpg']);
       await processPages(
         'https://da.example.com',
+        'https://da.example.com/images',
         assetUrls,
         '/html',
         '/download',
@@ -214,8 +221,10 @@ describe('da-helper.js', () => {
 
       // Check the asset upload call specifically
       const assetUploadCall = mockUploadFolder.getCall(0);
-      expect(assetUploadCall.args[0]).to.equal('/download/subdir/.page3');
-      expect(assetUploadCall.args[3].baseFolder).to.equal('/download');
+      expect(assetUploadCall.args[0]).to.equal('/download/assets/subdir/.page3');
+      expect(assetUploadCall.args[3].baseFolder).to.equal('/download/assets');
+      // Final cleanup should be called for the download folder
+      expect(mockFs.unlinkSync.calledWith('/download')).to.be.true;
     });
 
     it('should handle file read errors gracefully', async () => {
@@ -249,6 +258,7 @@ describe('da-helper.js', () => {
       const assetUrls = new Set(['image.jpg']);
       const results = await processPages(
         'https://da.example.com',
+        'https://da.example.com/images',
         assetUrls,
         '/html',
         '/download',
@@ -258,10 +268,12 @@ describe('da-helper.js', () => {
       );
       expect(results[0].error).to.include('read error');
       expect(results[0].uploaded).to.be.false;
+      // Final cleanup should be called for the download folder even on error
+      expect(mockFs.unlinkSync.calledWith('/download')).to.be.true;
     });
 
     it('should handle upload errors gracefully', async () => {
-      const createdFolders = new Set(['/html', '/download', '/test', '/test/.upload-error']);
+      const createdFolders = new Set(['/html', '/download', '/download/assets', '/test', '/download/assets/test/.upload-error']);
       const mockFs = {
         existsSync: sinon.stub().callsFake((p) => createdFolders.has(p)),
         mkdirSync: sinon.stub().callsFake((p) => createdFolders.add(p)),
@@ -291,6 +303,7 @@ describe('da-helper.js', () => {
       const assetUrls = new Set(['image.jpg']);
       const results = await processPages(
         'https://da.example.com',
+        'https://da.example.com/images',
         assetUrls,
         '/html',
         '/download',
@@ -300,10 +313,12 @@ describe('da-helper.js', () => {
       );
       expect(results[0].error).to.include('upload error');
       expect(results[0].uploaded).to.be.false;
+      // Final cleanup should be called for the download folder even on error
+      expect(mockFs.unlinkSync.calledWith('/download')).to.be.true;
     });
 
     it('should create download folder if it does not exist', async () => {
-      const createdFolders = new Set(['/html', '/test']);
+      const createdFolders = new Set(['/html', '/test', '/download/assets']);
       const mockFs = {
         existsSync: sinon.stub().callsFake((p) => createdFolders.has(p)),
         mkdirSync: sinon.stub().callsFake((p) => createdFolders.add(p)),
@@ -333,6 +348,7 @@ describe('da-helper.js', () => {
       const assetUrls = new Set(['image.jpg']);
       await processPages(
         'https://da.example.com',
+        'https://da.example.com/images',
         assetUrls,
         '/html',
         '/download',
@@ -341,10 +357,12 @@ describe('da-helper.js', () => {
         mockDeps,
       );
       expect(mockFs.mkdirSync.calledWith('/download', { recursive: true })).to.be.true;
+      // Final cleanup should be called for the download folder
+      expect(mockFs.unlinkSync.calledWith('/download')).to.be.true;
     });
 
     it('should handle cleanup errors gracefully', async () => {
-      const createdFolders = new Set(['/html', '/download', '/test', '/test/.cleanup-error']);
+      const createdFolders = new Set(['/html', '/download', '/download/assets', '/test', '/download/assets/test/.cleanup-error']);
       const mockFs = {
         existsSync: sinon.stub().callsFake((p) => createdFolders.has(p)),
         mkdirSync: sinon.stub().callsFake((p) => createdFolders.add(p)),
@@ -374,6 +392,7 @@ describe('da-helper.js', () => {
       const assetUrls = new Set(['image.jpg']);
       const results = await processPages(
         'https://da.example.com',
+        'https://da.example.com/images',
         assetUrls,
         '/html',
         '/download',
@@ -384,6 +403,8 @@ describe('da-helper.js', () => {
       // Should still succeed even if cleanup fails
       expect(results[0].uploaded).to.be.true;
       expect(results[0].downloadedAssets).to.deep.equal(['image.jpg']);
+      // Final cleanup should be called for the download folder
+      expect(mockFs.unlinkSync.calledWith('/download')).to.be.true;
     });
   });
 }); 
