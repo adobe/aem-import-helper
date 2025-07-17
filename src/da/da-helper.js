@@ -71,21 +71,17 @@ function extractUrlsFromHTML(htmlContent, dependencies = defaultDependencies) {
 
 /**
  * Update href attributes in anchor tags and src attributes in img tags in HTML to point to Author Bus.
- * @param {string} pagePath - The path to the HTML page to create shadow folder structure
+ * @param {string} fullShadowPath - The path to the HTML page to create shadow folder structure
  * @param {string} htmlContent - The HTML content to update
  * @param {Set<string>} assetUrls - Set of asset URLs that should be updated
- * @param {string} daLocation - The DA location URL to replace the hostname with
+ * @param {string} daContentUrl - The content.da.live URL
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {string} Updated HTML content with modified hrefs and srcs
  */
-function updateImagesInHTML(pagePath, htmlContent, assetUrls, daLocation, dependencies = defaultDependencies) {
-  const { JSDOM: JSDOMDep, path: pathDep } = dependencies;
+function updateImagesInHTML(fullShadowPath, htmlContent, assetUrls, daContentUrl, dependencies = defaultDependencies) {
+  const { JSDOM: JSDOMDep } = dependencies;
   const dom = new JSDOMDep(htmlContent);
   const document = dom.window.document;
-  
-  // Extract page name from pagePath to create shadow folder
-  const pageName = pathDep.basename(pagePath, pathDep.extname(pagePath));
-  const shadowFolder = `.${pageName}`;
   
   // Map of CSS selectors to their corresponding attribute names
   const selectorAttrMap = new Map([
@@ -99,7 +95,7 @@ function updateImagesInHTML(pagePath, htmlContent, assetUrls, daLocation, depend
       const url = element.getAttribute(attribute);
       if (assetUrls.has(url)) {
         const filename = getFilename(url);
-        element.setAttribute(attribute, `${daLocation}/${shadowFolder}/${filename}`);
+        element.setAttribute(attribute, `${daContentUrl}/${fullShadowPath}/${filename}`);
       }
     });
   });
@@ -110,12 +106,12 @@ function updateImagesInHTML(pagePath, htmlContent, assetUrls, daLocation, depend
 /**
  * Update page references in the HTML content to point to their DA location
  * @param {string} htmlContent - The HTML content to update
- * @param {string} daLocation - The DA location URL
+ * @param {string} daContentUrl - The content.da.live URL
  * @param {Array<string>} matchingAssetUrls - Array of matching asset URLs
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {string} Updated HTML content
  */
-function updatePageReferencesInHTML(htmlContent, daLocation, matchingAssetUrls, dependencies = defaultDependencies) {
+function updatePageReferencesInHTML(htmlContent, daContentUrl, matchingAssetUrls, dependencies = defaultDependencies) {
   const { JSDOM: JSDOMDep, chalk: chalkDep } = dependencies;
   const dom = new JSDOMDep(htmlContent);
   const document = dom.window.document;
@@ -131,7 +127,10 @@ function updatePageReferencesInHTML(htmlContent, daLocation, matchingAssetUrls, 
     }
     const urlObj = url.startsWith('http') ? new URL(url) : new URL(url, 'http://localhost');
     // update the href attribute to point to the DA location
-    element.setAttribute('href', new URL(urlObj.pathname, daLocation).href);
+    const newUrl = urlObj.pathname.startsWith('/') 
+      ? `${daContentUrl}${urlObj.pathname}`
+      : `${daContentUrl}/${urlObj.pathname}`;
+    element.setAttribute('href', newUrl);
     updatedCount++;
   });
   
@@ -187,19 +186,19 @@ async function downloadPageAssets(matchingHrefs, fullShadowPath, downloadFolder,
 /**
  * Upload assets for a page to DA
  * @param {string} shadowFolderPath - Path to the shadow folder containing assets
- * @param {string} daLocation - DA location URL
+ * @param {string} daAdminUrl - The admin.da.live URL
  * @param {string} token - Authentication token
  * @param {Object} uploadOptions - Upload options
  * @param {string} downloadFolder - Base download folder for relative path calculation
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Promise<void>}
  */
-async function uploadPageAssets(shadowFolderPath, daLocation, token, uploadOptions, downloadFolder, dependencies = defaultDependencies) {
+async function uploadPageAssets(shadowFolderPath, daAdminUrl, token, uploadOptions, downloadFolder, dependencies = defaultDependencies) {
   const { chalk: chalkDep, uploadFolder: uploadFolderDep } = dependencies;
   
   console.log(chalkDep.yellow(`Uploading assets for page to ${shadowFolderPath}...`));
   try {
-    await uploadFolderDep(shadowFolderPath, daLocation, token, {
+    await uploadFolderDep(shadowFolderPath, daAdminUrl, token, {
       ...uploadOptions,
       baseFolder: downloadFolder, // preserve shadow folder structure
     });
@@ -213,19 +212,19 @@ async function uploadPageAssets(shadowFolderPath, daLocation, token, uploadOptio
 /**
  * Upload an HTML page to DA
  * @param {string} pageDir - Directory containing the HTML page
- * @param {string} daLocation - DA location URL
+ * @param {string} daAdminUrl - The admin.da.live URL
  * @param {string} token - Authentication token
  * @param {Object} uploadOptions - Upload options
  * @param {string} htmlFolder - Base HTML folder for relative path calculation
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Promise<void>}
  */
-async function uploadHTMLPage(pagePath, daLocation, token, uploadOptions, htmlFolder, dependencies = defaultDependencies) {
+async function uploadHTMLPage(pagePath, daAdminUrl, token, uploadOptions, htmlFolder, dependencies = defaultDependencies) {
   const { chalk: chalkDep, uploadFile: uploadFileDep } = dependencies;
   
   console.log(chalkDep.yellow(`Uploading updated HTML page: ${pagePath}...`));
   try {
-    await uploadFileDep(pagePath, daLocation, token, {
+    await uploadFileDep(pagePath, daAdminUrl, token, {
       ...uploadOptions,
       baseFolder: htmlFolder,
     });
@@ -237,18 +236,64 @@ async function uploadHTMLPage(pagePath, daLocation, token, uploadOptions, htmlFo
 }
 
 /**
- * Clean up downloaded assets for a page to free disk space
- * @param {string} shadowFolderPath - Path to the shadow folder to clean up
+ * Save HTML content to download folder preserving relative path structure
+ * @param {string} pagePath - Original path to the HTML page
+ * @param {string} htmlFolder - Base HTML folder
+ * @param {string} downloadFolder - Base download folder
+ * @param {string} htmlContent - HTML content to save
+ * @param {Object} dependencies - Dependencies for testing (optional)
+ * @return {Object} Object containing the new path and base folder for upload
+ */
+function saveHtmlToDownloadFolder(pagePath, htmlFolder, downloadFolder, htmlContent, dependencies = defaultDependencies) {
+  const { fs: fsDep, chalk: chalkDep, path: pathDep } = dependencies;
+  
+  // Calculate relative path from HTML folder to preserve folder structure
+  const htmlRelativePath = pathDep.relative(htmlFolder, pagePath);
+  const updatedHtmlPath = pathDep.join(downloadFolder, 'html', htmlRelativePath);
+  const updatedHtmlDir = pathDep.dirname(updatedHtmlPath);
+  
+  // Create directory structure for HTML
+  if (!fsDep.existsSync(updatedHtmlDir)) {
+    fsDep.mkdirSync(updatedHtmlDir, { recursive: true });
+  }
+  
+  // Save HTML content to download folder
+  fsDep.writeFileSync(updatedHtmlPath, htmlContent, UTF8_ENCODING);
+  console.log(chalkDep.green(`Saved page to download folder: ${updatedHtmlPath}`));
+  
+  return {
+    htmlPath: updatedHtmlPath,
+    baseFolder: pathDep.join(downloadFolder, 'html'),
+  };
+}
+
+/**
+ * Clean up downloaded assets and HTML files for a page to free disk space
+ * @param {Array<string>} pathsToClean - Array of file/folder paths to clean up
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @param {Function} callback - The callback function to execute after cleanup
  */
-function cleanupPageAssets(shadowFolderPath, dependencies) {
+async function cleanupPageAssets(pathsToClean, dependencies) {
   const { fs: fsDep, chalk: chalkDep } = dependencies;
-  fsDep.rm(shadowFolderPath, { recursive: true, force: true }, (err) => {
-    if (err) {
-      console.warn(chalkDep.yellow(`Warning: Could not clean up folder ${shadowFolderPath}:`, err));
+  
+  for (const path of pathsToClean) {
+    try {
+      // Check if path exists before trying to delete
+      if (fsDep.existsSync(path)) {
+        const stats = fsDep.statSync(path);
+        
+        if (stats.isDirectory()) {
+          // For directories, use recursive removal
+          fsDep.rmSync(path, { recursive: true, force: true });
+        } else if (stats.isFile()) {
+          // For files, use unlink
+          fsDep.unlinkSync(path);
+        }
+      }
+    } catch (err) {
+      console.warn(chalkDep.yellow(`Warning: Could not clean up ${path}:`, err.message));
     }
-  });
+  }
 }
 
 /**
@@ -301,14 +346,15 @@ export function getFullyQualifiedAssetUrls(assetUrls, siteOrigin) {
  * @param {string} downloadFolder - Base download folder
  * @param {Set<string>} assetUrls - Set of asset URLs to match
  * @param {string} siteOrigin - The site origin
- * @param {string} daLocation - DA location URL
+ * @param {string} daAdminUrl - The admin.da.live URL
+ * @param {string} daContentUrl - The content.da.live URL
  * @param {string} token - Authentication token
  * @param {Object} uploadOptions - Upload options including maxRetries and retryDelay
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Promise<Object>} Processing result for the page
  */
-async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls, siteOrigin, daLocation,
-  token, uploadOptions, dependencies = defaultDependencies) {
+async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls, siteOrigin, daAdminUrl,
+  daContentUrl, token, uploadOptions, dependencies = defaultDependencies) {
   const { fs: fsDep, chalk: chalkDep, path: pathDep } = dependencies;
   const { maxRetries = 3, retryDelay = 5000 } = uploadOptions;
   
@@ -322,7 +368,16 @@ async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls
     const urls = extractUrlsFromHTML(htmlContent, dependencies);
     
     // Find URLs that match asset URLs
-    const matchingAssetUrls = urls.filter(url => assetUrls.has(url));
+    // Decode the URLs and then match
+    const matchingAssetUrls = urls.filter(url => {
+      try {
+        const decodedUrl = decodeURIComponent(url);
+        return assetUrls.has(decodedUrl) || assetUrls.has(url);
+      } catch (error) {
+        // If decoding fails, try matching the original URL
+        return assetUrls.has(url);
+      }
+    });
     console.log(chalkDep.yellow(`Found ${matchingAssetUrls.length} asset references.`));
     
     if (matchingAssetUrls.length > 0) {
@@ -336,51 +391,62 @@ async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls
       // Calculate relative path from HTML folder to preserve folder structure
       const relativePath = pathDep.relative(htmlFolder, pathDep.dirname(pagePath));
       const fullShadowPath = relativePath ? pathDep.join(relativePath, shadowFolder) : shadowFolder;
-      const shadowFolderPath = pathDep.join(downloadFolder, fullShadowPath);
-      
-      // Create shadow folder structure
-      if (!fsDep.existsSync(shadowFolderPath)) {
-        fsDep.mkdirSync(shadowFolderPath, { recursive: true });
-      }
+      const assetDownloadFolder = pathDep.join(downloadFolder, 'assets');
+      const shadowFolderPath = pathDep.join(assetDownloadFolder, fullShadowPath);
       
       // Download assets for this page
-      const downloadResults = await downloadPageAssets(fullyQualifiedAssetUrls, fullShadowPath, downloadFolder, maxRetries, retryDelay, dependencies);
+      const downloadResults = await downloadPageAssets(fullyQualifiedAssetUrls, fullShadowPath, assetDownloadFolder, maxRetries, retryDelay, dependencies);
       
       // Upload assets for this page immediately
-      await uploadPageAssets(shadowFolderPath, daLocation, token, uploadOptions, downloadFolder, dependencies);
+      await uploadPageAssets(shadowFolderPath, daAdminUrl, token, uploadOptions, assetDownloadFolder, dependencies);
       
       // Make reference updates:
       // 1. Update page references in the HTML content to point to their DA location
-      let updatedContent = updatePageReferencesInHTML(htmlContent, daLocation, matchingAssetUrls, dependencies);
+      let updatedHtmlContent = updatePageReferencesInHTML(htmlContent, daContentUrl, matchingAssetUrls, dependencies);
       // 2. Update the asset references in the HTML content
-      updatedContent = updateImagesInHTML(pagePath, updatedContent, new Set(matchingAssetUrls), daLocation, dependencies);
+      updatedHtmlContent = updateImagesInHTML(fullShadowPath, updatedHtmlContent, new Set(matchingAssetUrls), daContentUrl, dependencies);
 
-      // Save updated HTML content
-      fsDep.writeFileSync(pagePath, updatedContent, UTF8_ENCODING);
-      console.log(chalkDep.green(`Updated and saved page: ${pagePath}`));
+      // Save updated HTML content to download folder
+      const { htmlPath: updatedHtmlPath, baseFolder: htmlBaseFolder } = saveHtmlToDownloadFolder(
+        pagePath, 
+        htmlFolder, 
+        downloadFolder, 
+        updatedHtmlContent, 
+        dependencies,
+      );
       
-      // Upload the updated HTML page
-      await uploadHTMLPage(pagePath, daLocation, token, uploadOptions, htmlFolder, dependencies);
+      // Upload the updated HTML page from the download folder
+      await uploadHTMLPage(updatedHtmlPath, daAdminUrl, token, uploadOptions, htmlBaseFolder, dependencies);
       
-      // Clean up downloaded assets for this page to free disk space
-      cleanupPageAssets(shadowFolderPath, dependencies, () => {
-      });
+      // Clean up downloaded assets and HTML for this page to free disk space
+      const assetFolderPath = pathDep.join(assetDownloadFolder, fullShadowPath);
+      await cleanupPageAssets([updatedHtmlPath, assetFolderPath], dependencies);
       
       return {
         filePath: pagePath,
-        updatedContent,
+        updatedContent: updatedHtmlContent,
         downloadedAssets: matchingAssetUrls,
         downloadResults,
         uploaded: true,
       };
       
     } else {
-      // No matching assets found, just upload the HTML page as-is
-      console.log(chalkDep.gray(`No asset references found for page ${pagePath}, uploading HTML as-is...`));
+      // No matching assets found, save HTML to download folder and upload as-is
+      console.log(chalkDep.gray(`No asset references found for page ${pagePath}, saving to download folder and uploading as-is...`));
+      
+      // Save HTML content to download folder
+      const { htmlPath: updatedHtmlPath, baseFolder: htmlBaseFolder } = saveHtmlToDownloadFolder(
+        pagePath, 
+        htmlFolder, 
+        downloadFolder, 
+        htmlContent, 
+        dependencies,
+      );
+      
       try {
-        await uploadHTMLPage(pagePath, daLocation, token, uploadOptions, htmlFolder, dependencies);
+        await uploadHTMLPage(updatedHtmlPath, daAdminUrl, token, uploadOptions, htmlBaseFolder, dependencies);
       } catch (uploadError) {
-        console.error(chalkDep.red(`Error uploading HTML page ${pagePath}:`, uploadError.message));
+        console.error(chalkDep.red(`Error uploading HTML page ${updatedHtmlPath}:`, uploadError.message));
       }
       
       return {
@@ -407,7 +473,8 @@ async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls
 /**
  * Process HTML pages one by one, downloading and uploading assets for each page immediately
  * This prevents disk space issues with large files
- * @param {string} daLocation - The DA location URL
+ * @param {string} daAdminUrl - The admin.da.live URL
+ * @param {string} daContentUrl - The content.da.live URL
  * @param {Set<string>} assetUrls - Set of asset URLs to match and download
  * @param {string} siteOrigin - The site origin
  * @param {string} htmlFolder - Folder containing HTML files
@@ -434,7 +501,7 @@ async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls
  * @return {Promise<Array<{filePath: string, updatedContent: string, downloadedAssets: Array<string>}>>} 
  *         Promise that resolves with array of processed page results
  */
-export async function processPages(daLocation, assetUrls, siteOrigin, htmlFolder, downloadFolder, token, uploadOptions = {}, dependencies = defaultDependencies) {
+export async function processPages(daAdminUrl, daContentUrl, assetUrls, siteOrigin, htmlFolder, downloadFolder, token, uploadOptions = {}, dependencies = defaultDependencies) {
   const { fs: fsDep, chalk: chalkDep } = dependencies;
   const getHTMLFilesFn = dependencies.getAllFiles || getAllFiles;
   const htmlPages = getHTMLFilesFn(htmlFolder, ['.html', '.htm'], dependencies);
@@ -457,7 +524,8 @@ export async function processPages(daLocation, assetUrls, siteOrigin, htmlFolder
       downloadFolder,
       assetUrls,
       siteOrigin,
-      daLocation,
+      daAdminUrl,
+      daContentUrl,
       token,
       uploadOptions,
       dependencies,
@@ -466,6 +534,8 @@ export async function processPages(daLocation, assetUrls, siteOrigin, htmlFolder
     results.push(result);
   }
   
+  await cleanupPageAssets([downloadFolder], dependencies);
+
   // Summary
   const successfulPages = results.filter(page => !page.error).length;
   const totalAssets = results.reduce((sum, page) => sum + page.downloadedAssets.length, 0);

@@ -279,7 +279,7 @@ describe('da-helper.js', () => {
 
   describe('processPages', () => {
     it('should process pages one by one, downloading and uploading assets immediately', async () => {
-      const createdFolders = new Set(['/html', '/download', '/test', '/test/.page1']);
+      const createdFolders = new Set(['/html', '/download', '/download/assets', '/html', '/download/assets/.page1']);
       const mockFs = {
         existsSync: sinon.stub().callsFake((p) => createdFolders.has(p)),
         mkdirSync: sinon.stub().callsFake((p) => createdFolders.add(p)),
@@ -295,7 +295,7 @@ describe('da-helper.js', () => {
       const mockDownloadAssets = sinon.stub().resolves([{ status: 'fulfilled', value: 'image.jpg' }]);
       const mockUploadFolder = sinon.stub().resolves({ success: true });
       const mockUploadFile = sinon.stub().resolves({ success: true });
-      const getHTMLFilesStub = sinon.stub().returns(['/test/page1.html']);
+      const getHTMLFilesStub = sinon.stub().returns(['/html/page1.html']);
       const mockDeps = {
         fs: mockFs,
         path: mockPath,
@@ -308,7 +308,8 @@ describe('da-helper.js', () => {
       };
       const assetUrls = new Set(['image.jpg']);
       const results = await processPages(
-        'https://da.example.com',
+        'https://admin.da.live/source/org/site',
+        'https://content.da.live/org/site',
         assetUrls,
         'https://example.com',
         '/html',
@@ -318,7 +319,7 @@ describe('da-helper.js', () => {
         mockDeps,
       );
       expect(results).to.be.an('array');
-      expect(results[0].filePath).to.equal('/test/page1.html');
+      expect(results[0].filePath).to.equal('/html/page1.html');
       expect(results[0].downloadedAssets).to.deep.equal(['image.jpg']);
       expect(getHTMLFilesStub.calledOnce).to.be.true;
       expect(mockUploadFolder.calledOnce).to.be.true; // Once for assets
@@ -326,15 +327,18 @@ describe('da-helper.js', () => {
       
       // Check that the HTML content was updated with proper references
       const writtenContent = mockFs.writeFileSync.getCall(0).args[1];
-      expect(writtenContent).to.include('https://da.example.com/.page1/image.jpg'); // Asset reference updated
+      expect(writtenContent).to.include('https://content.da.live/org/site/.page1/image.jpg'); // Asset reference updated
+
+      // Final cleanup should be called for the download folder
+      expect(mockFs.unlinkSync.calledWith('/download')).to.be.true;
     });
 
     it('should update page references to point to DA location', async () => {
-      const createdFolders = new Set(['/html', '/download', '/test', '/test/.page1']);
+      const createdFolders = new Set(['/html', '/download', '/html', '/html/.page1']);
       const mockFs = {
         existsSync: sinon.stub().callsFake((p) => createdFolders.has(p)),
         mkdirSync: sinon.stub().callsFake((p) => createdFolders.add(p)),
-        readFileSync: sinon.stub().returns('<html><img src="image.jpg"><a href="/other-page">Link</a><a href="https://example.com/external">External</a></html>'),
+        readFileSync: sinon.stub().returns('<html><img src="image.jpg"><a href="/other-page">Link</a><a href="https://example.com/absolute">Absolute</a></html>'),
         writeFileSync: sinon.stub(),
         readdirSync: sinon.stub().returns([]),
         statSync: sinon.stub().returns({ isFile: () => true, isDirectory: () => false }),
@@ -346,7 +350,7 @@ describe('da-helper.js', () => {
       const mockDownloadAssets = sinon.stub().resolves([{ status: 'fulfilled', value: 'image.jpg' }]);
       const mockUploadFolder = sinon.stub().resolves({ success: true });
       const mockUploadFile = sinon.stub().resolves({ success: true });
-      const getHTMLFilesStub = sinon.stub().returns(['/test/page1.html']);
+      const getHTMLFilesStub = sinon.stub().returns(['/html/page1.html']);
       const mockDeps = {
         fs: mockFs,
         path: mockPath,
@@ -359,7 +363,8 @@ describe('da-helper.js', () => {
       };
       const assetUrls = new Set(['image.jpg']);
       const results = await processPages(
-        'https://da.example.com',
+        'https://admin.da.live/source/org/site',
+        'https://content.da.live/org/site',
         assetUrls,
         'https://example.com',
         '/html',
@@ -372,9 +377,9 @@ describe('da-helper.js', () => {
       // Check that the HTML content was updated correctly
       expect(mockFs.writeFileSync.calledOnce).to.be.true;
       const writtenContent = mockFs.writeFileSync.getCall(0).args[1];
-      expect(writtenContent).to.include('https://da.example.com/.page1/image.jpg'); // Asset reference updated
-      expect(writtenContent).to.include('https://da.example.com/other-page'); // Page reference updated
-      expect(writtenContent).to.include('https://da.example.com/external'); // External URL updated to DA location
+      expect(writtenContent).to.include('https://content.da.live/org/site/.page1/image.jpg'); // Asset reference updated
+      expect(writtenContent).to.include('https://content.da.live/org/site/other-page'); // Page reference updated
+      expect(writtenContent).to.include('https://content.da.live/org/site/absolute'); // Absolute URL updated
     });
 
     it('should handle pages with no matching assets', async () => {
@@ -407,7 +412,8 @@ describe('da-helper.js', () => {
       };
       const assetUrls = new Set(['image.jpg']);
       const results = await processPages(
-        'https://da.example.com',
+        'https://admin.da.live/source/org/site',
+        'https://content.da.live/org/site',
         assetUrls,
         'https://example.com',
         '/html',
@@ -420,10 +426,12 @@ describe('da-helper.js', () => {
       expect(mockUploadFolder.called).to.be.false; // No assets to upload
       expect(mockUploadFile.calledOnce).to.be.true; // Only for HTML
       expect(results[0].uploaded).to.be.true;
+      // Final cleanup should be called for the download folder
+      expect(mockFs.unlinkSync.calledWith('/download')).to.be.true;
     });
 
     it('should preserve shadow folder structure when uploading assets', async () => {
-      const createdFolders = new Set(['/html', '/download', '/html/subdir', '/download/subdir', '/download/subdir/.page3']);
+      const createdFolders = new Set(['/html', '/download', '/download/assets', '/html/subdir', '/download/subdir', '/download/assets/subdir/.page3']);
       const mockFs = {
         existsSync: sinon.stub().callsFake((p) => createdFolders.has(p)),
         mkdirSync: sinon.stub().callsFake((p) => createdFolders.add(p)),
@@ -452,7 +460,8 @@ describe('da-helper.js', () => {
       };
       const assetUrls = new Set(['image.jpg']);
       await processPages(
-        'https://da.example.com',
+        'https://admin.da.live/source/org/site',
+        'https://content.da.live/org/site',
         assetUrls,
         'https://example.com',
         '/html',
@@ -467,8 +476,10 @@ describe('da-helper.js', () => {
 
       // Check the asset upload call specifically
       const assetUploadCall = mockUploadFolder.getCall(0);
-      expect(assetUploadCall.args[0]).to.equal('/download/subdir/.page3');
-      expect(assetUploadCall.args[3].baseFolder).to.equal('/download');
+      expect(assetUploadCall.args[0]).to.equal('/download/assets/subdir/.page3');
+      expect(assetUploadCall.args[3].baseFolder).to.equal('/download/assets');
+      // Final cleanup should be called for the download folder
+      expect(mockFs.unlinkSync.calledWith('/download')).to.be.true;
     });
 
     it('should handle file read errors gracefully', async () => {
@@ -501,7 +512,8 @@ describe('da-helper.js', () => {
       };
       const assetUrls = new Set(['image.jpg']);
       const results = await processPages(
-        'https://da.example.com',
+        'https://admin.da.live/source/org/site',
+        'https://content.da.live/org/site',
         assetUrls,
         'https://example.com',
         '/html',
@@ -512,10 +524,12 @@ describe('da-helper.js', () => {
       );
       expect(results[0].error).to.include('read error');
       expect(results[0].uploaded).to.be.false;
+      // Final cleanup should be called for the download folder even on error
+      expect(mockFs.unlinkSync.calledWith('/download')).to.be.true;
     });
 
     it('should handle upload errors gracefully', async () => {
-      const createdFolders = new Set(['/html', '/download', '/test', '/test/.upload-error']);
+      const createdFolders = new Set(['/html', '/download', '/download/assets', '/test', '/download/assets/test/.upload-error']);
       const mockFs = {
         existsSync: sinon.stub().callsFake((p) => createdFolders.has(p)),
         mkdirSync: sinon.stub().callsFake((p) => createdFolders.add(p)),
@@ -544,7 +558,8 @@ describe('da-helper.js', () => {
       };
       const assetUrls = new Set(['image.jpg']);
       const results = await processPages(
-        'https://da.example.com',
+        'https://admin.da.live/source/org/site',
+        'https://content.da.live/org/site',
         assetUrls,
         'https://example.com',
         '/html',
@@ -555,10 +570,12 @@ describe('da-helper.js', () => {
       );
       expect(results[0].error).to.include('upload error');
       expect(results[0].uploaded).to.be.false;
+      // Final cleanup should be called for the download folder even on error
+      expect(mockFs.unlinkSync.calledWith('/download')).to.be.true;
     });
 
     it('should create download folder if it does not exist', async () => {
-      const createdFolders = new Set(['/html', '/test']);
+      const createdFolders = new Set(['/html', '/test', '/download/assets']);
       const mockFs = {
         existsSync: sinon.stub().callsFake((p) => createdFolders.has(p)),
         mkdirSync: sinon.stub().callsFake((p) => createdFolders.add(p)),
@@ -587,7 +604,8 @@ describe('da-helper.js', () => {
       };
       const assetUrls = new Set(['image.jpg']);
       await processPages(
-        'https://da.example.com',
+        'https://admin.da.live/source/org/site',
+        'https://content.da.live/org/site',
         assetUrls,
         'https://example.com',
         '/html',
@@ -597,10 +615,12 @@ describe('da-helper.js', () => {
         mockDeps,
       );
       expect(mockFs.mkdirSync.calledWith('/download', { recursive: true })).to.be.true;
+      // Final cleanup should be called for the download folder
+      expect(mockFs.unlinkSync.calledWith('/download')).to.be.true;
     });
 
     it('should handle cleanup errors gracefully', async () => {
-      const createdFolders = new Set(['/html', '/download', '/test', '/test/.cleanup-error']);
+      const createdFolders = new Set(['/html', '/download', '/download/assets', '/test', '/download/assets/test/.cleanup-error']);
       const mockFs = {
         existsSync: sinon.stub().callsFake((p) => createdFolders.has(p)),
         mkdirSync: sinon.stub().callsFake((p) => createdFolders.add(p)),
@@ -629,7 +649,8 @@ describe('da-helper.js', () => {
       };
       const assetUrls = new Set(['image.jpg']);
       const results = await processPages(
-        'https://da.example.com',
+        'https://admin.da.live/source/org/site',
+        'https://content.da.live/org/site',
         assetUrls,
         'https://example.com',
         '/html',
@@ -641,6 +662,8 @@ describe('da-helper.js', () => {
       // Should still succeed even if cleanup fails
       expect(results[0].uploaded).to.be.true;
       expect(results[0].downloadedAssets).to.deep.equal(['image.jpg']);
+      // Final cleanup should be called for the download folder
+      expect(mockFs.unlinkSync.calledWith('/download')).to.be.true;
     });
   });
 }); 

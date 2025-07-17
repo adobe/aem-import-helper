@@ -16,6 +16,7 @@ import { processPages } from './da-helper.js';
 
 // DA API base URL
 const DA_BASE_URL = 'https://admin.da.live';
+const DA_CONTENT_URL = 'https://content.da.live';
 
 /**
  * Validate the existence of the asset-list.json and HTML folder.
@@ -39,37 +40,43 @@ function validateFiles(assetListFile, daFolder) {
 }
 
 /**
- * Validate the DA authentication token by making a HEAD request to the target environment.
+ * Validate access to the DA site by making a HEAD request to the target environment.
  * @param {string} listUrl - The DA list URL constructed from org and site (e.g., https://admin.da.live/list/geometrixx/outdoors)
- * @param {string} token - The DA authentication token
- * @return {Promise<boolean>} True if the token is valid, false otherwise
+ * @param {string} token - The DA authentication token (optional)
+ * @return {Promise<Object>} Object with success status and whether token is required
  */
-async function validateLogin(listUrl, token) {
+async function validateAccess(listUrl, token = null) {
   try {
+    const headers = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
     
-    const headers = {
-      Authorization: `Bearer ${token}`,
-    };
     const response = await fetch(listUrl, { method: 'HEAD', headers });
 
-    if (!response.ok) {
+    if (response.ok) {
+      return { success: true, tokenRequired: false };
+    }
+
+    // If we get 401/403 without a token, the site requires authentication
+    if ((response.status === 401 || response.status === 403) && !token) {
+      console.error(chalk.red(`Site requires authentication. Status: ${response.status} - ${response.statusText}`));
+      return { success: false, tokenRequired: true };
+    }
+
+    // If we get 401/403 with a token, the token is invalid
+    if ((response.status === 401 || response.status === 403) && token) {
       console.error(chalk.red(`Login failed with status: ${response.status} - ${response.statusText}`));
-      if (response.status === 401 || response.status === 403) {
-        console.error(chalk.red('Unauthorized: Invalid token'));
-      }
-      return false;
+      console.error(chalk.red('Unauthorized: Invalid token'));
+      return { success: false, tokenRequired: false };
     }
 
-    const text = await response.text();
-    if (text.includes('Invalid token') || text.includes('Unauthorized')) {
-      console.error(chalk.red(`Invalid token detected in response body: ${text}`));
-      return false;
-    }
-
-    return response.status === 200;
+    // Other errors
+    console.error(chalk.red(`Access failed with status: ${response.status} - ${response.statusText}`));
+    return { success: false, tokenRequired: false };
   } catch (error) {
     console.error(chalk.red(`Network error: ${error.message}`));
-    return false;
+    return { success: false, tokenRequired: false };
   }
 }
 
@@ -97,13 +104,13 @@ export const daBuilder = (yargs) => {
     })
     .option('output', {
       type: 'string',
-      describe: 'Absolute path to the output folder where the downloaded assets will be stored',
-      default: 'da-assets',
+      describe: 'Absolute path to the output folder where the DA content (pages, assets, etc.) will be stored',
+      default: 'da-content',
     })
     .option('token', {
       describe: 'Path to a file containing the DA authentication token or the token value',
       type: 'string',
-      demandOption: true,
+      demandOption: false,
     });
 }
 
@@ -113,20 +120,35 @@ export const daHandler = async (args) => {
   }
 
   // Construct the DA URL from org and site
-  const daLocation = `${DA_BASE_URL}/source/${args.org}/${args.site}`;
+  const daAdminUrl = `${DA_BASE_URL}/source/${args.org}/${args.site}`;
+  const daContentUrl = `${DA_CONTENT_URL}/${args.org}/${args.site}`;
   const listUrl = `${DA_BASE_URL}/list/${args.org}/${args.site}`;
 
-  // check to see if the token is a string value or a file
+  // Handle token (optional)
   let token = args.token;
   
-  // Check if it's a file path (exists as a file)
-  if (fs.existsSync(token) && fs.statSync(token).isFile()) {
-    token = fs.readFileSync(token, 'utf-8').trim();
+  if (token) {
+    // Check if it's a file path (exists as a file)
+    if (fs.existsSync(token) && fs.statSync(token).isFile()) {
+      token = fs.readFileSync(token, 'utf-8').trim();
+    }
   }
 
-  console.log(chalk.yellow('Validating token...'));
-  if (!await validateLogin(listUrl, token)) {
+  console.log(chalk.yellow('Validating site access...'));
+  const validation = await validateAccess(listUrl, token);
+  
+  if (!validation.success) {
+    if (validation.tokenRequired) {
+      console.error(chalk.red('This site requires authentication. Please re-run the command with a valid IMS token.'));
+      console.error(chalk.yellow('Example: --token "your-token-here" or --token "/path/to/token-file"'));
+    }
     process.exit(1);
+  }
+
+  if (token) {
+    console.log(chalk.green('Token validation successful.'));
+  } else {
+    console.log(chalk.green('Site accessible without authentication.'));
   }
 
   try {
@@ -144,8 +166,8 @@ export const daHandler = async (args) => {
     if (!siteOrigin) {
       console.warn(chalk.yellow('No site origin found in the asset-list file. Relative references will not be updated.'));
     }
-
-    await processPages(daLocation, assetUrls, siteOrigin, args['da-folder'], args['output'], token);
+    
+    await processPages(daAdminUrl, daContentUrl, assetUrls, siteOrigin, args['da-folder'], args['output'], token);
 
   } catch (err) {
     console.error(chalk.red('Error during processing:', err));
