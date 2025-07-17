@@ -125,7 +125,7 @@ describe('da-helper.js', () => {
       const assetUrls = [
         'https://example.com/image.jpg',
         'http://other.com/file.png',
-        'https://cdn.example.com/logo.svg'
+        'https://cdn.example.com/logo.svg',
       ];
       const siteOrigin = 'https://example.com';
       
@@ -141,7 +141,7 @@ describe('da-helper.js', () => {
     it('should convert localhost URLs to use the site origin', () => {
       const assetUrls = [
         'http://localhost:3000/image.jpg',
-        'http://localhost:8080/assets/file.png'
+        'http://localhost:8080/assets/file.png',
       ];
       const siteOrigin = 'https://example.com';
       
@@ -159,7 +159,7 @@ describe('da-helper.js', () => {
         '/assets/file.png',                       // absolute (root relative)
         'https://example.com/logo.svg',           // already fully qualified
         'http://localhost:3000/dev-asset.jpg',   // localhost
-        'https://cdn.other.com/external.png'     // external fully qualified
+        'https://cdn.other.com/external.png',     // external fully qualified
       ];
       const siteOrigin = 'https://example.com';
       
@@ -197,85 +197,85 @@ describe('da-helper.js', () => {
       expect(result).to.include('https://example.com/logo.svg');
     });
 
-         it('should handle URLs with query parameters and fragments', () => {
-       const assetUrls = [
-         'image.jpg?v=123',
-         '/assets/file.png#section',
-         'https://example.com/logo.svg?cache=bust&v=2'
-       ];
-       const siteOrigin = 'https://example.com';
+    it('should handle URLs with query parameters and fragments', () => {
+      const assetUrls = [
+        'image.jpg?v=123',
+        '/assets/file.png#section',
+        'https://example.com/logo.svg?cache=bust&v=2',
+      ];
+      const siteOrigin = 'https://example.com';
        
-       const result = getFullyQualifiedAssetUrls(assetUrls, siteOrigin);
+      const result = getFullyQualifiedAssetUrls(assetUrls, siteOrigin);
        
-       expect(result).to.be.an('array');
-       expect(result).to.have.length(3);
-       expect(result[0]).to.equal('https://example.com/image.jpg?v=123');
-       expect(result[1]).to.equal('https://example.com/assets/file.png#section');
-       expect(result[2]).to.equal('https://example.com/logo.svg?cache=bust&v=2');
-     });
+      expect(result).to.be.an('array');
+      expect(result).to.have.length(3);
+      expect(result[0]).to.equal('https://example.com/image.jpg?v=123');
+      expect(result[1]).to.equal('https://example.com/assets/file.png#section');
+      expect(result[2]).to.equal('https://example.com/logo.svg?cache=bust&v=2');
+    });
 
-     it('should handle different site origins correctly', () => {
-       const assetUrls = ['logo.png', '/images/banner.jpg'];
+    it('should handle different site origins correctly', () => {
+      const assetUrls = ['logo.png', '/images/banner.jpg'];
        
-       // Test with HTTP origin
-       let result = getFullyQualifiedAssetUrls(assetUrls, 'http://dev.example.com');
-       expect(result[0]).to.equal('http://dev.example.com/logo.png');
-       expect(result[1]).to.equal('http://dev.example.com/images/banner.jpg');
+      // Test with HTTP origin
+      let result = getFullyQualifiedAssetUrls(assetUrls, 'http://dev.example.com');
+      expect(result[0]).to.equal('http://dev.example.com/logo.png');
+      expect(result[1]).to.equal('http://dev.example.com/images/banner.jpg');
        
-       // Test with HTTPS origin
-       result = getFullyQualifiedAssetUrls(assetUrls, 'https://prod.example.com');
-       expect(result[0]).to.equal('https://prod.example.com/logo.png');
-       expect(result[1]).to.equal('https://prod.example.com/images/banner.jpg');
+      // Test with HTTPS origin
+      result = getFullyQualifiedAssetUrls(assetUrls, 'https://prod.example.com');
+      expect(result[0]).to.equal('https://prod.example.com/logo.png');
+      expect(result[1]).to.equal('https://prod.example.com/images/banner.jpg');
        
-       // Test with origin having a port
-       result = getFullyQualifiedAssetUrls(assetUrls, 'https://staging.example.com:8443');
-       expect(result[0]).to.equal('https://staging.example.com:8443/logo.png');
-       expect(result[1]).to.equal('https://staging.example.com:8443/images/banner.jpg');
-     });
+      // Test with origin having a port
+      result = getFullyQualifiedAssetUrls(assetUrls, 'https://staging.example.com:8443');
+      expect(result[0]).to.equal('https://staging.example.com:8443/logo.png');
+      expect(result[1]).to.equal('https://staging.example.com:8443/images/banner.jpg');
+    });
 
-     it('should handle real-world asset URL patterns', () => {
+    it('should handle real-world asset URL patterns', () => {
       // 
-       const assetUrls = [
-         'http://localhost:3000/dev-image.jpg',
-         '/-/media/images/hero.jpg',
-         '/wp-content/uploads/2023/image.jpg',
-         'assets/dist/bundle.min.js',
-         '/static/images/gallery/photo-1.png',
-         'cdn/fonts/OpenSans-Regular.woff2',
-         '/api/files/download/document.pdf'
-       ];
-       const siteOrigin = 'https://myblog.example.com';
+      const assetUrls = [
+        'http://localhost:3000/dev-image.jpg',
+        '/-/media/images/hero.jpg',
+        '/wp-content/uploads/2023/image.jpg',
+        'assets/dist/bundle.min.js',
+        '/static/images/gallery/photo-1.png',
+        'cdn/fonts/OpenSans-Regular.woff2',
+        '/api/files/download/document.pdf',
+      ];
+      const siteOrigin = 'https://myblog.example.com';
        
-       const result = getFullyQualifiedAssetUrls(assetUrls, siteOrigin);
+      const result = getFullyQualifiedAssetUrls(assetUrls, siteOrigin);
        
-       expect(result).to.be.an('array');
-       expect(result).to.have.length(7);
-       expect(result[0]).to.equal('https://myblog.example.com/dev-image.jpg');
-       expect(result[1]).to.equal('https://myblog.example.com/-/media/images/hero.jpg');
-       expect(result[2]).to.equal('https://myblog.example.com/wp-content/uploads/2023/image.jpg');
-       expect(result[3]).to.equal('https://myblog.example.com/assets/dist/bundle.min.js');
-       expect(result[4]).to.equal('https://myblog.example.com/static/images/gallery/photo-1.png');
-       expect(result[5]).to.equal('https://myblog.example.com/cdn/fonts/OpenSans-Regular.woff2');
-       expect(result[6]).to.equal('https://myblog.example.com/api/files/download/document.pdf');
-     });
+      expect(result).to.be.an('array');
+      expect(result).to.have.length(7);
+      expect(result[0]).to.equal('https://myblog.example.com/dev-image.jpg');
+      expect(result[1]).to.equal('https://myblog.example.com/-/media/images/hero.jpg');
+      expect(result[2]).to.equal('https://myblog.example.com/wp-content/uploads/2023/image.jpg');
+      expect(result[3]).to.equal('https://myblog.example.com/assets/dist/bundle.min.js');
+      expect(result[4]).to.equal('https://myblog.example.com/static/images/gallery/photo-1.png');
+      expect(result[5]).to.equal('https://myblog.example.com/cdn/fonts/OpenSans-Regular.woff2');
+      expect(result[6]).to.equal('https://myblog.example.com/api/files/download/document.pdf');
+    });
 
-     it('should handle URLs with special characters', () => {
-       const assetUrls = [
+    it('should handle URLs with special characters', () => {
+      const assetUrls = [
         'http://localhost:3000/dev-image.jpg?v=123',
         '/-/media/images/hero.jpg#section',
         '/wp-content/uploads/2023/image.jpg?cache=bust&v=2',
-       ];
-       const siteOrigin = 'https://example.com';
+      ];
+      const siteOrigin = 'https://example.com';
        
-       const result = getFullyQualifiedAssetUrls(assetUrls, siteOrigin);
+      const result = getFullyQualifiedAssetUrls(assetUrls, siteOrigin);
        
-       expect(result).to.be.an('array');
-       expect(result).to.have.length(3);
-       expect(result[0]).to.equal('https://example.com/dev-image.jpg?v=123');
-       expect(result[1]).to.equal('https://example.com/-/media/images/hero.jpg#section');
-       expect(result[2]).to.equal('https://example.com/wp-content/uploads/2023/image.jpg?cache=bust&v=2');
-     });
-   });
+      expect(result).to.be.an('array');
+      expect(result).to.have.length(3);
+      expect(result[0]).to.equal('https://example.com/dev-image.jpg?v=123');
+      expect(result[1]).to.equal('https://example.com/-/media/images/hero.jpg#section');
+      expect(result[2]).to.equal('https://example.com/wp-content/uploads/2023/image.jpg?cache=bust&v=2');
+    });
+  });
 
   describe('processPages', () => {
     it('should process pages one by one, downloading and uploading assets immediately', async () => {
@@ -362,7 +362,7 @@ describe('da-helper.js', () => {
         getAllFiles: sinon.stub().returns(getHTMLFilesStub()),
       };
       const assetUrls = new Set(['image.jpg']);
-      const results = await processPages(
+      await processPages(
         'https://admin.da.live/source/org/site',
         'https://content.da.live/org/site',
         assetUrls,
