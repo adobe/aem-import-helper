@@ -134,13 +134,18 @@ export const daHandler = async (args) => {
     const assetListJson = JSON.parse(fs.readFileSync(args['asset-list'], 'utf-8'));
     
     // Extract the assets array from the JSON structure
-    const assetUrls = new Set(assetListJson.assets || []);
-    
+    const assetUrls = new Set(assetListJson.assets || []);    
     if (assetUrls.size === 0) {
       console.warn(chalk.yellow('No asset urls found in the asset-list file. Expected format: {"assets": ["url1", "url2", ...]}'));
     }
-    
-    await processPages(daLocation, assetUrls, args['da-folder'], args['output'], token);
+
+    // get the site origin from the asset-list.json
+    const siteOrigin = assetListJson.siteOrigin || '';
+    if (!siteOrigin) {
+      console.warn(chalk.yellow('No site origin found in the asset-list file. Relative references will not be updated.'));
+    }
+
+    await processPages(daLocation, assetUrls, siteOrigin, args['da-folder'], args['output'], token);
 
   } catch (err) {
     console.error(chalk.red('Error during processing:', err));
