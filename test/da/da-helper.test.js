@@ -338,7 +338,7 @@ describe('da-helper.js', () => {
       const mockFs = {
         existsSync: sinon.stub().callsFake((p) => createdFolders.has(p)),
         mkdirSync: sinon.stub().callsFake((p) => createdFolders.add(p)),
-        readFileSync: sinon.stub().returns('<html><img src="image.jpg"><a href="/other-page">Link</a><a href="https://example.com/absolute">Absolute</a></html>'),
+        readFileSync: sinon.stub().returns('<html><img src="image.jpg"><a href="/other-page.html">Link</a><a href="https://example.com/absolute">Absolute</a></html>'),
         writeFileSync: sinon.stub(),
         readdirSync: sinon.stub().returns([]),
         statSync: sinon.stub().returns({ isFile: () => true, isDirectory: () => false }),
@@ -378,7 +378,7 @@ describe('da-helper.js', () => {
       expect(mockFs.writeFileSync.calledOnce).to.be.true;
       const writtenContent = mockFs.writeFileSync.getCall(0).args[1];
       expect(writtenContent).to.include('https://content.da.live/org/site/.page1/image.jpg'); // Asset reference updated
-      expect(writtenContent).to.include('https://content.da.live/org/site/other-page'); // Page reference updated
+      expect(writtenContent).to.include('https://content.da.live/org/site/other-page'); // Page reference updated (extension removed)
       expect(writtenContent).to.include('https://content.da.live/org/site/absolute'); // Absolute URL updated
     });
 

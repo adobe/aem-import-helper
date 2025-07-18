@@ -126,10 +126,13 @@ function updatePageReferencesInHTML(htmlContent, daContentUrl, matchingAssetUrls
       return;
     }
     const urlObj = url.startsWith('http') ? new URL(url) : new URL(url, 'http://localhost');
+    // Remove extension from pathname
+    const parsedPath = path.parse(urlObj.pathname);
+    const pathWithoutExtension = path.join(parsedPath.dir, parsedPath.name);
     // update the href attribute to point to the DA location
-    const newUrl = urlObj.pathname.startsWith('/') 
-      ? `${daContentUrl}${urlObj.pathname}`
-      : `${daContentUrl}/${urlObj.pathname}`;
+    const newUrl = pathWithoutExtension.startsWith('/') 
+      ? `${daContentUrl}${pathWithoutExtension}`
+      : `${daContentUrl}/${pathWithoutExtension}`;
     element.setAttribute('href', newUrl);
     updatedCount++;
   });
