@@ -10,7 +10,7 @@
  * governing permissions and limitations under the License.
  */
 import { expect } from 'chai';
-import { cleanup, downloadAssets } from '../../src/aem/download-assets.js';
+import { cleanup, downloadAssets } from '../../src/utils/download-assets.js';
 import nock from 'nock';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -32,7 +32,7 @@ describe('download assets', function () {
   it('expect download to be successful', async () => {
     const scope = nock('http://www.aem.com')
       .get('/asset1.jpg')
-      .replyWithFile(200, path.resolve(__dirname, 'fixtures/image1.jpeg'));
+      .replyWithFile(200, path.resolve(__dirname, '../aem/fixtures/image1.jpeg'));
 
     const mapping = new Map([
       ['http://www.aem.com/asset1.jpg', '/content/dam/xwalk/image1.jpg'],
@@ -49,7 +49,7 @@ describe('download assets', function () {
       .get('/asset1.jpg')
       .replyWithError('Server error')
       .get('/asset1.jpg')
-      .replyWithFile(200, path.resolve(__dirname, 'fixtures/image1.jpeg'));
+      .replyWithFile(200, path.resolve(__dirname, '../aem/fixtures/image1.jpeg'));
 
     const mapping = new Map([
       ['http://www.aem.com/asset1.jpg', '/content/dam/xwalk/image1.jpg'],
@@ -69,7 +69,7 @@ describe('download assets', function () {
       .get('/asset2.jpg')
       .replyWithError('Server error')
       .get('/asset3.jpg')
-      .replyWithFile(200, path.resolve(__dirname, 'fixtures/image3.jpeg'));
+      .replyWithFile(200, path.resolve(__dirname, '../aem/fixtures/image3.jpeg'));
 
     const mapping = new Map([
       ['http://www.aem.com/asset1.jpg', '/content/dam/xwalk/image1.jpg'],
