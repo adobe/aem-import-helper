@@ -170,8 +170,7 @@ Add the following npm script entries to your Edge Delivery project's `package.js
 
 To authenticate with DA, it is suggested to obtain a an IMS JWT bearer token for your DA environment.
 
-You can store this token in a file on your local machine; simply create a file and simply paste the token into the file and save it.
-
+You can store this token in a file on your local machine, or pass the token as a cli argument. If you choose to store the token in a file, create a file and simply paste the token into the file and save it.
 ```
 --token </path/to/token.txt> OR <token>
 ```
@@ -183,10 +182,10 @@ Run the following command to upload content (HTML pages) and associated assets t
 ```
 npm run da-upload -- \
   --token token.txt \
-  --org The organization of the project.\
-  --site The name of the site.\
+  --org myDaOrg\
+  --site myDaSite\
   --asset-list /path/to/asset-list.json \
-  --da-folder /path/to/html/folder
+  --da-folder /path/to/da/folder
   --output /path/to/download/folder
 ```
 

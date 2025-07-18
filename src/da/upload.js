@@ -263,10 +263,7 @@ export async function uploadFolder(folderPath, uploadUrl, token, options = {}, d
     }
     
     // Calculate and log summary
-    const summary = getSummaryFromUploadResults(results, allFiles.length, dependencies);
-
-    return summary;
-
+    return getSummaryFromUploadResults(results, allFiles.length, dependencies);
   } catch (error) {
     console.error(chalkDep.red(`Folder upload failed: ${error.message}`));
     throw error;

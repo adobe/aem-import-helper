@@ -19,6 +19,7 @@ import { getAllFiles, uploadFolder, uploadFile } from './upload.js';
 
 // File encoding constant
 const UTF8_ENCODING = 'utf-8';
+const LOCALHOST_URL = 'http://localhost';
 
 const defaultDependencies = {
   fs,
@@ -42,7 +43,7 @@ function getFilename(url, dependencies = defaultDependencies) {
   if (!url.startsWith('http')) {
     console.warn(chalkDep.yellow(`Warning: Relative path found: ${url}`));
   }
-  const urlObj = url.startsWith('http') ? new URL(url) : new URL(url, 'http://localhost');
+  const urlObj = url.startsWith('http') ? new URL(url) : new URL(url, LOCALHOST_URL);
   return urlObj.pathname.split('/').pop();
 }
 
@@ -70,7 +71,7 @@ function extractUrlsFromHTML(htmlContent, dependencies = defaultDependencies) {
 }
 
 /**
- * Update href attributes in anchor tags and src attributes in img tags in HTML to point to Author Bus.
+ * Update asset references (href attributes in anchor tags and src attributes in img tags) in HTML to point to Author Bus.
  * @param {string} fullShadowPath - The path to the HTML page to create shadow folder structure
  * @param {string} htmlContent - The HTML content to update
  * @param {Set<string>} assetUrls - Set of asset URLs that should be updated
@@ -78,7 +79,7 @@ function extractUrlsFromHTML(htmlContent, dependencies = defaultDependencies) {
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {string} Updated HTML content with modified hrefs and srcs
  */
-function updateImagesInHTML(fullShadowPath, htmlContent, assetUrls, daContentUrl, dependencies = defaultDependencies) {
+function updateAssetReferencesInHTML(fullShadowPath, htmlContent, assetUrls, daContentUrl, dependencies = defaultDependencies) {
   const { JSDOM: JSDOMDep } = dependencies;
   const dom = new JSDOMDep(htmlContent);
   const document = dom.window.document;
@@ -108,10 +109,11 @@ function updateImagesInHTML(fullShadowPath, htmlContent, assetUrls, daContentUrl
  * @param {string} htmlContent - The HTML content to update
  * @param {string} daContentUrl - The content.da.live URL
  * @param {Array<string>} matchingAssetUrls - Array of matching asset URLs
+ * @param {string} siteOrigin - The site origin
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {string} Updated HTML content
  */
-function updatePageReferencesInHTML(htmlContent, daContentUrl, matchingAssetUrls, dependencies = defaultDependencies) {
+function updatePageReferencesInHTML(htmlContent, daContentUrl, matchingAssetUrls, siteOrigin, dependencies = defaultDependencies) {
   const { JSDOM: JSDOMDep, chalk: chalkDep } = dependencies;
   const dom = new JSDOMDep(htmlContent);
   const document = dom.window.document;
@@ -125,11 +127,17 @@ function updatePageReferencesInHTML(htmlContent, daContentUrl, matchingAssetUrls
     if (matchingAssetUrls.includes(url)) {
       return;
     }
-    const urlObj = url.startsWith('http') ? new URL(url) : new URL(url, 'http://localhost');
-    // Remove extension from pathname
+    // if the url starts with http, and is not a localhost url, and is doesn't start with the site origin, then no need to update it
+    if (url.startsWith('http') && !url.startsWith(LOCALHOST_URL) && !url.startsWith(siteOrigin)) {
+      return;
+    }
+
+    // now we can assume that the reference points to a page on the same site
+    // get the pathname from the href url, without the extension
+    const urlObj = url.startsWith('http') ? new URL(url) : new URL(url, LOCALHOST_URL);
     const parsedPath = path.parse(urlObj.pathname);
     const pathWithoutExtension = path.join(parsedPath.dir, parsedPath.name);
-    // update the href attribute to point to the DA location
+    // update the href attribute to point to the DA content location
     const newUrl = pathWithoutExtension.startsWith('/') 
       ? `${daContentUrl}${pathWithoutExtension}`
       : `${daContentUrl}/${pathWithoutExtension}`;
@@ -324,7 +332,7 @@ function getFullyQualifiedAssetUrl(assetUrl, siteOrigin) {
   // Case 1: Already a fully qualified URL
   if (assetUrl.startsWith('http://') || assetUrl.startsWith('https://')) {
     // if it is a localhost url, replace it with the origin from the pageUrlObj
-    if (assetUrl.startsWith('http://localhost:')) {
+    if (assetUrl.startsWith(LOCALHOST_URL)) {
       const urlObj = new URL(assetUrl);
       return assetUrl.replace(urlObj.origin, siteOrigin);
     }
@@ -416,9 +424,9 @@ async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls
       
       // Make reference updates:
       // 1. Update page references in the HTML content to point to their DA location
-      let updatedHtmlContent = updatePageReferencesInHTML(htmlContent, daContentUrl, matchingAssetUrls, dependencies);
+      let updatedHtmlContent = updatePageReferencesInHTML(htmlContent, daContentUrl, matchingAssetUrls, siteOrigin, dependencies);
       // 2. Update the asset references in the HTML content
-      updatedHtmlContent = updateImagesInHTML(fullShadowPath, updatedHtmlContent, new Set(matchingAssetUrls), daContentUrl, dependencies);
+      updatedHtmlContent = updateAssetReferencesInHTML(fullShadowPath, updatedHtmlContent, new Set(matchingAssetUrls), daContentUrl, dependencies);
 
       // Calculate the path for updated HTML content
       const { updatedHtmlPath, htmlBaseFolder } = calculateHtmlPathAndBaseFolder(pagePath, htmlFolder, downloadFolder, dependencies);
