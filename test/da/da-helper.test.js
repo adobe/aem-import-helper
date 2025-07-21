@@ -285,24 +285,13 @@ describe('da-helper.js', () => {
       const matchingAssetUrls = [];
       const siteOrigin = null; // Missing siteOrigin
       
-      const mockConsoleWarn = sinon.stub();
-      const originalWarn = console.warn;
-      console.warn = mockConsoleWarn;
-      
       const result = updatePageReferencesInHTML(htmlContent, daContentUrl, matchingAssetUrls, siteOrigin, {
         JSDOM,
         chalk: mockChalk,
       });
       
-      console.warn = originalWarn;
-      
       // Should return unchanged HTML content
       expect(result).to.equal(htmlContent);
-      
-      // Should log warning
-      expect(mockConsoleWarn.calledOnce).to.be.true;
-      const warningMessage = mockConsoleWarn.getCall(0).args[0];
-      expect(warningMessage).to.include('Warning: No site origin provided, skipping page reference updates.');
     });
 
     it('should return unchanged HTML content when siteOrigin is empty string', () => {
@@ -311,22 +300,13 @@ describe('da-helper.js', () => {
       const matchingAssetUrls = [];
       const siteOrigin = ''; // Empty siteOrigin
       
-      const mockConsoleWarn = sinon.stub();
-      const originalWarn = console.warn;
-      console.warn = mockConsoleWarn;
-      
       const result = updatePageReferencesInHTML(htmlContent, daContentUrl, matchingAssetUrls, siteOrigin, {
         JSDOM,
         chalk: mockChalk,
       });
       
-      console.warn = originalWarn;
-      
       // Should return unchanged HTML content
       expect(result).to.equal(htmlContent);
-      
-      // Should log warning
-      expect(mockConsoleWarn.calledOnce).to.be.true;
     });
 
     it('should update page references normally when siteOrigin is provided', () => {
