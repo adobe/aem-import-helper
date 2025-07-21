@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/adobe/aem-import-helper/compare/v1.0.6...v1.1.0) (2025-07-21)
+
+
+### Features
+
+* Add support for Document Authoring HTML and asset upload ([#32](https://github.com/adobe/aem-import-helper/issues/32)) ([105fc30](https://github.com/adobe/aem-import-helper/commit/105fc30349376425177509e2bf952d0d65e8d3d9))
+
 ## [1.0.6](https://github.com/adobe/aem-import-helper/compare/v1.0.5...v1.0.6) (2025-06-12)
 
 
