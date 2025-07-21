@@ -168,7 +168,7 @@ Add the following npm script entries to your Edge Delivery project's `package.js
 
 ### Authenticating with DA
 
-To authenticate with DA, it is suggested to obtain a an IMS JWT bearer token for your DA environment.
+To authenticate with DA, it is suggested to obtain a an IMS access token for your DA environment. See the [IMS API reference](https://developer.adobe.com/developer-console/docs/guides/authentication/ServerToServerAuthentication/ims#fetching-access-tokens) to learn how to generate an Access Token.
 
 You can store this token in a file on your local machine, or pass the token as a cli argument. If you choose to store the token in a file, create a file and simply paste the token into the file and save it.
 ```

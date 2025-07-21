@@ -20,6 +20,7 @@ import {
   createAssetMapping,
   processPages,
   getFullyQualifiedAssetUrls,
+  updatePageReferencesInHTML,
 } from '../../src/da/da-helper.js';
 
 const mockChalk = {
@@ -80,19 +81,19 @@ describe('da-helper.js', () => {
   });
 
   describe('getFullyQualifiedAssetUrls', () => {
-    it('should return null when assetUrls is null or undefined', () => {
+    it('should return original assetUrls when assetUrls is null or undefined', () => {
       const siteOrigin = 'https://example.com';
       
       expect(getFullyQualifiedAssetUrls(null, siteOrigin)).to.be.null;
-      expect(getFullyQualifiedAssetUrls(undefined, siteOrigin)).to.be.null;
+      expect(getFullyQualifiedAssetUrls(undefined, siteOrigin)).to.be.undefined;
     });
 
-    it('should return null when siteOrigin is null or undefined', () => {
+    it('should return original assetUrls when siteOrigin is null or undefined', () => {
       const assetUrls = ['image.jpg', '/path/file.png'];
       
-      expect(getFullyQualifiedAssetUrls(assetUrls, null)).to.be.null;
-      expect(getFullyQualifiedAssetUrls(assetUrls, undefined)).to.be.null;
-      expect(getFullyQualifiedAssetUrls(assetUrls, '')).to.be.null;
+      expect(getFullyQualifiedAssetUrls(assetUrls, null)).to.deep.equal(assetUrls);
+      expect(getFullyQualifiedAssetUrls(assetUrls, undefined)).to.deep.equal(assetUrls);
+      expect(getFullyQualifiedAssetUrls(assetUrls, '')).to.deep.equal(assetUrls);
     });
 
     it('should convert relative URLs to fully qualified URLs', () => {
@@ -274,6 +275,74 @@ describe('da-helper.js', () => {
       expect(result[0]).to.equal('https://example.com/dev-image.jpg?v=123');
       expect(result[1]).to.equal('https://example.com/-/media/images/hero.jpg#section');
       expect(result[2]).to.equal('https://example.com/wp-content/uploads/2023/image.jpg?cache=bust&v=2');
+    });
+  });
+
+  describe('updatePageReferencesInHTML', () => {
+    it('should return unchanged HTML content when siteOrigin is null', () => {
+      const htmlContent = '<html><a href="/test-page.html">Test Link</a><a href="https://example.com/page">External Link</a></html>';
+      const daContentUrl = 'https://content.da.live/org/site';
+      const matchingAssetUrls = [];
+      const siteOrigin = null; // Missing siteOrigin
+      
+      const mockConsoleWarn = sinon.stub();
+      const originalWarn = console.warn;
+      console.warn = mockConsoleWarn;
+      
+      const result = updatePageReferencesInHTML(htmlContent, daContentUrl, matchingAssetUrls, siteOrigin, {
+        JSDOM,
+        chalk: mockChalk,
+      });
+      
+      console.warn = originalWarn;
+      
+      // Should return unchanged HTML content
+      expect(result).to.equal(htmlContent);
+      
+      // Should log warning
+      expect(mockConsoleWarn.calledOnce).to.be.true;
+      const warningMessage = mockConsoleWarn.getCall(0).args[0];
+      expect(warningMessage).to.include('Warning: No site origin provided, skipping page reference updates.');
+    });
+
+    it('should return unchanged HTML content when siteOrigin is empty string', () => {
+      const htmlContent = '<html><a href="/test-page.html">Test Link</a></html>';
+      const daContentUrl = 'https://content.da.live/org/site';
+      const matchingAssetUrls = [];
+      const siteOrigin = ''; // Empty siteOrigin
+      
+      const mockConsoleWarn = sinon.stub();
+      const originalWarn = console.warn;
+      console.warn = mockConsoleWarn;
+      
+      const result = updatePageReferencesInHTML(htmlContent, daContentUrl, matchingAssetUrls, siteOrigin, {
+        JSDOM,
+        chalk: mockChalk,
+      });
+      
+      console.warn = originalWarn;
+      
+      // Should return unchanged HTML content
+      expect(result).to.equal(htmlContent);
+      
+      // Should log warning
+      expect(mockConsoleWarn.calledOnce).to.be.true;
+    });
+
+    it('should update page references normally when siteOrigin is provided', () => {
+      const htmlContent = '<html><a href="/test-page.html">Test Link</a><a href="https://example.com/page.pdf">Same Origin</a></html>';
+      const daContentUrl = 'https://content.da.live/org/site';
+      const matchingAssetUrls = [];
+      const siteOrigin = 'https://example.com';
+      
+      const result = updatePageReferencesInHTML(htmlContent, daContentUrl, matchingAssetUrls, siteOrigin, {
+        JSDOM,
+        chalk: mockChalk,
+      });
+      
+      // Should update the references
+      expect(result).to.include('https://content.da.live/org/site/test-page'); // Extension removed
+      expect(result).to.include('https://content.da.live/org/site/page'); // Extension removed
     });
   });
 
@@ -665,6 +734,66 @@ describe('da-helper.js', () => {
       expect(results[0].downloadedAssets).to.deep.equal(['image.jpg']);
       // Final cleanup should be called for the download folder
       expect(mockFs.unlinkSync.calledWith('/download')).to.be.true;
+    });
+
+    it('should handle missing siteOrigin gracefully and skip page reference updates', async () => {
+      const createdFolders = new Set(['/html', '/download', '/download/assets', '/html', '/download/assets/.page1']);
+      const originalHtmlContent = '<html><img src="image.jpg"><a href="/other-page.html">Link</a></html>';
+      const mockFs = {
+        existsSync: sinon.stub().callsFake((p) => createdFolders.has(p)),
+        mkdirSync: sinon.stub().callsFake((p) => createdFolders.add(p)),
+        readFileSync: sinon.stub().returns(originalHtmlContent),
+        writeFileSync: sinon.stub(),
+        readdirSync: sinon.stub().returns([]),
+        statSync: sinon.stub().returns({ isFile: () => true, isDirectory: () => false }),
+        unlinkSync: sinon.stub(),
+        rmSync: sinon.stub(),
+        rm: sinon.stub().callsArg(2),
+      };
+      const mockPath = path;
+      const mockDownloadAssets = sinon.stub().resolves([{ status: 'fulfilled', value: 'image.jpg' }]);
+      const mockUploadFolder = sinon.stub().resolves({ success: true });
+      const mockUploadFile = sinon.stub().resolves({ success: true });
+      const getHTMLFilesStub = sinon.stub().returns(['/html/page1.html']);
+      const mockConsoleWarn = sinon.stub();
+      const mockDeps = {
+        fs: mockFs,
+        path: mockPath,
+        chalk: mockChalk,
+        JSDOM,
+        downloadAssets: mockDownloadAssets,
+        uploadFolder: mockUploadFolder,
+        uploadFile: mockUploadFile,
+        getAllFiles: sinon.stub().returns(getHTMLFilesStub()),
+      };
+      const assetUrls = new Set(['image.jpg']);
+      
+      // Store original console.warn to restore later
+      const originalWarn = console.warn;
+      console.warn = mockConsoleWarn;
+      
+      const results = await processPages(
+        'https://admin.da.live/source/org/site',
+        'https://content.da.live/org/site',
+        assetUrls,
+        null, // Missing siteOrigin
+        '/html',
+        '/download',
+        'token',
+        { maxRetries: 3, retryDelay: 100 },
+        mockDeps,
+      );
+      
+      // Restore console.warn
+      console.warn = originalWarn;
+      
+      expect(results[0].uploaded).to.be.true;
+      expect(results[0].downloadedAssets).to.deep.equal(['image.jpg']);
+      
+      // Check that page references were NOT updated (original HTML should be preserved)
+      const writtenContent = mockFs.writeFileSync.getCall(0).args[1];
+      expect(writtenContent).to.include('<a href="/other-page.html">Link</a>'); // Original link unchanged
+      expect(writtenContent).to.include('https://content.da.live/org/site/.page1/image.jpg'); // Asset reference still updated
     });
   });
 }); 
