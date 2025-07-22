@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/adobe/aem-import-helper/compare/v1.1.0...v1.1.1) (2025-07-22)
+
+
+### Bug Fixes
+
+* Parallelisation in DA asset upload ([#33](https://github.com/adobe/aem-import-helper/issues/33)) ([0ed1e34](https://github.com/adobe/aem-import-helper/commit/0ed1e34db7b36ecadbb3c0662bbc1f1434ef0ea1))
+
 # [1.1.0](https://github.com/adobe/aem-import-helper/compare/v1.0.6...v1.1.0) (2025-07-21)
 
 
