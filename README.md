@@ -201,6 +201,15 @@ npm run da-upload -- \
 
 Once the command is executed, the HTML pages and associated assets are uploaded to Author Bus.
 
+**Upload Performance:**
+The tool optimizes upload performance by processing assets within each page in parallel (up to 50 concurrent uploads), while respecting CDN's concurrent request limits.
+
+```
+Page 1 → Download Assets (parallel) → Upload Assets (max 50 parallel) → Upload HTML → 
+Page 2 → Download Assets (parallel) → Upload Assets (max 50 parallel) → Upload HTML → 
+Page 3 → ...
+```
+
 ## Bundling Multiple Import Scripts
 
 By creating a bundled version of your import script, it makes it compatible with the Import Service as all scripts are required to be in one js file.

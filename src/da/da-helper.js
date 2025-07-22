@@ -227,7 +227,7 @@ async function uploadPageAssets(shadowFolderPath, daAdminUrl, token, uploadOptio
 
 /**
  * Upload an HTML page to DA
- * @param {string} pageDir - Directory containing the HTML page
+ * @param {string} pagePath - Path to the HTML page file
  * @param {string} daAdminUrl - The admin.da.live URL
  * @param {string} token - Authentication token
  * @param {Object} uploadOptions - Upload options
@@ -298,7 +298,6 @@ function saveHtmlToDownloadFolder(htmlContent, updatedHtmlPath, dependencies = d
  * Clean up downloaded assets and HTML files for a page to free disk space
  * @param {Array<string>} pathsToClean - Array of file/folder paths to clean up
  * @param {Object} dependencies - Dependencies for testing (optional)
- * @param {Function} callback - The callback function to execute after cleanup
  */
 async function cleanupPageAssets(pathsToClean, dependencies) {
   const { fs: fsDep, chalk: chalkDep } = dependencies;
@@ -512,8 +511,6 @@ async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls
  * @param {Object} dependencies.path - Node.js path module
  * @param {Object} dependencies.JSDOM - JSDOM library for HTML parsing
  * @param {Object} dependencies.chalk - Chalk library for colored console output
- * @param {Function} dependencies.fetch - Fetch function for HTTP requests
- * @param {Object} dependencies.FormData - FormData constructor for multipart uploads
  * @param {Function} dependencies.downloadAssets - Function to download assets from URLs
  * @param {Function} dependencies.getAllFiles - Function to recursively get all files from a directory
  * @param {Function} dependencies.uploadFolder - Function to upload a folder to DA
