@@ -113,10 +113,15 @@ function updateAssetReferencesInHTML(fullShadowPath, htmlContent, assetUrls, daC
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {string} Updated HTML content
  */
-function updatePageReferencesInHTML(htmlContent, daContentUrl, matchingAssetUrls, siteOrigin, dependencies = defaultDependencies) {
+export function updatePageReferencesInHTML(htmlContent, daContentUrl, matchingAssetUrls, siteOrigin, dependencies = defaultDependencies) {
   const { JSDOM: JSDOMDep, chalk: chalkDep } = dependencies;
   const dom = new JSDOMDep(htmlContent);
   const document = dom.window.document;
+
+  // if siteOrigin is not provided, we can't identify same site page references
+  if (!siteOrigin) {
+    return htmlContent;
+  }
   
   let updatedCount = 0;
   
@@ -222,7 +227,7 @@ async function uploadPageAssets(shadowFolderPath, daAdminUrl, token, uploadOptio
 
 /**
  * Upload an HTML page to DA
- * @param {string} pageDir - Directory containing the HTML page
+ * @param {string} pagePath - Path to the HTML page file
  * @param {string} daAdminUrl - The admin.da.live URL
  * @param {string} token - Authentication token
  * @param {Object} uploadOptions - Upload options
@@ -293,7 +298,6 @@ function saveHtmlToDownloadFolder(htmlContent, updatedHtmlPath, dependencies = d
  * Clean up downloaded assets and HTML files for a page to free disk space
  * @param {Array<string>} pathsToClean - Array of file/folder paths to clean up
  * @param {Object} dependencies - Dependencies for testing (optional)
- * @param {Function} callback - The callback function to execute after cleanup
  */
 async function cleanupPageAssets(pathsToClean, dependencies) {
   const { fs: fsDep, chalk: chalkDep } = dependencies;
@@ -344,14 +348,14 @@ function getFullyQualifiedAssetUrl(assetUrl, siteOrigin) {
 }
 
 /**
- * Get fully qualified asset URLs from a set of asset URLs and a site origin
- * @param {Set<string>} assetUrls - Set of asset URLs
+ * Get fully qualified asset URLs from a list of asset URLs and a site origin
+ * @param {Array<string>} assetUrls - List of asset URLs
  * @param {string} siteOrigin - The site origin
- * @return {Set<string>} Set of fully qualified asset URLs
+ * @return {Array<string>} List of fully qualified asset URLs, or the original list if siteOrigin is not provided.
  */
 export function getFullyQualifiedAssetUrls(assetUrls, siteOrigin) {
   if (!assetUrls || !siteOrigin) {
-    return null;
+    return assetUrls;
   }
   const fullyQualifiedAssetUrls = [];
   // loop over the assetUrls and get the fully qualified url
@@ -507,8 +511,6 @@ async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls
  * @param {Object} dependencies.path - Node.js path module
  * @param {Object} dependencies.JSDOM - JSDOM library for HTML parsing
  * @param {Object} dependencies.chalk - Chalk library for colored console output
- * @param {Function} dependencies.fetch - Fetch function for HTTP requests
- * @param {Object} dependencies.FormData - FormData constructor for multipart uploads
  * @param {Function} dependencies.downloadAssets - Function to download assets from URLs
  * @param {Function} dependencies.getAllFiles - Function to recursively get all files from a directory
  * @param {Function} dependencies.uploadFolder - Function to upload a folder to DA

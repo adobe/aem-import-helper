@@ -168,7 +168,7 @@ Add the following npm script entries to your Edge Delivery project's `package.js
 
 ### Authenticating with DA
 
-To authenticate with DA, it is suggested to obtain a an IMS JWT bearer token for your DA environment.
+To authenticate with DA, it is suggested to obtain a an IMS access token for your DA environment. See the [IMS API reference](https://developer.adobe.com/developer-console/docs/guides/authentication/ServerToServerAuthentication/ims#fetching-access-tokens) to learn how to generate an Access Token.
 
 You can store this token in a file on your local machine, or pass the token as a cli argument. If you choose to store the token in a file, create a file and simply paste the token into the file and save it.
 ```
@@ -200,6 +200,15 @@ npm run da-upload -- \
 * _output_ [default='da-content']: Absolute path to the output folder where the DA content (pages, assets, etc.) will be stored.
 
 Once the command is executed, the HTML pages and associated assets are uploaded to Author Bus.
+
+**Upload Performance:**
+The tool optimizes upload performance by processing assets within each page in parallel (up to 50 concurrent uploads), while respecting CDN's concurrent request limits.
+
+```
+Page 1 → Download Assets (parallel) → Upload Assets (max 50 parallel) → Upload HTML → 
+Page 2 → Download Assets (parallel) → Upload Assets (max 50 parallel) → Upload HTML → 
+Page 3 → ...
+```
 
 ## Bundling Multiple Import Scripts
 

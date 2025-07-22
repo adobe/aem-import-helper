@@ -24,6 +24,9 @@ const defaultDependencies = {
   chalk,
 };
 
+// Constant for maximum concurrent uploads per page
+const MAX_CONCURRENT_UPLOADS = 50;
+
 /**
  * Recursively get all files from a directory
  * @param {string} dirPath - The directory path to scan
@@ -89,6 +92,28 @@ function createUploadRequest(filePath, userAgent, token, dependencies = defaultD
 }
 
 /**
+ * Handle upload operation with consistent success/error formatting
+ * @param {string} filePath - The absolute path to the file to upload
+ * @param {string} uploadUrl - The DA upload URL base
+ * @param {string} token - The authentication token
+ * @param {Object} options - Upload options (passed through to uploadFile)
+ * @param {Object} dependencies - Dependencies for testing (optional)
+ * @return {Promise<Object>} Standardized upload result object
+ */
+async function uploadHandler(filePath, uploadUrl, token, options = {}, dependencies = defaultDependencies) {
+  try {
+    const result = await uploadFile(filePath, uploadUrl, token, options, dependencies);
+    return { ...result, success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+      filePath,
+    };
+  }
+}
+
+/**
  * Upload a file to the Author Bus.
  * @param {string} filePath - The absolute path to the file to upload
  * @param {string} uploadUrl - The DA upload URL base
@@ -96,6 +121,8 @@ function createUploadRequest(filePath, userAgent, token, dependencies = defaultD
  * @param {Object} options - Additional options for the upload
  * @param {string} options.userAgent - Custom User-Agent header (default: 'aem-import-helper/1.0')
  * @param {string} options.baseFolder - The base folder path to calculate relative path from
+ * @param {number} options.retries - Number of retry attempts on failure (default: 3)
+ * @param {number} options.retryDelay - Delay in milliseconds between retries (default: 1000)
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Promise<Object>} The upload response
  */
@@ -149,7 +176,7 @@ export async function uploadFile(filePath, uploadUrl, token, options = {}, depen
 
       const responseText = await response.text();
 
-      console.debug(chalkDep.green(`File uploaded successfully: ${filePath}`));
+      console.log(chalkDep.green(`File uploaded successfully: ${filePath}`));
 
       return {
         success: true,
@@ -216,14 +243,17 @@ function getSummaryFromUploadResults(results, totalFiles, dependencies = default
  * @param {string} uploadUrl - The DA upload URL base
  * @param {string} token - The authentication token
  * @param {Object} options - Additional options for the upload
- * @param {Array<string>} options.fileExtensions - Array of file extensions to include (e.g., ['.html', '.html'])
+ * @param {Array<string>} options.fileExtensions - Array of file extensions to include (e.g., ['.html', '.htm'])
  * @param {string} options.baseFolder - The base folder to calculate relative paths from (default: folderPath)
+ * @param {boolean} options.useBatching - Whether to use batched uploads (default: true)
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Promise<Object>} Upload results with summary
  */
 export async function uploadFolder(folderPath, uploadUrl, token, options = {}, dependencies = defaultDependencies) {
   const { chalk: chalkDep } = dependencies;
   const getFiles = dependencies.getAllFiles || getAllFiles;
+  const { useBatching = true } = options;
+  let results;
 
   // Set default baseFolder to folderPath if not provided
   const uploadOptions = {
@@ -247,18 +277,15 @@ export async function uploadFolder(folderPath, uploadUrl, token, options = {}, d
     }
     console.log(chalkDep.yellow(`Found ${allFiles.length} files to upload`));
 
-    // Upload files individually using uploadFile
-    const results = [];
-    for (const filePath of allFiles) {
-      try {
-        const result = await uploadFile(filePath, uploadUrl, token, uploadOptions, dependencies);
+    if (useBatching && allFiles.length > 1) {
+      // Use batched upload for better performance
+      results = await uploadFilesBatched(allFiles, uploadUrl, token, uploadOptions, dependencies);
+    } else {
+      // Use sequential upload for single files or when batching is disabled
+      results = [];
+      for (const filePath of allFiles) {
+        const result = await uploadHandler(filePath, uploadUrl, token, uploadOptions, dependencies);
         results.push(result);
-      } catch (error) {
-        results.push({
-          success: false,
-          error: error.message,
-          filePath,
-        });
       }
     }
     
@@ -268,4 +295,48 @@ export async function uploadFolder(folderPath, uploadUrl, token, options = {}, d
     console.error(chalkDep.red(`Folder upload failed: ${error.message}`));
     throw error;
   }
+}
+
+/**
+ * Upload files in batches with controlled concurrency
+ * @param {Array<string>} filePaths - Array of file paths to upload
+ * @param {string} uploadUrl - The DA upload URL base
+ * @param {string} token - The authentication token
+ * @param {Object} options - Upload options (passed through to uploadFile)
+ * @param {Object} dependencies - Dependencies for testing (optional)
+ * @return {Promise<Array>} Array of upload results
+ */
+export async function uploadFilesBatched(filePaths, uploadUrl, token, options = {}, dependencies = defaultDependencies) {
+  const { chalk: chalkDep } = dependencies;
+  
+  if (filePaths.length === 0) {
+    return [];
+  }
+  
+  const allResults = [];
+  const batchSize = MAX_CONCURRENT_UPLOADS;
+  
+  // Process files in batches
+  for (let i = 0; i < filePaths.length; i += batchSize) {
+    const batch = filePaths.slice(i, i + batchSize);
+    const batchNumber = Math.floor(i / batchSize) + 1;
+    const totalBatches = Math.ceil(filePaths.length / batchSize);
+    
+    console.log(chalkDep.cyan(`Processing batch ${batchNumber}/${totalBatches} (${batch.length} files)...`));
+    
+    // Upload files in current batch concurrently
+    const batchPromises = batch.map(filePath => uploadHandler(filePath, uploadUrl, token, options, dependencies));
+    
+    // Wait for current batch to complete
+    const batchResults = await Promise.all(batchPromises);
+    allResults.push(...batchResults);
+    
+    // Log batch summary
+    const batchSuccess = batchResults.filter(r => r.success).length;
+    const batchFailed = batchResults.filter(r => !r.success).length;
+    
+    console.log(chalkDep.green(`Batch ${batchNumber} complete: ${batchSuccess} successful, ${batchFailed} failed`));
+  }
+  
+  return allResults;
 }

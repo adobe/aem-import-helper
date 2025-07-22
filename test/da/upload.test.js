@@ -12,7 +12,7 @@
 import { expect } from 'chai';
 import sinon from 'sinon';
 import path from 'path';
-import { uploadFile, uploadFolder, getAllFiles } from '../../src/da/upload.js';
+import { uploadFile, uploadFolder, getAllFiles, uploadFilesBatched } from '../../src/da/upload.js';
 
 describe('upload', function () {
   let mockDependencies;
@@ -49,6 +49,7 @@ describe('upload', function () {
         green: sinon.stub().returnsArg(0),
         blue: sinon.stub().returnsArg(0),
         red: sinon.stub().returnsArg(0),
+        cyan: sinon.stub().returnsArg(0),
       },
       getAllFiles: sinon.stub(),
     };
@@ -292,6 +293,167 @@ describe('upload', function () {
       await uploadFolder(folderPath, uploadUrl, token, {}, mockDependencies);
 
       expect(mockDependencies.path.relative.calledWith(folderPath, files[0])).to.be.true;
+    });
+  });
+
+  describe('uploadFilesBatched', function () {
+    const uploadUrl = 'https://admin.da.live/source/org/repo';
+    const token = 'test-token';
+
+    beforeEach(() => {
+      // Mock the uploadFile function for these tests
+      mockDependencies.fs.existsSync.returns(true);
+      mockDependencies.fetch.resolves({ ok: true, status: 200, text: async () => 'success' });
+    });
+
+    it('should handle empty file array', async function () {
+      const result = await uploadFilesBatched([], uploadUrl, token, {}, mockDependencies);
+      
+      expect(result).to.be.an('array').that.is.empty;
+      expect(mockDependencies.fetch.callCount).to.equal(0);
+    });
+
+    it('should upload small number of files without batching', async function () {
+      const files = ['/test/file1.html', '/test/file2.html', '/test/file3.html'];
+       
+      const result = await uploadFilesBatched(files, uploadUrl, token, {}, mockDependencies);
+       
+      expect(result).to.have.length(3);
+      expect(result.every(r => r.success)).to.be.true;
+      expect(mockDependencies.fetch.callCount).to.equal(3);
+       
+      // Verify that console.log was called for batch processing
+      expect(console.log.called).to.be.true;
+    });
+
+    it('should batch files when exceeding MAX_CONCURRENT_UPLOADS (50)', async function () {
+      // Create array of 75 files to test batching
+      const files = Array.from({ length: 75 }, (_, i) => `/test/file${i}.html`);
+      
+      const result = await uploadFilesBatched(files, uploadUrl, token, {}, mockDependencies);
+      
+      expect(result).to.have.length(75);
+      expect(result.every(r => r.success)).to.be.true;
+      expect(mockDependencies.fetch.callCount).to.equal(75);
+      
+      // Verify that logging occurred for batches
+      expect(console.log.called).to.be.true;
+    });
+
+    it('should handle mixed success and failure results', async function () {
+      const files = ['/test/file1.html', '/test/file2.html', '/test/file3.html'];
+      
+      // Make the second file fail
+      mockDependencies.fetch
+        .onCall(0).resolves({ ok: true, status: 200, text: async () => 'success' })
+        .onCall(1).resolves({ ok: false, status: 500, statusText: 'Server Error' })
+        .onCall(2).resolves({ ok: true, status: 200, text: async () => 'success' });
+      
+      const result = await uploadFilesBatched(files, uploadUrl, token, { retries: 0, retryDelay: 1 }, mockDependencies);
+      
+      expect(result).to.have.length(3);
+      expect(result[0].success).to.be.true;
+      expect(result[1].success).to.be.false;
+      expect(result[1].error).to.include('Upload failed with status: 500');
+      expect(result[2].success).to.be.true;
+             
+      // Verify that logging occurred
+      expect(console.log.called).to.be.true;
+    });
+
+    it('should handle network errors gracefully', async function () {
+      const files = ['/test/file1.html', '/test/file2.html'];
+      
+      // First file succeeds, second throws network error
+      mockDependencies.fetch
+        .onCall(0).resolves({ ok: true, status: 200, text: async () => 'success' })
+        .onCall(1).rejects(new Error('Network timeout'));
+      
+      const result = await uploadFilesBatched(files, uploadUrl, token, { retries: 0, retryDelay: 1 }, mockDependencies);
+      
+      expect(result).to.have.length(2);
+      expect(result[0].success).to.be.true;
+      expect(result[1].success).to.be.false;
+      expect(result[1].error).to.equal('Network timeout');
+    });
+
+    it('should pass options through to uploadFile', async function () {
+      const files = ['/test/file1.html'];
+      const customOptions = {
+        userAgent: 'custom-agent',
+        baseFolder: '/custom/base',
+        retries: 5,
+        retryDelay: 2000,
+      };
+      
+      await uploadFilesBatched(files, uploadUrl, token, customOptions, mockDependencies);
+      
+      // Verify that uploadFile was called with the custom options
+      expect(mockDependencies.fetch.callCount).to.equal(1);
+      
+      // Check that the User-Agent header was set correctly
+      const fetchCall = mockDependencies.fetch.firstCall;
+      const headers = fetchCall.args[1].headers;
+      expect(headers['User-Agent']).to.equal('custom-agent');
+    });
+
+    it('should handle exactly 50 files (boundary condition)', async function () {
+      const files = Array.from({ length: 50 }, (_, i) => `/test/file${i}.html`);
+      
+      const result = await uploadFilesBatched(files, uploadUrl, token, {}, mockDependencies);
+      
+      expect(result).to.have.length(50);
+      expect(result.every(r => r.success)).to.be.true;
+      expect(mockDependencies.fetch.callCount).to.equal(50);
+      
+      // Verify that logging occurred
+      expect(console.log.called).to.be.true;
+    });
+
+    it('should handle exactly 51 files (boundary condition)', async function () {
+      const files = Array.from({ length: 51 }, (_, i) => `/test/file${i}.html`);
+      
+      const result = await uploadFilesBatched(files, uploadUrl, token, {}, mockDependencies);
+      
+      expect(result).to.have.length(51);
+      expect(result.every(r => r.success)).to.be.true;
+      expect(mockDependencies.fetch.callCount).to.equal(51);
+      
+      // Verify that logging occurred for multiple batches
+      expect(console.log.called).to.be.true;
+    });
+
+    it('should handle single file', async function () {
+      const files = ['/test/single-file.html'];
+       
+      const result = await uploadFilesBatched(files, uploadUrl, token, {}, mockDependencies);
+       
+      expect(result).to.have.length(1);
+      expect(result[0].success).to.be.true;
+      expect(mockDependencies.fetch.callCount).to.equal(1);
+       
+      // Verify that logging occurred
+      expect(console.log.called).to.be.true;
+    });
+
+    it('should include file paths in error results', async function () {
+      const files = ['/test/file1.html', '/test/file2.html'];
+      
+      // Make both files fail with different errors
+      mockDependencies.fetch
+        .onCall(0).rejects(new Error('First error'))
+        .onCall(1).rejects(new Error('Second error'));
+      
+      const result = await uploadFilesBatched(files, uploadUrl, token, { retries: 0, retryDelay: 1 }, mockDependencies);
+      
+      expect(result).to.have.length(2);
+      expect(result[0].success).to.be.false;
+      expect(result[0].error).to.equal('First error');
+      expect(result[0].filePath).to.equal('/test/file1.html');
+      
+      expect(result[1].success).to.be.false;
+      expect(result[1].error).to.equal('Second error');
+      expect(result[1].filePath).to.equal('/test/file2.html');
     });
   });
 }); 
