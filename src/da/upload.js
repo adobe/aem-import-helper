@@ -92,6 +92,28 @@ function createUploadRequest(filePath, userAgent, token, dependencies = defaultD
 }
 
 /**
+ * Handle upload operation with consistent success/error formatting
+ * @param {string} filePath - The absolute path to the file to upload
+ * @param {string} uploadUrl - The DA upload URL base
+ * @param {string} token - The authentication token
+ * @param {Object} options - Upload options (passed through to uploadFile)
+ * @param {Object} dependencies - Dependencies for testing (optional)
+ * @return {Promise<Object>} Standardized upload result object
+ */
+async function uploadHandler(filePath, uploadUrl, token, options = {}, dependencies = defaultDependencies) {
+  try {
+    const result = await uploadFile(filePath, uploadUrl, token, options, dependencies);
+    return { ...result, success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+      filePath,
+    };
+  }
+}
+
+/**
  * Upload a file to the Author Bus.
  * @param {string} filePath - The absolute path to the file to upload
  * @param {string} uploadUrl - The DA upload URL base
@@ -262,16 +284,8 @@ export async function uploadFolder(folderPath, uploadUrl, token, options = {}, d
       // Use sequential upload for single files or when batching is disabled
       results = [];
       for (const filePath of allFiles) {
-        try {
-          const result = await uploadFile(filePath, uploadUrl, token, uploadOptions, dependencies);
-          results.push(result);
-        } catch (error) {
-          results.push({
-            success: false,
-            error: error.message,
-            filePath,
-          });
-        }
+        const result = await uploadHandler(filePath, uploadUrl, token, uploadOptions, dependencies);
+        results.push(result);
       }
     }
     
@@ -299,8 +313,6 @@ export async function uploadFilesBatched(filePaths, uploadUrl, token, options = 
     return [];
   }
   
-  console.log(chalkDep.yellow(`Uploading ${filePaths.length} files with up to ${MAX_CONCURRENT_UPLOADS} concurrent uploads...`));
-  
   const allResults = [];
   const batchSize = MAX_CONCURRENT_UPLOADS;
   
@@ -313,15 +325,7 @@ export async function uploadFilesBatched(filePaths, uploadUrl, token, options = 
     console.log(chalkDep.cyan(`Processing batch ${batchNumber}/${totalBatches} (${batch.length} files)...`));
     
     // Upload files in current batch concurrently
-    const batchPromises = batch.map(filePath => 
-      uploadFile(filePath, uploadUrl, token, options, dependencies)
-        .then(result => ({ ...result, success: true }))
-        .catch(error => ({ 
-          success: false, 
-          error: error.message, 
-          filePath, 
-        })),
-    );
+    const batchPromises = batch.map(filePath => uploadHandler(filePath, uploadUrl, token, options, dependencies));
     
     // Wait for current batch to complete
     const batchResults = await Promise.all(batchPromises);
