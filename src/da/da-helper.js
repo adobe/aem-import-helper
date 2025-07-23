@@ -40,9 +40,6 @@ const defaultDependencies = {
  */
 function getFilename(url, dependencies = defaultDependencies) {
   const { chalk: chalkDep } = dependencies;
-  if (!url.startsWith('http')) {
-    console.warn(chalkDep.yellow(`Warning: Relative path found: ${url}`));
-  }
   const urlObj = url.startsWith('http') ? new URL(url) : new URL(url, LOCALHOST_URL);
   return urlObj.pathname.split('/').pop();
 }
