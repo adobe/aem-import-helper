@@ -35,11 +35,9 @@ const defaultDependencies = {
 /**
  * Extract clean filename from URL (no query params or fragments)
  * @param {string} url - The URL to extract filename from
- * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {string} The filename extracted from the URL
  */
-function getFilename(url, dependencies = defaultDependencies) {
-  const { chalk: chalkDep } = dependencies;
+function getFilename(url) {
   const urlObj = url.startsWith('http') ? new URL(url) : new URL(url, LOCALHOST_URL);
   return urlObj.pathname.split('/').pop();
 }
@@ -160,9 +158,9 @@ export function updatePageReferencesInHTML(htmlContent, daContentUrl, matchingAs
  * @param {string} fullShadowPath - The full shadow folder path
  * @return {Map<string, string>} Asset mapping for download
  */
-export function createAssetMapping(matchingHrefs, fullShadowPath, dependencies = defaultDependencies) {
+export function createAssetMapping(matchingHrefs, fullShadowPath) {
   return new Map(
-    matchingHrefs.map(url => [url, `/${fullShadowPath}/${getFilename(url, dependencies)}`]),
+    matchingHrefs.map(url => [url, `/${fullShadowPath}/${getFilename(url)}`]),
   );
 }
 
@@ -179,9 +177,10 @@ export function createAssetMapping(matchingHrefs, fullShadowPath, dependencies =
 async function downloadPageAssets(matchingHrefs, fullShadowPath, downloadFolder, maxRetries, retryDelay, dependencies = defaultDependencies) {
   const { chalk: chalkDep } = dependencies;
   
-  const simplifiedAssetMapping = createAssetMapping(matchingHrefs, fullShadowPath, dependencies);
+  const simplifiedAssetMapping = createAssetMapping(matchingHrefs, fullShadowPath);
   
-  console.log(chalkDep.blue(`Downloading ${matchingHrefs.length} assets for this page...`));
+  console.log(chalkDep.yellow(`Downloading ${simplifiedAssetMapping.size} unique assets for this page...`));
+
   const downloadResults = await dependencies.downloadAssets(simplifiedAssetMapping, downloadFolder, maxRetries, retryDelay);
   
   // Count successful downloads
@@ -401,7 +400,7 @@ async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls
         return assetUrls.has(url);
       }
     });
-    console.log(chalkDep.yellow(`Found ${matchingAssetUrls.length} asset references.`));
+    console.log(chalkDep.yellow(`Found ${matchingAssetUrls.length} asset references in the page.`));
     
     if (matchingAssetUrls.length > 0) {
       // Get fully qualified asset URLs to download from the source
