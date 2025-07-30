@@ -535,14 +535,14 @@ async function processOtherFiles(daFolder, daAdminUrl, token, uploadOptions, dep
       });
       results.push({
         filePath: jsonFile,
-        uploaded: true
+        uploaded: true,
       });
     } catch (uploadError) {
       console.error(chalkDep.red(`Error uploading JSON page ${jsonFile}:`, uploadError.message));
       results.push({
         filePath: jsonFile,
         error: uploadError.message,
-        uploaded: false
+        uploaded: false,
       });
     }
   }
