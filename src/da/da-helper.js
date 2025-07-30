@@ -368,7 +368,7 @@ export function getFullyQualifiedAssetUrls(assetUrls, siteOrigin) {
 /**
  * Process a single HTML page with assets
  * @param {string} pagePath - Path to the HTML page
- * @param {string} htmlFolder - Base HTML folder
+ * @param {string} daFolder - Base DA folder containing HTML and JSON files
  * @param {string} downloadFolder - Base download folder
  * @param {Set<string>} assetUrls - Set of asset URLs to match
  * @param {string} siteOrigin - The site origin
@@ -379,7 +379,7 @@ export function getFullyQualifiedAssetUrls(assetUrls, siteOrigin) {
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Promise<Object>} Processing result for the page
  */
-async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls, siteOrigin, daAdminUrl,
+async function processSinglePage(pagePath, daFolder, downloadFolder, assetUrls, siteOrigin, daAdminUrl,
   daContentUrl, token, uploadOptions, dependencies = defaultDependencies) {
   const { fs: fsDep, chalk: chalkDep, path: pathDep } = dependencies;
   const { maxRetries = 3, retryDelay = 5000 } = uploadOptions;
@@ -415,7 +415,7 @@ async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls
       const shadowFolder = `.${pageName}`;
       
       // Calculate relative path from HTML folder to preserve folder structure
-      const relativePath = pathDep.relative(htmlFolder, pathDep.dirname(pagePath));
+      const relativePath = pathDep.relative(daFolder, pathDep.dirname(pagePath));
       const fullShadowPath = relativePath ? pathDep.join(relativePath, shadowFolder) : shadowFolder;
       const assetDownloadFolder = pathDep.join(downloadFolder, 'assets');
       const shadowFolderPath = pathDep.join(assetDownloadFolder, fullShadowPath);
@@ -433,7 +433,7 @@ async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls
       updatedHtmlContent = updateAssetReferencesInHTML(fullShadowPath, updatedHtmlContent, new Set(matchingAssetUrls), daContentUrl, dependencies);
 
       // Calculate the path for updated HTML content
-      const { updatedHtmlPath, htmlBaseFolder } = calculateHtmlPathAndBaseFolder(pagePath, htmlFolder, downloadFolder, dependencies);
+      const { updatedHtmlPath, htmlBaseFolder } = calculateHtmlPathAndBaseFolder(pagePath, daFolder, downloadFolder, dependencies);
       
       // Save updated HTML content to download folder
       saveHtmlToDownloadFolder(updatedHtmlContent, updatedHtmlPath, dependencies);
@@ -458,7 +458,7 @@ async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls
       console.log(chalkDep.gray(`No asset references found for page ${pagePath}, saving to download folder and uploading as-is...`));
       
       // Calculate the path for HTML content
-      const { updatedHtmlPath, htmlBaseFolder } = calculateHtmlPathAndBaseFolder(pagePath, htmlFolder, downloadFolder, dependencies);
+      const { updatedHtmlPath, htmlBaseFolder } = calculateHtmlPathAndBaseFolder(pagePath, daFolder, downloadFolder, dependencies);
       
       saveHtmlToDownloadFolder(htmlContent, updatedHtmlPath, dependencies);
       
@@ -490,13 +490,40 @@ async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls
 }
 
 /**
+ * Process JSON files in the given DA folder
+ * @param {string} daFolder - DA folder containing JSON files
+ * @param {string} daAdminUrl - The admin.da.live URL
+ * @param {string} token - Authentication token
+ * @param {Object} uploadOptions - Upload options including maxRetries and retryDelay
+ * @param {Object} dependencies - Dependencies for testing (optional)
+ * @param {Object} dependencies.chalk - Chalk library for colored console output
+ * @param {Function} dependencies.uploadFile - Function to upload a single file to DA
+ * @return {Promise<void>}
+ */
+async function processJsonFiles(daFolder, daAdminUrl, token, uploadOptions, dependencies = defaultDependencies) {
+  const { chalk: chalkDep, uploadFile: uploadFileDep } = dependencies;
+  const getJsonFilesFn = dependencies.getAllFiles || getAllFiles;
+
+  const jsonPages = getJsonFilesFn(daFolder, ['.json'], dependencies);
+  console.log(chalkDep.blue(`\nUploading ${jsonPages.length} JSON pages sequentially...`));
+
+  for (let i = 0; i < jsonPages.length; i++) {
+    // upload the json file to the da
+    await uploadFileDep(jsonPages[i], daAdminUrl, token, {
+      ...uploadOptions,
+      baseFolder: daFolder,
+    });
+  }
+}
+
+/**
  * Process HTML pages one by one, downloading and uploading assets for each page immediately
  * This prevents disk space issues with large files
  * @param {string} daAdminUrl - The admin.da.live URL
  * @param {string} daContentUrl - The content.da.live URL
  * @param {Set<string>} assetUrls - Set of asset URLs to match and download
  * @param {string} siteOrigin - The site origin
- * @param {string} htmlFolder - Folder containing HTML files
+ * @param {string} daFolder - DA folder containing HTML and JSON files
  * @param {string} downloadFolder - Folder to download assets to (temporary)
  * @param {string} token - DA authentication token
  * @param {Object} uploadOptions - Options for upload operations
@@ -518,10 +545,10 @@ async function processSinglePage(pagePath, htmlFolder, downloadFolder, assetUrls
  * @return {Promise<Array<{filePath: string, updatedContent: string, downloadedAssets: Array<string>}>>} 
  *         Promise that resolves with array of processed page results
  */
-export async function processPages(daAdminUrl, daContentUrl, assetUrls, siteOrigin, htmlFolder, downloadFolder, token, uploadOptions = {}, dependencies = defaultDependencies) {
+export async function processPages(daAdminUrl, daContentUrl, assetUrls, siteOrigin, daFolder, downloadFolder, token, uploadOptions = {}, dependencies = defaultDependencies) {
   const { fs: fsDep, chalk: chalkDep } = dependencies;
   const getHTMLFilesFn = dependencies.getAllFiles || getAllFiles;
-  const htmlPages = getHTMLFilesFn(htmlFolder, ['.html', '.htm'], dependencies);
+  const htmlPages = getHTMLFilesFn(daFolder, ['.html', '.htm'], dependencies);
   const results = [];
   
   console.log(chalkDep.blue(`Processing ${htmlPages.length} HTML pages sequentially...`));
@@ -537,7 +564,7 @@ export async function processPages(daAdminUrl, daContentUrl, assetUrls, siteOrig
     
     const result = await processSinglePage(
       pagePath,
-      htmlFolder,
+      daFolder,
       downloadFolder,
       assetUrls,
       siteOrigin,
@@ -551,6 +578,10 @@ export async function processPages(daAdminUrl, daContentUrl, assetUrls, siteOrig
     results.push(result);
   }
   
+  // process the json files
+  await processJsonFiles(daFolder, daAdminUrl, token, uploadOptions, dependencies);
+
+  // clean up the download folder
   await cleanupPageAssets([downloadFolder], dependencies);
 
   // Summary
