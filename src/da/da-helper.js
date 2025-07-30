@@ -439,19 +439,31 @@ async function processSinglePage(pagePath, daFolder, downloadFolder, assetUrls, 
       saveHtmlToDownloadFolder(updatedHtmlContent, updatedHtmlPath, dependencies);
       
       // Upload the updated HTML page from the download folder
-      await uploadHTMLPage(updatedHtmlPath, daAdminUrl, token, uploadOptions, htmlBaseFolder, dependencies);
-      
-      // Clean up downloaded assets and HTML for this page to free disk space
-      const assetFolderPath = pathDep.join(assetDownloadFolder, fullShadowPath);
-      await cleanupPageAssets([updatedHtmlPath, assetFolderPath], dependencies);
-      
-      return {
-        filePath: pagePath,
-        updatedContent: updatedHtmlContent,
-        downloadedAssets: matchingAssetUrls,
-        downloadResults,
-        uploaded: true,
-      };
+      try {
+        await uploadHTMLPage(updatedHtmlPath, daAdminUrl, token, uploadOptions, htmlBaseFolder, dependencies);
+        
+        // Clean up downloaded assets and HTML for this page to free disk space
+        const assetFolderPath = pathDep.join(assetDownloadFolder, fullShadowPath);
+        await cleanupPageAssets([updatedHtmlPath, assetFolderPath], dependencies);
+        
+        return {
+          filePath: pagePath,
+          updatedContent: updatedHtmlContent,
+          downloadedAssets: matchingAssetUrls,
+          downloadResults,
+          uploaded: true,
+        };
+      } catch (uploadError) {
+        console.error(chalkDep.red(`Error uploading HTML page: ${updatedHtmlPath}:`, uploadError.message));
+        return {
+          filePath: pagePath,
+          error: uploadError.message,
+          updatedContent: updatedHtmlContent,
+          downloadedAssets: matchingAssetUrls,
+          downloadResults,
+          uploaded: false,
+        };
+      }
       
     } else {
       // No matching assets found, save HTML to download folder and upload as-is
@@ -464,17 +476,24 @@ async function processSinglePage(pagePath, daFolder, downloadFolder, assetUrls, 
       
       try {
         await uploadHTMLPage(updatedHtmlPath, daAdminUrl, token, uploadOptions, htmlBaseFolder, dependencies);
+        return {
+          filePath: pagePath,
+          updatedContent: htmlContent,
+          downloadedAssets: [],
+          downloadResults: [],
+          uploaded: true,
+        };
       } catch (uploadError) {
         console.error(chalkDep.red(`Error uploading HTML page ${updatedHtmlPath}:`, uploadError.message));
+        return {
+          filePath: pagePath,
+          error: uploadError.message,
+          updatedContent: htmlContent,
+          downloadedAssets: [],
+          downloadResults: [],
+          uploaded: false,
+        };
       }
-      
-      return {
-        filePath: pagePath,
-        updatedContent: htmlContent,
-        downloadedAssets: [],
-        downloadResults: [],
-        uploaded: true,
-      };
     }
     
   } catch (error) {
@@ -490,8 +509,8 @@ async function processSinglePage(pagePath, daFolder, downloadFolder, assetUrls, 
 }
 
 /**
- * Process JSON files in the given DA folder
- * @param {string} daFolder - DA folder containing JSON files
+ * Process other (non-html) files in the given DA folder
+ * @param {string} daFolder - DA folder containing other files
  * @param {string} daAdminUrl - The admin.da.live URL
  * @param {string} token - Authentication token
  * @param {Object} uploadOptions - Upload options including maxRetries and retryDelay
@@ -500,20 +519,34 @@ async function processSinglePage(pagePath, daFolder, downloadFolder, assetUrls, 
  * @param {Function} dependencies.uploadFile - Function to upload a single file to DA
  * @return {Promise<void>}
  */
-async function processJsonFiles(daFolder, daAdminUrl, token, uploadOptions, dependencies = defaultDependencies) {
+async function processOtherFiles(daFolder, daAdminUrl, token, uploadOptions, dependencies = defaultDependencies) {
   const { chalk: chalkDep, uploadFile: uploadFileDep } = dependencies;
   const getJsonFilesFn = dependencies.getAllFiles || getAllFiles;
 
-  const jsonPages = getJsonFilesFn(daFolder, ['.json'], dependencies);
+  const jsonPages = getJsonFilesFn(daFolder, [], ['.html', '.htm'], dependencies);
   console.log(chalkDep.blue(`\nUploading ${jsonPages.length} JSON pages sequentially...`));
 
-  for (let i = 0; i < jsonPages.length; i++) {
-    // upload the json file to the da
-    await uploadFileDep(jsonPages[i], daAdminUrl, token, {
-      ...uploadOptions,
-      baseFolder: daFolder,
-    });
+  const results = [];
+  for (const jsonFile of jsonPages) {
+    try {
+      await uploadFileDep(jsonFile, daAdminUrl, token, {
+        ...uploadOptions,
+        baseFolder: daFolder,
+      });
+      results.push({
+        filePath: jsonFile,
+        uploaded: true
+      });
+    } catch (uploadError) {
+      console.error(chalkDep.red(`Error uploading JSON page ${jsonFile}:`, uploadError.message));
+      results.push({
+        filePath: jsonFile,
+        error: uploadError.message,
+        uploaded: false
+      });
+    }
   }
+  return results;
 }
 
 /**
@@ -578,15 +611,15 @@ export async function processPages(daAdminUrl, daContentUrl, assetUrls, siteOrig
     results.push(result);
   }
   
-  // process the json files
-  await processJsonFiles(daFolder, daAdminUrl, token, uploadOptions, dependencies);
+  // process the other (non-html) files
+  await processOtherFiles(daFolder, daAdminUrl, token, uploadOptions, dependencies);
 
   // clean up the download folder
   await cleanupPageAssets([downloadFolder], dependencies);
 
   // Summary
   const successfulPages = results.filter(page => !page.error).length;
-  const totalAssets = results.reduce((sum, page) => sum + page.downloadedAssets.length, 0);
+  const totalAssets = results.reduce((sum, page) => sum + (page.downloadedAssets?.length || 0), 0);
   
   console.log(chalkDep.green('\nProcessing complete!'));
   console.log(chalkDep.green(`- Processed ${successfulPages}/${htmlPages.length} pages successfully`));

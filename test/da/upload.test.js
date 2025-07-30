@@ -71,8 +71,9 @@ describe('upload', function () {
         { isFile: () => true, parentPath: '/fake/dir/sub', name: 'file2.js' },
         { isFile: () => false, parentPath: '/fake/dir', name: 'folder' },
       ];
+      mockDependencies.fs.existsSync.returns(true);
       mockDependencies.fs.readdirSync.returns(files);
-      const result = getAllFiles('/fake/dir', [], mockDependencies);
+      const result = getAllFiles('/fake/dir', [], [], mockDependencies);
       expect(result).to.have.length(2);
       expect(result[0]).to.equal('/fake/dir/file1.html');
       expect(result[1]).to.equal('/fake/dir/sub/file2.js');
@@ -87,9 +88,49 @@ describe('upload', function () {
       mockDependencies.path.extname.withArgs('/fake/dir/file1.html').returns('.html');
       mockDependencies.path.extname.withArgs('/fake/dir/sub/file2.js').returns('.js');
 
-      const result = getAllFiles('/fake/dir', ['.html'], mockDependencies);
+      const result = getAllFiles('/fake/dir', ['.html'], [], mockDependencies);
       expect(result).to.have.length(1);
       expect(result[0]).to.equal('/fake/dir/file1.html');
+    });
+
+    it('should exclude files by extension', function() {
+      const files = [
+        { isFile: () => true, parentPath: '/fake/dir', name: 'file1.html' },
+        { isFile: () => true, parentPath: '/fake/dir', name: 'file2.js' },
+        { isFile: () => true, parentPath: '/fake/dir', name: 'file3.docx' },
+        { isFile: () => true, parentPath: '/fake/dir', name: 'file4.txt' },
+      ];
+      mockDependencies.fs.readdirSync.returns(files);
+      mockDependencies.path.extname.withArgs('/fake/dir/file1.html').returns('.html');
+      mockDependencies.path.extname.withArgs('/fake/dir/file2.js').returns('.js');
+      mockDependencies.path.extname.withArgs('/fake/dir/file3.docx').returns('.docx');
+      mockDependencies.path.extname.withArgs('/fake/dir/file4.txt').returns('.txt');
+
+      const result = getAllFiles('/fake/dir', [], ['.docx', '.txt'], mockDependencies);
+      expect(result).to.have.length(2);
+      expect(result).to.include('/fake/dir/file1.html');
+      expect(result).to.include('/fake/dir/file2.js');
+    });
+
+    it('should handle both include and exclude filters', function() {
+      const files = [
+        { isFile: () => true, parentPath: '/fake/dir', name: 'file1.html' },
+        { isFile: () => true, parentPath: '/fake/dir', name: 'file2.js' },
+        { isFile: () => true, parentPath: '/fake/dir', name: 'file3.docx' },
+        { isFile: () => true, parentPath: '/fake/dir', name: 'file4.txt' },
+        { isFile: () => true, parentPath: '/fake/dir', name: 'file5.html' },
+      ];
+      mockDependencies.fs.readdirSync.returns(files);
+      mockDependencies.path.extname.withArgs('/fake/dir/file1.html').returns('.html');
+      mockDependencies.path.extname.withArgs('/fake/dir/file2.js').returns('.js');
+      mockDependencies.path.extname.withArgs('/fake/dir/file3.docx').returns('.docx');
+      mockDependencies.path.extname.withArgs('/fake/dir/file4.txt').returns('.txt');
+      mockDependencies.path.extname.withArgs('/fake/dir/file5.html').returns('.html');
+
+      const result = getAllFiles('/fake/dir', ['.html', '.js'], ['.js'], mockDependencies);
+      expect(result).to.have.length(2);
+      expect(result).to.include('/fake/dir/file1.html');
+      expect(result).to.include('/fake/dir/file5.html');
     });
 
     it('should throw "Folder not found" for non-existent directory', function() {
