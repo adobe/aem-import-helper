@@ -612,7 +612,8 @@ export async function processPages(daAdminUrl, daContentUrl, assetUrls, siteOrig
   }
   
   // process the other (non-html) files
-  await processOtherFiles(daFolder, daAdminUrl, token, uploadOptions, dependencies);
+  const otherFilesResults = await processOtherFiles(daFolder, daAdminUrl, token, uploadOptions, dependencies);
+  results.push(...otherFilesResults);
 
   // clean up the download folder
   await cleanupPageAssets([downloadFolder], dependencies);
@@ -620,9 +621,10 @@ export async function processPages(daAdminUrl, daContentUrl, assetUrls, siteOrig
   // Summary
   const successfulPages = results.filter(page => !page.error).length;
   const totalAssets = results.reduce((sum, page) => sum + (page.downloadedAssets?.length || 0), 0);
-  
+  const totalFiles = htmlPages.length + otherFilesResults.length;
+
   console.log(chalkDep.green('\nProcessing complete!'));
-  console.log(chalkDep.green(`- Processed ${successfulPages}/${htmlPages.length} pages successfully`));
+  console.log(chalkDep.green(`- Processed ${successfulPages}/${totalFiles} files successfully`));
   console.log(chalkDep.green(`- Downloaded and uploaded ${totalAssets} assets`));
   
   return results;
