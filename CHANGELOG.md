@@ -1,3 +1,10 @@
+## [1.1.2](https://github.com/adobe/aem-import-helper/compare/v1.1.1...v1.1.2) (2025-07-31)
+
+
+### Bug Fixes
+
+* da-upload should also be able to handle non-html files too ([#36](https://github.com/adobe/aem-import-helper/issues/36)) ([228c0c7](https://github.com/adobe/aem-import-helper/commit/228c0c7ea5c2b4026976a2188c3373fd183dd26d))
+
 ## [1.1.1](https://github.com/adobe/aem-import-helper/compare/v1.1.0...v1.1.1) (2025-07-22)
 
 
