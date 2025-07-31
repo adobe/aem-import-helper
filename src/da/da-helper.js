@@ -368,7 +368,7 @@ export function getFullyQualifiedAssetUrls(assetUrls, siteOrigin) {
 /**
  * Process a single HTML page with assets
  * @param {string} pagePath - Path to the HTML page
- * @param {string} daFolder - Base DA folder containing HTML and JSON files
+ * @param {string} daFolder - Base DA folder
  * @param {string} downloadFolder - Base download folder
  * @param {Set<string>} assetUrls - Set of asset URLs to match
  * @param {string} siteOrigin - The site origin
@@ -521,26 +521,26 @@ async function processSinglePage(pagePath, daFolder, downloadFolder, assetUrls, 
  */
 async function processOtherFiles(daFolder, daAdminUrl, token, uploadOptions, dependencies = defaultDependencies) {
   const { chalk: chalkDep, uploadFile: uploadFileDep } = dependencies;
-  const getJsonFilesFn = dependencies.getAllFiles || getAllFiles;
+  const getAllFilesFn = dependencies.getAllFiles || getAllFiles;
 
-  const jsonPages = getJsonFilesFn(daFolder, [], ['.html', '.htm'], dependencies);
-  console.log(chalkDep.blue(`\nUploading ${jsonPages.length} JSON pages sequentially...`));
+  const otherFiles = getAllFilesFn(daFolder, [], ['.html', '.htm'], dependencies);
+  console.log(chalkDep.blue(`\nUploading ${otherFiles.length} non-html files sequentially...`));
 
   const results = [];
-  for (const jsonFile of jsonPages) {
+  for (const otherFile of otherFiles) {
     try {
-      await uploadFileDep(jsonFile, daAdminUrl, token, {
+      await uploadFileDep(otherFile, daAdminUrl, token, {
         ...uploadOptions,
         baseFolder: daFolder,
       });
       results.push({
-        filePath: jsonFile,
+        filePath: otherFile,
         uploaded: true,
       });
     } catch (uploadError) {
-      console.error(chalkDep.red(`Error uploading JSON page ${jsonFile}:`, uploadError.message));
+      console.error(chalkDep.red(`Error uploading non-HTML file ${otherFile}:`, uploadError.message));
       results.push({
-        filePath: jsonFile,
+        filePath: otherFile,
         error: uploadError.message,
         uploaded: false,
       });
@@ -556,7 +556,7 @@ async function processOtherFiles(daFolder, daAdminUrl, token, uploadOptions, dep
  * @param {string} daContentUrl - The content.da.live URL
  * @param {Set<string>} assetUrls - Set of asset URLs to match and download
  * @param {string} siteOrigin - The site origin
- * @param {string} daFolder - DA folder containing HTML and JSON files
+ * @param {string} daFolder - The base DA folder
  * @param {string} downloadFolder - Folder to download assets to (temporary)
  * @param {string} token - DA authentication token
  * @param {Object} uploadOptions - Options for upload operations
