@@ -353,7 +353,12 @@ describe('da-helper.js', () => {
         downloadAssets: mockDownloadAssets,
         uploadFolder: mockUploadFolder,
         uploadFile: mockUploadFile,
-        getAllFiles: sinon.stub().returns(getHTMLFilesStub()),
+        getAllFiles: sinon.stub().callsFake((dir, exts) => {
+          if (exts && exts.includes('.json')) {
+            return [];
+          }
+          return getHTMLFilesStub();
+        }),
       };
       const assetUrls = new Set(['image.jpg']);
       const results = await processPages(
@@ -370,9 +375,9 @@ describe('da-helper.js', () => {
       expect(results).to.be.an('array');
       expect(results[0].filePath).to.equal('/html/page1.html');
       expect(results[0].downloadedAssets).to.deep.equal(['image.jpg']);
-      expect(getHTMLFilesStub.calledOnce).to.be.true;
+      expect(getHTMLFilesStub.calledTwice).to.be.true; // Once for HTML files, once for JSON files
       expect(mockUploadFolder.calledOnce).to.be.true; // Once for assets
-      expect(mockUploadFile.calledOnce).to.be.true; // Once for HTML
+      expect(mockUploadFile.calledTwice).to.be.true; // Once for HTML, once for JSON
       
       // Check that the HTML content was updated with proper references
       const writtenContent = mockFs.writeFileSync.getCall(0).args[1];
@@ -408,7 +413,12 @@ describe('da-helper.js', () => {
         downloadAssets: mockDownloadAssets,
         uploadFolder: mockUploadFolder,
         uploadFile: mockUploadFile,
-        getAllFiles: sinon.stub().returns(getHTMLFilesStub()),
+        getAllFiles: sinon.stub().callsFake((dir, exts) => {
+          if (exts && exts.includes('.json')) {
+            return [];
+          }
+          return getHTMLFilesStub();
+        }),
       };
       const assetUrls = new Set(['image.jpg']);
       await processPages(
@@ -458,7 +468,12 @@ describe('da-helper.js', () => {
         downloadAssets: mockDownloadAssets,
         uploadFolder: mockUploadFolder,
         uploadFile: mockUploadFile,
-        getAllFiles: sinon.stub().returns(getHTMLFilesStub()),
+        getAllFiles: sinon.stub().callsFake((dir, exts) => {
+          if (exts && exts.includes('.json')) {
+            return [];
+          }
+          return getHTMLFilesStub();
+        }),
       };
       const assetUrls = new Set(['image.jpg']);
       const results = await processPages(
@@ -474,7 +489,7 @@ describe('da-helper.js', () => {
       );
       expect(results[0].downloadedAssets).to.deep.equal([]);
       expect(mockUploadFolder.called).to.be.false; // No assets to upload
-      expect(mockUploadFile.calledOnce).to.be.true; // Only for HTML
+      expect(mockUploadFile.calledTwice).to.be.true; // Once for HTML, once for JSON
       expect(results[0].uploaded).to.be.true;
       // Final cleanup should be called for the download folder
       expect(mockFs.unlinkSync.calledWith('/download')).to.be.true;
@@ -506,7 +521,12 @@ describe('da-helper.js', () => {
         downloadAssets: mockDownloadAssets,
         uploadFolder: mockUploadFolder,
         uploadFile: mockUploadFile,
-        getAllFiles: sinon.stub().returns(getHTMLFilesStub()),
+        getAllFiles: sinon.stub().callsFake((dir, exts) => {
+          if (exts && exts.includes('.json')) {
+            return [];
+          }
+          return getHTMLFilesStub();
+        }),
       };
       const assetUrls = new Set(['image.jpg']);
       await processPages(
@@ -522,7 +542,7 @@ describe('da-helper.js', () => {
       );
       
       expect(mockUploadFolder.calledOnce).to.be.true; // Once for assets
-      expect(mockUploadFile.calledOnce).to.be.true; // Once for HTML
+      expect(mockUploadFile.calledTwice).to.be.true; // Once for HTML, once for JSON
 
       // Check the asset upload call specifically
       const assetUploadCall = mockUploadFolder.getCall(0);
@@ -558,7 +578,12 @@ describe('da-helper.js', () => {
         downloadAssets: mockDownloadAssets,
         uploadFolder: mockUploadFolder,
         uploadFile: mockUploadFile,
-        getAllFiles: sinon.stub().returns(getHTMLFilesStub()),
+        getAllFiles: sinon.stub().callsFake((dir, exts) => {
+          if (exts && exts.includes('.json')) {
+            return [];
+          }
+          return getHTMLFilesStub();
+        }),
       };
       const assetUrls = new Set(['image.jpg']);
       const results = await processPages(
@@ -604,7 +629,12 @@ describe('da-helper.js', () => {
         downloadAssets: mockDownloadAssets,
         uploadFolder: mockUploadFolder,
         uploadFile: mockUploadFile,
-        getAllFiles: sinon.stub().returns(getHTMLFilesStub()),
+        getAllFiles: sinon.stub().callsFake((dir, exts) => {
+          if (exts && exts.includes('.json')) {
+            return [];
+          }
+          return getHTMLFilesStub();
+        }),
       };
       const assetUrls = new Set(['image.jpg']);
       const results = await processPages(
@@ -650,7 +680,12 @@ describe('da-helper.js', () => {
         downloadAssets: mockDownloadAssets,
         uploadFolder: mockUploadFolder,
         uploadFile: mockUploadFile,
-        getAllFiles: sinon.stub().returns(getHTMLFilesStub()),
+        getAllFiles: sinon.stub().callsFake((dir, exts) => {
+          if (exts && exts.includes('.json')) {
+            return [];
+          }
+          return getHTMLFilesStub();
+        }),
       };
       const assetUrls = new Set(['image.jpg']);
       await processPages(
@@ -695,7 +730,12 @@ describe('da-helper.js', () => {
         downloadAssets: mockDownloadAssets,
         uploadFolder: mockUploadFolder,
         uploadFile: mockUploadFile,
-        getAllFiles: sinon.stub().returns(getHTMLFilesStub()),
+        getAllFiles: sinon.stub().callsFake((dir, exts) => {
+          if (exts && exts.includes('.json')) {
+            return [];
+          }
+          return getHTMLFilesStub();
+        }),
       };
       const assetUrls = new Set(['image.jpg']);
       const results = await processPages(
@@ -744,7 +784,12 @@ describe('da-helper.js', () => {
         downloadAssets: mockDownloadAssets,
         uploadFolder: mockUploadFolder,
         uploadFile: mockUploadFile,
-        getAllFiles: sinon.stub().returns(getHTMLFilesStub()),
+        getAllFiles: sinon.stub().callsFake((dir, exts) => {
+          if (exts && exts.includes('.json')) {
+            return [];
+          }
+          return getHTMLFilesStub();
+        }),
       };
       const assetUrls = new Set(['image.jpg']);
       
@@ -856,17 +901,26 @@ describe('da-helper.js', () => {
         dependencies,
       );
 
-      expect(results).to.have.length(1);
+      expect(results).to.have.length(2); // HTML page + JSON page
       expect(results[0].error).to.be.a('string');
       expect(results[0].error).to.include('HTML upload failed');
       expect(results[0].uploaded).to.be.false;
+      
+      // Check JSON result
+      expect(results[1].filePath).to.equal('/html/page1.html');
+      expect(results[1].uploaded).to.be.false;
     });
 
     it('should handle HTML upload failure for pages with no assets', async () => {
       // Setup for page with no assets but HTML upload failure (covers lines 468-469)
       mockFs.existsSync.returns(true);
       mockFs.readFileSync.returns('<html><p>No assets here</p></html>');
-      mockGetAllFiles.returns(['/html/page2.html']);
+      mockGetAllFiles.callsFake((dir, exts) => {
+        if (exts && exts.includes('.json')) {
+          return ['/html/page2.html'];
+        }
+        return ['/html/page2.html'];
+      });
       mockPath.relative.withArgs('/html', '/html/page2.html').returns('page2.html');
       mockPath.relative.withArgs('/html', '/html').returns('');
       mockPath.basename.withArgs('/html/page2.html').returns('page2.html');
@@ -891,13 +945,17 @@ describe('da-helper.js', () => {
         dependencies,
       );
 
-      expect(results).to.have.length(1);
+      expect(results).to.have.length(2); // HTML page + JSON page
       expect(results[0].downloadedAssets).to.be.empty;
-      expect(results[0].uploaded).to.be.true; // Still returns true even when upload fails
-      expect(results[0].error).to.be.undefined; // No error property set in no-assets branch
+      expect(results[0].uploaded).to.be.false; // Upload failed
+      expect(results[0].error).to.include('HTML upload failed'); // Error should be reported
        
       // Check that error was logged (uploadFile was called and failed)
-      expect(mockUploadFile.calledOnce).to.be.true;
+      expect(mockUploadFile.calledTwice).to.be.true; // Once for HTML, once for JSON
+      
+      // Check JSON result
+      expect(results[1].filePath).to.equal('/html/page2.html');
+      expect(results[1].uploaded).to.be.false;
     });
 
     it('should handle both file and directory cleanup in cleanupPageAssets', async () => {
@@ -998,9 +1056,13 @@ describe('da-helper.js', () => {
         dependencies,
       );
 
-      expect(results).to.have.length(1);
+      expect(results).to.have.length(2); // HTML page + JSON page
       expect(results[0].uploaded).to.be.true;
       // Should handle the bad URL gracefully and process the valid one
+      
+      // Check JSON result
+      expect(results[1].filePath).to.equal('/html/page1.html');
+      expect(results[1].uploaded).to.be.true;
     });
 
     it('should handle complex URL scenarios with special characters', () => {
