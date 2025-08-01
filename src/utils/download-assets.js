@@ -78,13 +78,26 @@ async function saveBlobToFile(blob, downloadPath, downloadFolder, contentType) {
  * @param {string} url - The URL of the asset to download.
  * @param {number} maxRetries - The maximum number of retries for downloading an asset.
  * @param {number} retryDelay - The delay between retries in milliseconds.
+ * @param {Object} [headers={}] - Additional headers to include in the request.
  * @return {Promise<{blob: Blob, contentType: string}>} A promise that resolves with the downloaded asset and its content type.
  */
-async function downloadAssetWithRetry(url, maxRetries = 3, retryDelay = 5000) {
+async function downloadAssetWithRetry(url, maxRetries = 3, retryDelay = 5000, headers = {}) {
   let attempts = 0;
   while (attempts < maxRetries) {
     try {
-      const response = await fetch(url);
+      // Default headers to mimic a browser request that works with protected sites
+      const defaultHeaders = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+        'Accept': '*/*',
+        'Referer': new URL(url).origin,
+        'Sec-Fetch-Site': 'same-origin',
+        'Sec-Fetch-Mode': 'no-cors',
+        ...headers
+      };
+      
+      const response = await fetch(url, {
+        headers: defaultHeaders
+      });
       if (!response.ok) {
         const msg = `Failed to fetch ${url}. Status: ${response.status}.`;
         console.info(chalk.yellow(msg));
@@ -113,13 +126,14 @@ async function downloadAssetWithRetry(url, maxRetries = 3, retryDelay = 5000) {
  * @param {string} downloadFolder - The folder to download assets to.
  * @param {number} maxRetries - The maximum number of retries for downloading an asset.
  * @param {number} retryDelay - The delay between retries in milliseconds.
+ * @param {Object} [headers={}] - Additional headers to include in the request.
  * @return {Promise<Array<PromiseSettledResult<string>>>} A promise that resolves when all assets are downloaded.
  * Each promise in the array will resolve with the path of the downloaded asset.
  */
-export async function downloadAssets(assetMapping, downloadFolder, maxRetries = 3, retryDelay = 5000) {
+export async function downloadAssets(assetMapping, downloadFolder, maxRetries = 3, retryDelay = 5000, headers = {}) {
   const downloadPromises = Array.from(assetMapping.entries())
     .map(async ([assetUrl, downloadPath]) => {
-      const { blob, contentType } = await downloadAssetWithRetry(assetUrl, maxRetries, retryDelay);
+      const { blob, contentType } = await downloadAssetWithRetry(assetUrl, maxRetries, retryDelay, headers);
       await saveBlobToFile(blob, downloadPath, downloadFolder, contentType);
       return downloadPath;
     });
