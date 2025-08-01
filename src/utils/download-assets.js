@@ -92,11 +92,11 @@ async function downloadAssetWithRetry(url, maxRetries = 3, retryDelay = 5000, he
         'Referer': new URL(url).origin,
         'Sec-Fetch-Site': 'same-origin',
         'Sec-Fetch-Mode': 'no-cors',
-        ...headers
+        ...headers,
       };
       
       const response = await fetch(url, {
-        headers: defaultHeaders
+        headers: defaultHeaders,
       });
       if (!response.ok) {
         const msg = `Failed to fetch ${url}. Status: ${response.status}.`;
