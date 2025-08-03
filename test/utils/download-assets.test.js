@@ -176,7 +176,7 @@ describe('download assets', function () {
       'Accept': '*/*',
       'Referer': 'http://www.aem.com',
       'Sec-Fetch-Site': 'same-origin',
-      'Sec-Fetch-Mode': 'no-cors'
+      'Sec-Fetch-Mode': 'no-cors',
     };
 
     const scope = nock('http://www.aem.com')
