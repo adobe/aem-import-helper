@@ -1,3 +1,10 @@
+## [1.1.3](https://github.com/adobe/aem-import-helper/compare/v1.1.2...v1.1.3) (2025-08-03)
+
+
+### Bug Fixes
+
+* Add browser-like headers to asset downloads to handle browser fingerprinting ([#39](https://github.com/adobe/aem-import-helper/issues/39)) ([b72bad9](https://github.com/adobe/aem-import-helper/commit/b72bad9e06e3e18a943266dec19414070c044681))
+
 ## [1.1.2](https://github.com/adobe/aem-import-helper/compare/v1.1.1...v1.1.2) (2025-07-31)
 
 
