@@ -170,4 +170,32 @@ describe('download assets', function () {
     await scope.done();
   });
 
+  it('should include correct default headers in the request', async () => {
+    const expectedHeaders = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+      'Accept': '*/*',
+      'Referer': 'http://www.aem.com',
+      'Sec-Fetch-Site': 'same-origin',
+      'Sec-Fetch-Mode': 'no-cors',
+    };
+
+    const scope = nock('http://www.aem.com')
+      .get('/asset1.jpg')
+      .matchHeader('User-Agent', expectedHeaders['User-Agent'])
+      .matchHeader('Accept', expectedHeaders['Accept'])
+      .matchHeader('Referer', expectedHeaders['Referer'])
+      .matchHeader('Sec-Fetch-Site', expectedHeaders['Sec-Fetch-Site'])
+      .matchHeader('Sec-Fetch-Mode', expectedHeaders['Sec-Fetch-Mode'])
+      .replyWithFile(200, path.resolve(__dirname, '../aem/fixtures/image1.jpeg'));
+
+    const mapping = new Map([
+      ['http://www.aem.com/asset1.jpg', '/content/dam/xwalk/image1.jpg'],
+    ]);
+
+    await downloadAssets(mapping, downloadFolder);
+    expect(fs.existsSync(path.join(downloadFolder, 'xwalk/image1.jpg'))).to.be.true;
+
+    await scope.done();
+  });
+
 });
