@@ -13,7 +13,7 @@
 import fs from 'fs';
 import path from 'path';
 import { JSDOM } from 'jsdom';
-import { downloadAssets } from '../utils/download-assets.js';
+import { downloadAssets, DO_NOT_CONVERT_EXTENSIONS } from '../utils/download-assets.js';
 import chalk from 'chalk';
 import { getAllFiles, uploadFolder, uploadFile } from './upload.js';
 
@@ -100,8 +100,7 @@ function updateAssetReferencesInHTML(fullShadowPath, htmlContent, assetUrls, daC
         let filename = getFilename(url);
         if (options.convertImagesToPng) {
           const ext = pathDep.extname(filename).toLowerCase();
-          const imageExts = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.tiff', '.bmp', '.ico', '.heic', '.heif', '.avif', '.apng']);
-          if (imageExts.has(ext)) {
+          if (!DO_NOT_CONVERT_EXTENSIONS.has(ext)) {
             filename = `${pathDep.basename(filename, ext)}.png`;
           }
         }

@@ -17,6 +17,28 @@ import sharp from 'sharp';
 
 const CONTENT_DAM_PREFIX = '/content/dam';
 
+// Image/file extension constants
+export const IMAGE_EXTENSIONS = new Set([
+  '.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.tiff', '.bmp', '.ico', '.heic', '.heif', '.avif', '.apng',
+]);
+
+// Extensions that should NOT be converted to PNG when conversion is enabled
+export const DO_NOT_CONVERT_EXTENSIONS = new Set([
+  '.jpg', '.jpeg', '.png', '.gif', '.ico', '.svg', '.mp4',
+]);
+
+// Content-Types that should NOT be converted to PNG when conversion is enabled
+export const DO_NOT_CONVERT_CONTENT_TYPES = new Set([
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/gif',
+  'image/svg+xml',
+  'image/x-icon',
+  'image/vnd.microsoft.icon',
+  'video/mp4',
+]);
+
 // Common MIME type to extension mapping
 const MIME_TO_EXTENSION = {
   // Images
@@ -62,14 +84,18 @@ async function saveBlobToFile(blob, downloadPath, downloadFolder, contentType, o
   const mainType = (contentType || '').split(';')[0].trim();
   const isImageByContentType = mainType.startsWith('image/');
   const currentExt = path.extname(assetPath).toLowerCase();
-  const imageExts = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.tiff', '.bmp', '.ico', '.heic', '.heif', '.avif', '.apng']);
-  const isImageByExt = imageExts.has(currentExt);
+  const isImageByExt = IMAGE_EXTENSIONS.has(currentExt);
+
+  const shouldConvert = options.convertImagesToPng
+    && (isImageByContentType || isImageByExt)
+    && !DO_NOT_CONVERT_EXTENSIONS.has(currentExt)
+    && !(mainType && DO_NOT_CONVERT_CONTENT_TYPES.has(mainType));
 
   fs.mkdirSync(path.dirname(assetPath), { recursive: true });
 
   const sourceBuffer = Buffer.from(await blob.arrayBuffer());
 
-  if (options.convertImagesToPng && (isImageByContentType || isImageByExt)) {
+  if (shouldConvert) {
     // Convert to PNG and force .png extension
     try {
       const pngBuffer = await sharp(sourceBuffer).png().toBuffer();

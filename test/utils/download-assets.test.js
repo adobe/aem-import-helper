@@ -39,7 +39,8 @@ describe('download assets', function () {
     ]);
 
     await downloadAssets(mapping, downloadFolder, 3, 5000, {}, { convertImagesToPng: true });
-    expect(fs.existsSync(path.join(downloadFolder, 'xwalk/image1.png'))).to.be.true;
+    // jpeg should not be converted based on new rules
+    expect(fs.existsSync(path.join(downloadFolder, 'xwalk/image1.jpg'))).to.be.true;
 
     await scope.done();
   });
@@ -56,7 +57,8 @@ describe('download assets', function () {
     ]);
 
     await downloadAssets(mapping, downloadFolder, 3, 0, {}, { convertImagesToPng: true });
-    expect(fs.existsSync(path.join(downloadFolder, 'xwalk/image1.png'))).to.be.true;
+    // jpeg should not be converted based on new rules
+    expect(fs.existsSync(path.join(downloadFolder, 'xwalk/image1.jpg'))).to.be.true;
 
     await scope.done();
   });
@@ -131,6 +133,7 @@ describe('download assets', function () {
     ]);
 
     await downloadAssets(mapping, downloadFolder, 3, 5000, {}, { convertImagesToPng: true });
+    // png with existing extension should remain png
     expect(fs.existsSync(path.join(downloadFolder, 'xwalk/image1.png'))).to.be.true;
 
     await scope.done();
@@ -193,7 +196,8 @@ describe('download assets', function () {
     ]);
 
     await downloadAssets(mapping, downloadFolder, 3, 5000, {}, { convertImagesToPng: true });
-    expect(fs.existsSync(path.join(downloadFolder, 'xwalk/image1.png'))).to.be.true;
+    // jpeg should not be converted based on new rules
+    expect(fs.existsSync(path.join(downloadFolder, 'xwalk/image1.jpg'))).to.be.true;
 
     await scope.done();
   });

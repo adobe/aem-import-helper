@@ -431,7 +431,7 @@ describe('da-helper.js', () => {
 
       // Check that the HTML content was updated with proper references
       const writtenContent = mockFs.writeFileSync.getCall(0).args[1];
-      expect(writtenContent).to.include('https://content.da.live/org/site/.page1/image.png'); // Asset reference updated to PNG
+      expect(writtenContent).to.include('https://content.da.live/org/site/.page1/image.jpg'); // Asset reference updated with original ext
 
       // Final cleanup should be called for the download folder
       expect(mockFs.unlinkSync.calledWith('/download')).to.be.true;
@@ -486,7 +486,7 @@ describe('da-helper.js', () => {
       // Check that the HTML content was updated correctly
       expect(mockFs.writeFileSync.calledOnce).to.be.true;
       const writtenContent = mockFs.writeFileSync.getCall(0).args[1];
-      expect(writtenContent).to.include('https://content.da.live/org/site/.page1/image.png'); // Asset reference updated to PNG
+      expect(writtenContent).to.include('https://content.da.live/org/site/.page1/image.jpg'); // Asset reference updated with original ext
       expect(writtenContent).to.include('https://content.da.live/org/site/other-page'); // Page reference updated (extension removed)
       expect(writtenContent).to.include('https://content.da.live/org/site/absolute'); // Absolute URL updated (extension removed)
       expect(writtenContent).to.include('https://external.com/some-page.html'); // External URL not updated
@@ -868,7 +868,7 @@ describe('da-helper.js', () => {
       // Check that page references were NOT updated (original HTML should be preserved)
       const writtenContent = mockFs.writeFileSync.getCall(0).args[1];
       expect(writtenContent).to.include('<a href="/other-page.html">Link</a>'); // Original link unchanged
-      expect(writtenContent).to.include('https://content.da.live/org/site/.page1/image.png'); // Asset reference still updated to PNG
+      expect(writtenContent).to.include('https://content.da.live/org/site/.page1/image.jpg'); // Asset reference updated with original ext
     });
   });
 
