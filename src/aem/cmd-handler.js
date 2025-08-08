@@ -113,6 +113,11 @@ export const aemBuilder = (yargs) => {
       describe: 'If keep is true, local assets are not deleted after upload',
       type: 'boolean',
       default: false,
+    })
+    .option('images-to-png', {
+      describe: 'Convert downloaded images to PNG and update references to .png (default: true)',
+      type: 'boolean',
+      default: true,
     });
 }
 
@@ -146,7 +151,8 @@ export const aemHandler = async (args) => {
         : args.output;
 
       console.log(chalk.yellow(`Downloading origin assets to ${downloadFolder}...`));
-      await downloadAssets(assetMapping, downloadFolder);
+      const imagesToPng = args['images-to-png'] !== false;
+      await downloadAssets(assetMapping, downloadFolder, undefined, undefined, {}, { convertImagesToPng: imagesToPng });
 
       const assetFolder = path.join(downloadFolder, getDamRootFolder(assetMapping));
 
