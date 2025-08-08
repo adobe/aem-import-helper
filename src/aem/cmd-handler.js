@@ -15,6 +15,7 @@ import path from 'path';
 import { cleanup, downloadAssets } from '../utils/download-assets.js';
 import { uploadAssets } from './upload-assets.js';
 import { installPackage } from './package-helper.js';
+import { prepareModifiedPackage } from './package-modifier.js';
 import fetch from 'node-fetch';
 import { getDamRootFolder } from './aem-util.js';
 
@@ -164,8 +165,16 @@ export const aemHandler = async (args) => {
       }
     }
 
+    console.log(chalk.yellow('Preparing content package for upload...'));
+    const imagesToPng = args['images-to-png'] !== false;
+    const assetMappingJson = args['asset-mapping'] && fs.existsSync(args['asset-mapping'])
+      ? JSON.parse(fs.readFileSync(args['asset-mapping'], 'utf-8'))
+      : {};
+    const assetMapping = new Map(Object.entries(assetMappingJson));
+    const { modifiedZipPath } = await prepareModifiedPackage(args['zip'], assetMapping, imagesToPng);
+
     console.log(chalk.yellow(`Uploading content package ${args.target}...`));
-    await installPackage(args.target, token, args['zip']);
+    await installPackage(args.target, token, modifiedZipPath);
   } catch (err) {
     console.error(chalk.red('Error during upload:', err));
     process.exit(1);
