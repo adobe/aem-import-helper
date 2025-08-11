@@ -143,16 +143,19 @@ export const aemHandler = async (args) => {
   }
 
   try {
-    if (!args['skip-assets']) {
-      const assetMappingJson = JSON.parse(fs.readFileSync(args['asset-mapping'], 'utf-8'));
-      const assetMapping = new Map(Object.entries(assetMappingJson));
+    // Common options and mappings used below
+    const imagesToPng = args['images-to-png'] !== false;
+    const assetMappingJson = args['asset-mapping'] && fs.existsSync(args['asset-mapping'])
+      ? JSON.parse(fs.readFileSync(args['asset-mapping'], 'utf-8'))
+      : {};
+    const assetMapping = new Map(Object.entries(assetMappingJson));
 
+    if (!args['skip-assets']) {
       const downloadFolder = args.output === 'aem-assets'
         ? path.join(process.cwd(), args.output)
         : args.output;
 
       console.log(chalk.yellow(`Downloading origin assets to ${downloadFolder}...`));
-      const imagesToPng = args['images-to-png'] !== false;
       await downloadAssets(assetMapping, downloadFolder, undefined, undefined, {}, { convertImagesToPng: imagesToPng });
 
       const assetFolder = path.join(downloadFolder, getDamRootFolder(assetMapping));
@@ -166,11 +169,6 @@ export const aemHandler = async (args) => {
     }
 
     console.log(chalk.yellow('Preparing content package for upload...'));
-    const imagesToPng = args['images-to-png'] !== false;
-    const assetMappingJson = args['asset-mapping'] && fs.existsSync(args['asset-mapping'])
-      ? JSON.parse(fs.readFileSync(args['asset-mapping'], 'utf-8'))
-      : {};
-    const assetMapping = new Map(Object.entries(assetMappingJson));
     const { modifiedZipPath } = await prepareModifiedPackage(args['zip'], assetMapping, imagesToPng);
 
     console.log(chalk.yellow(`Uploading content package ${args.target}...`));
