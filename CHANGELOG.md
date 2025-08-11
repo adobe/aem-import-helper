@@ -1,3 +1,10 @@
+## [1.1.4](https://github.com/adobe/aem-import-helper/compare/v1.1.3...v1.1.4) (2025-08-11)
+
+
+### Bug Fixes
+
+* support converting webp, avif image types to png ([#41](https://github.com/adobe/aem-import-helper/issues/41)) ([000b718](https://github.com/adobe/aem-import-helper/commit/000b7187d94d8a5e8acde1a4dc889dc7366fe016))
+
 ## [1.1.3](https://github.com/adobe/aem-import-helper/compare/v1.1.2...v1.1.3) (2025-08-03)
 
 
