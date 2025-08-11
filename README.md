@@ -188,6 +188,7 @@ npm run da-upload -- \
   --asset-list /path/to/asset-list.json \
   --da-folder /path/to/da/folder
   --output /path/to/download/folder
+  --keep
 ```
 
 **Required:**
@@ -199,6 +200,7 @@ npm run da-upload -- \
 **Optional:**
 * _token_: Absolute path to the file containing the IMS token for your DA environment, or the token value.
 * _output_ [default='da-content']: Absolute path to the output folder where the DA content (pages, assets, etc.) will be stored.
+* _keep_ [default=false]: Keep the downloaded assets and updated HTML locally after upload instead of cleaning up.
 * _images-to-png_ [default=true]: When true, converts downloaded image assets to PNG (except for JPEG, PNG, GIF, ICO, SVG, MP4) before upload.
 
 When false, preserves original image formats and updates references with the original extension. 

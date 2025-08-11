@@ -116,6 +116,11 @@ export const daBuilder = (yargs) => {
       describe: 'Convert downloaded images to PNG and update references to .png (default: true)',
       type: 'boolean',
       default: true,
+    })
+    .option('keep', {
+      describe: 'Keep downloaded/processed DA assets and HTML on local disk after upload',
+      type: 'boolean',
+      default: false,
     });
 }
 
@@ -180,6 +185,7 @@ export const daHandler = async (args) => {
       args['da-folder'],
       args['output'],
       token,
+      args.keep,
       { imagesToPng: args['images-to-png'] },
     );
 
