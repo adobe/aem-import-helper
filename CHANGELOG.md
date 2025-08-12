@@ -1,3 +1,10 @@
+## [1.1.5](https://github.com/adobe/aem-import-helper/compare/v1.1.4...v1.1.5) (2025-08-12)
+
+
+### Bug Fixes
+
+* da provide a keep flag to keep assets locally ([#43](https://github.com/adobe/aem-import-helper/issues/43)) ([5a7f362](https://github.com/adobe/aem-import-helper/commit/5a7f362a16e13b9d82154b546b9f0d452735c274)), closes [#42](https://github.com/adobe/aem-import-helper/issues/42)
+
 ## [1.1.4](https://github.com/adobe/aem-import-helper/compare/v1.1.3...v1.1.4) (2025-08-11)
 
 
