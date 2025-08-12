@@ -388,7 +388,7 @@ export function getFullyQualifiedAssetUrls(assetUrls, siteOrigin) {
  * @return {Promise<Object>} Processing result for the page
  */
 async function processSinglePage(pagePath, daFolder, downloadFolder, assetUrls, siteOrigin, daAdminUrl,
-  daContentUrl, token, uploadOptions, dependencies = defaultDependencies) {
+  daContentUrl, token, keep, uploadOptions, dependencies = defaultDependencies) {
   const { fs: fsDep, chalk: chalkDep, path: pathDep } = dependencies;
   const { maxRetries = 3, retryDelay = 5000 } = uploadOptions;
 
@@ -472,9 +472,11 @@ async function processSinglePage(pagePath, daFolder, downloadFolder, assetUrls, 
       try {
         await uploadHTMLPage(updatedHtmlPath, daAdminUrl, token, uploadOptions, htmlBaseFolder, dependencies);
 
-        // Clean up downloaded assets and HTML for this page to free disk space
-        const assetFolderPath = pathDep.join(assetDownloadFolder, fullShadowPath);
-        await cleanupPageAssets([updatedHtmlPath, assetFolderPath], dependencies);
+        // Clean up downloaded assets and HTML for this page to free disk space (unless keep is true)
+        if (!keep) {
+          const assetFolderPath = pathDep.join(assetDownloadFolder, fullShadowPath);
+          await cleanupPageAssets([updatedHtmlPath, assetFolderPath], dependencies);
+        }
 
         return {
           filePath: pagePath,
@@ -608,7 +610,7 @@ async function processOtherFiles(daFolder, daAdminUrl, token, uploadOptions, dep
  * @return {Promise<Array<{filePath: string, updatedContent: string, downloadedAssets: Array<string>}>>} 
  *         Promise that resolves with array of processed page results
  */
-export async function processPages(daAdminUrl, daContentUrl, assetUrls, siteOrigin, daFolder, downloadFolder, token, uploadOptions = {}, dependencies = defaultDependencies) {
+export async function processPages(daAdminUrl, daContentUrl, assetUrls, siteOrigin, daFolder, downloadFolder, token, keep = false, uploadOptions = {}, dependencies = defaultDependencies) {
   const { fs: fsDep, chalk: chalkDep } = dependencies;
   const getHTMLFilesFn = dependencies.getAllFiles || getAllFiles;
   const htmlPages = getHTMLFilesFn(daFolder, ['.html', '.htm'], dependencies);
@@ -634,6 +636,7 @@ export async function processPages(daAdminUrl, daContentUrl, assetUrls, siteOrig
       daAdminUrl,
       daContentUrl,
       token,
+      keep,
       uploadOptions,
       dependencies,
     );
@@ -645,8 +648,10 @@ export async function processPages(daAdminUrl, daContentUrl, assetUrls, siteOrig
   const otherFilesResults = await processOtherFiles(daFolder, daAdminUrl, token, uploadOptions, dependencies);
   results.push(...otherFilesResults);
 
-  // clean up the download folder
-  await cleanupPageAssets([downloadFolder], dependencies);
+  // clean up the download folder unless keeping assets locally
+  if (!keep) {
+    await cleanupPageAssets([downloadFolder], dependencies);
+  }
 
   // Summary
   const successfulPages = results.filter(page => !page.error).length;

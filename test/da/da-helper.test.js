@@ -369,6 +369,7 @@ describe('da-helper.js', () => {
         '/html',
         '/download',
         'token',
+        false,
         { maxRetries: 3, retryDelay: 100, imagesToPng: false },
         mockDeps,
       );
@@ -419,6 +420,7 @@ describe('da-helper.js', () => {
         '/html',
         '/download',
         'token',
+        false,
         { maxRetries: 3, retryDelay: 100 },
         mockDeps,
       );
@@ -479,6 +481,7 @@ describe('da-helper.js', () => {
         '/html',
         '/download',
         'token',
+        false,
         { maxRetries: 3, retryDelay: 100 },
         mockDeps,
       );
@@ -534,6 +537,7 @@ describe('da-helper.js', () => {
         '/html',
         '/download',
         'token',
+        false,
         { maxRetries: 3, retryDelay: 100 },
         mockDeps,
       );
@@ -587,6 +591,7 @@ describe('da-helper.js', () => {
         '/html',
         '/download',
         'token',
+        false,
         { maxRetries: 3, retryDelay: 100 },
         mockDeps,
       );
@@ -644,6 +649,7 @@ describe('da-helper.js', () => {
         '/html',
         '/download',
         'token',
+        false,
         { maxRetries: 3, retryDelay: 100 },
         mockDeps,
       );
@@ -695,6 +701,7 @@ describe('da-helper.js', () => {
         '/html',
         '/download',
         'token',
+        false,
         { maxRetries: 3, retryDelay: 100 },
         mockDeps,
       );
@@ -746,6 +753,7 @@ describe('da-helper.js', () => {
         '/html',
         '/download',
         'token',
+        false,
         { maxRetries: 3, retryDelay: 100 },
         mockDeps,
       );
@@ -796,6 +804,7 @@ describe('da-helper.js', () => {
         '/html',
         '/download',
         'token',
+        false,
         { maxRetries: 3, retryDelay: 100 },
         mockDeps,
       );
@@ -855,6 +864,7 @@ describe('da-helper.js', () => {
         '/html',
         '/download',
         'token',
+        false,
         { maxRetries: 3, retryDelay: 100 },
         mockDeps,
       );
@@ -947,6 +957,7 @@ describe('da-helper.js', () => {
         '/html',
         '/download',
         'token',
+        false,
         {},
         dependencies,
       );
@@ -991,6 +1002,7 @@ describe('da-helper.js', () => {
         '/html',
         '/download',
         'token',
+        false,
         {},
         dependencies,
       );
@@ -1052,6 +1064,7 @@ describe('da-helper.js', () => {
         '/html',
         '/download',
         'token',
+        false,
         {},
         dependencies,
       );
@@ -1102,6 +1115,7 @@ describe('da-helper.js', () => {
         '/html',
         '/download',
         'token',
+        false,
         {},
         dependencies,
       );
