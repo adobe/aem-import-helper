@@ -409,7 +409,7 @@ async function processSinglePage(pagePath, daFolder, downloadFolder, assetUrls, 
       }
     });
     console.log(chalkDep.yellow(`Found ${matchingAssetUrls.length} asset references in the page.`));
-    
+
     if (matchingAssetUrls.length > 0) {
       // Get fully qualified asset URLs to download from the source
       const fullyQualifiedAssetUrls = getFullyQualifiedAssetUrls(matchingAssetUrls, siteOrigin);
