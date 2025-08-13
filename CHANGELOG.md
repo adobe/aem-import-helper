@@ -1,3 +1,10 @@
+## [1.1.6](https://github.com/adobe/aem-import-helper/compare/v1.1.5...v1.1.6) (2025-08-13)
+
+
+### Bug Fixes
+
+* Remove unnecessary logging ([#35](https://github.com/adobe/aem-import-helper/issues/35)) ([ed30939](https://github.com/adobe/aem-import-helper/commit/ed309391f22311a0a70cc11391f5312e9894b491))
+
 ## [1.1.5](https://github.com/adobe/aem-import-helper/compare/v1.1.4...v1.1.5) (2025-08-12)
 
 

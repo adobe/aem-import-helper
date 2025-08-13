@@ -1,6 +1,6 @@
 {
   "name": "@adobe/aem-import-helper",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "description": "Helper tool for importing sites to AEM.",
   "author": "AEM Importer Team",
   "license": "Apache-2.0",
