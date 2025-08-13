@@ -1,6 +1,6 @@
 {
   "name": "@adobe/aem-import-helper",
-  "version": "1.1.1",
+  "version": "1.1.5",
   "description": "Helper tool for importing sites to AEM.",
   "author": "AEM Importer Team",
   "license": "Apache-2.0",
@@ -40,6 +40,7 @@
   "dependencies": {
     "@adobe/aem-upload": "2.0.3",
     "aem-import-builder": "0.3.2",
+    "archiver": "7.0.1",
     "chalk": "5.3.0",
     "esbuild": "0.23.0",
     "express": "4.21.0",
@@ -50,6 +51,7 @@
     "node-fetch": "3.3.2",
     "ora": "8.1.0",
     "puppeteer": "23.1.0",
+    "sharp": "0.33.4",
     "unzipper": "0.12.3",
     "xml2js": "0.6.2",
     "yargs": "17.7.2"

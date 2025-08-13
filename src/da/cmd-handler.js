@@ -51,7 +51,7 @@ async function validateAccess(listUrl, token = null) {
     if (token) {
       headers.Authorization = `Bearer ${token}`;
     }
-    
+
     const response = await fetch(listUrl, { method: 'HEAD', headers });
 
     if (response.ok) {
@@ -111,6 +111,16 @@ export const daBuilder = (yargs) => {
       describe: 'Path to a file containing the DA authentication token or the token value',
       type: 'string',
       demandOption: false,
+    })
+    .option('images-to-png', {
+      describe: 'Convert downloaded images to PNG and update references to .png (default: true)',
+      type: 'boolean',
+      default: true,
+    })
+    .option('keep', {
+      describe: 'Keep downloaded/processed DA assets and HTML on local disk after upload',
+      type: 'boolean',
+      default: false,
     });
 }
 
@@ -126,7 +136,7 @@ export const daHandler = async (args) => {
 
   // Handle token (optional)
   let token = args.token;
-  
+
   if (token) {
     // Check if it's a file path (exists as a file)
     if (fs.existsSync(token) && fs.statSync(token).isFile()) {
@@ -136,7 +146,7 @@ export const daHandler = async (args) => {
 
   console.log(chalk.yellow('Validating site access...'));
   const validation = await validateAccess(listUrl, token);
-  
+
   if (!validation.success) {
     if (validation.tokenRequired) {
       console.error(chalk.red('This site requires authentication. Please re-run the command with a valid IMS token.'));
@@ -154,9 +164,9 @@ export const daHandler = async (args) => {
   try {
     // Read and parse the asset list JSON file
     const assetListJson = JSON.parse(fs.readFileSync(args['asset-list'], 'utf-8'));
-    
+
     // Extract the assets array from the JSON structure
-    const assetUrls = new Set(assetListJson.assets || []);    
+    const assetUrls = new Set(assetListJson.assets || []);
     if (assetUrls.size === 0) {
       console.warn(chalk.yellow('No asset urls found in the asset-list file. Expected format: {"assets": ["url1", "url2", ...]}'));
     }
@@ -166,8 +176,18 @@ export const daHandler = async (args) => {
     if (!siteOrigin) {
       console.warn(chalk.yellow('No site origin found in the asset-list file. Relative references will not be updated.'));
     }
-    
-    await processPages(daAdminUrl, daContentUrl, assetUrls, siteOrigin, args['da-folder'], args['output'], token);
+
+    await processPages(
+      daAdminUrl,
+      daContentUrl,
+      assetUrls,
+      siteOrigin,
+      args['da-folder'],
+      args['output'],
+      token,
+      args.keep,
+      { imagesToPng: args['images-to-png'] },
+    );
 
   } catch (err) {
     console.error(chalk.red('Error during processing:', err));

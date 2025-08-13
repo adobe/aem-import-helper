@@ -28,13 +28,14 @@ const defaultDependencies = {
 const MAX_CONCURRENT_UPLOADS = 50;
 
 /**
- * Recursively get all files from a directory
+ * Recursively get all files from a directory with optional filtering by file extensions and exclude extensions.
  * @param {string} dirPath - The directory path to scan
  * @param {Array<string>} fileExtensions - Optional array of file extensions to filter (e.g., ['.html', '.css'])
+ * @param {Array<string>} excludeExtensions - Optional array of file extensions to exclude (e.g., ['.docx'])
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Array<string>} Array of absolute file paths
  */
-export function getAllFiles(dirPath, fileExtensions = [], dependencies = defaultDependencies) {
+export function getAllFiles(dirPath, fileExtensions = [], excludeExtensions = [], dependencies = defaultDependencies) {
   const { fs: fsDep, path: pathDep } = dependencies;
   
   let files;
@@ -42,9 +43,12 @@ export function getAllFiles(dirPath, fileExtensions = [], dependencies = default
     files = fsDep.readdirSync(dirPath, { recursive: true, withFileTypes: true })
       .filter((entry) => entry.isFile())
       .map((entry) => pathDep.join(entry.parentPath, entry.name))
-      .filter((file) => 
-        fileExtensions.length === 0 || fileExtensions.includes(pathDep.extname(file)),
-      );
+      .filter((file) => {
+        const ext = pathDep.extname(file);
+        const included = fileExtensions.length === 0 || fileExtensions.includes(ext);
+        const excluded = excludeExtensions.length > 0 && excludeExtensions.includes(ext);
+        return included && !excluded;
+      });
   } catch (e) {
     if (e.code === 'ENOENT') {
       throw new Error(`Folder not found: ${dirPath}`);

@@ -1,3 +1,31 @@
+## [1.1.5](https://github.com/adobe/aem-import-helper/compare/v1.1.4...v1.1.5) (2025-08-12)
+
+
+### Bug Fixes
+
+* da provide a keep flag to keep assets locally ([#43](https://github.com/adobe/aem-import-helper/issues/43)) ([5a7f362](https://github.com/adobe/aem-import-helper/commit/5a7f362a16e13b9d82154b546b9f0d452735c274)), closes [#42](https://github.com/adobe/aem-import-helper/issues/42)
+
+## [1.1.4](https://github.com/adobe/aem-import-helper/compare/v1.1.3...v1.1.4) (2025-08-11)
+
+
+### Bug Fixes
+
+* support converting webp, avif image types to png ([#41](https://github.com/adobe/aem-import-helper/issues/41)) ([000b718](https://github.com/adobe/aem-import-helper/commit/000b7187d94d8a5e8acde1a4dc889dc7366fe016))
+
+## [1.1.3](https://github.com/adobe/aem-import-helper/compare/v1.1.2...v1.1.3) (2025-08-03)
+
+
+### Bug Fixes
+
+* Add browser-like headers to asset downloads to handle browser fingerprinting ([#39](https://github.com/adobe/aem-import-helper/issues/39)) ([b72bad9](https://github.com/adobe/aem-import-helper/commit/b72bad9e06e3e18a943266dec19414070c044681))
+
+## [1.1.2](https://github.com/adobe/aem-import-helper/compare/v1.1.1...v1.1.2) (2025-07-31)
+
+
+### Bug Fixes
+
+* da-upload should also be able to handle non-html files too ([#36](https://github.com/adobe/aem-import-helper/issues/36)) ([228c0c7](https://github.com/adobe/aem-import-helper/commit/228c0c7ea5c2b4026976a2188c3373fd183dd26d))
+
 ## [1.1.1](https://github.com/adobe/aem-import-helper/compare/v1.1.0...v1.1.1) (2025-07-22)
 
 

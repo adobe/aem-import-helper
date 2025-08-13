@@ -153,6 +153,7 @@ to the asset mapping file (`asset-mapping.json`), which contains mappings for as
 * _keep_ [default=false]: Keep the downloaded assets in the output folder after execution.
 * _skip-assets_ [default=false]: Skip uploading assets to AEM..
 * _asset-mapping_: Only optional if --skip-assets is true.
+* _images-to-png_ [default=true]: When true, converts downloaded image assets to PNG (except for JPEG, PNG, GIF, ICO, SVG, MP4) before upload.
 
 Once the command is executed, the content package and associated assets are uploaded to your AEM author environment. The content package is installed and the assets are uploaded to the DAM.
 
@@ -187,6 +188,7 @@ npm run da-upload -- \
   --asset-list /path/to/asset-list.json \
   --da-folder /path/to/da/folder
   --output /path/to/download/folder
+  --keep
 ```
 
 **Required:**
@@ -198,6 +200,11 @@ npm run da-upload -- \
 **Optional:**
 * _token_: Absolute path to the file containing the IMS token for your DA environment, or the token value.
 * _output_ [default='da-content']: Absolute path to the output folder where the DA content (pages, assets, etc.) will be stored.
+* _keep_ [default=false]: Keep the downloaded assets and updated HTML locally after upload instead of cleaning up.
+* _images-to-png_ [default=true]: When true, converts downloaded image assets to PNG (except for JPEG, PNG, GIF, ICO, SVG, MP4) before upload.
+
+When false, preserves original image formats and updates references with the original extension. 
+Only use this option if you know your images are supported by DA.
 
 Once the command is executed, the HTML pages and associated assets are uploaded to Author Bus.
 

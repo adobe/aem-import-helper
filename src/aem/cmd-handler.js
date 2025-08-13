@@ -15,6 +15,7 @@ import path from 'path';
 import { cleanup, downloadAssets } from '../utils/download-assets.js';
 import { uploadAssets } from './upload-assets.js';
 import { installPackage } from './package-helper.js';
+import { prepareModifiedPackage } from './package-modifier.js';
 import fetch from 'node-fetch';
 import { getDamRootFolder } from './aem-util.js';
 
@@ -113,6 +114,11 @@ export const aemBuilder = (yargs) => {
       describe: 'If keep is true, local assets are not deleted after upload',
       type: 'boolean',
       default: false,
+    })
+    .option('images-to-png', {
+      describe: 'Convert downloaded images to PNG and update references to .png (default: true)',
+      type: 'boolean',
+      default: true,
     });
 }
 
@@ -137,16 +143,20 @@ export const aemHandler = async (args) => {
   }
 
   try {
-    if (!args['skip-assets']) {
-      const assetMappingJson = JSON.parse(fs.readFileSync(args['asset-mapping'], 'utf-8'));
-      const assetMapping = new Map(Object.entries(assetMappingJson));
+    // Common options and mappings used below
+    const imagesToPng = args['images-to-png'] !== false;
+    const assetMappingJson = args['asset-mapping'] && fs.existsSync(args['asset-mapping'])
+      ? JSON.parse(fs.readFileSync(args['asset-mapping'], 'utf-8'))
+      : {};
+    const assetMapping = new Map(Object.entries(assetMappingJson));
 
+    if (!args['skip-assets']) {
       const downloadFolder = args.output === 'aem-assets'
         ? path.join(process.cwd(), args.output)
         : args.output;
 
       console.log(chalk.yellow(`Downloading origin assets to ${downloadFolder}...`));
-      await downloadAssets(assetMapping, downloadFolder);
+      await downloadAssets(assetMapping, downloadFolder, undefined, undefined, {}, { convertImagesToPng: imagesToPng });
 
       const assetFolder = path.join(downloadFolder, getDamRootFolder(assetMapping));
 
@@ -158,8 +168,11 @@ export const aemHandler = async (args) => {
       }
     }
 
+    console.log(chalk.yellow('Preparing content package for upload...'));
+    const { modifiedZipPath } = await prepareModifiedPackage(args['zip'], assetMapping, imagesToPng);
+
     console.log(chalk.yellow(`Uploading content package ${args.target}...`));
-    await installPackage(args.target, token, args['zip']);
+    await installPackage(args.target, token, modifiedZipPath);
   } catch (err) {
     console.error(chalk.red('Error during upload:', err));
     process.exit(1);

@@ -38,7 +38,8 @@ describe('download assets', function () {
       ['http://www.aem.com/asset1.jpg', '/content/dam/xwalk/image1.jpg'],
     ]);
 
-    await downloadAssets(mapping, downloadFolder);
+    await downloadAssets(mapping, downloadFolder, 3, 5000, {}, { convertImagesToPng: true });
+    // jpeg should not be converted based on new rules
     expect(fs.existsSync(path.join(downloadFolder, 'xwalk/image1.jpg'))).to.be.true;
 
     await scope.done();
@@ -55,7 +56,8 @@ describe('download assets', function () {
       ['http://www.aem.com/asset1.jpg', '/content/dam/xwalk/image1.jpg'],
     ]);
 
-    await downloadAssets(mapping, downloadFolder, 3, 0);
+    await downloadAssets(mapping, downloadFolder, 3, 0, {}, { convertImagesToPng: true });
+    // jpeg should not be converted based on new rules
     expect(fs.existsSync(path.join(downloadFolder, 'xwalk/image1.jpg'))).to.be.true;
 
     await scope.done();
@@ -77,7 +79,7 @@ describe('download assets', function () {
       ['http://www.aem.com/asset3.jpg', '/content/dam/xwalk/image3.jpg'],
     ]);
 
-    const results = await downloadAssets(mapping, downloadFolder, 1, 0);
+    const results = await downloadAssets(mapping, downloadFolder, 1, 0, {}, { convertImagesToPng: true });
     expect(results.filter((result) => result.status === 'rejected').length).to.equal(2);
     expect(results.filter((result) => result.status === 'fulfilled').length).to.equal(1);
 
@@ -94,7 +96,7 @@ describe('download assets', function () {
     ]);
 
     try {
-      await downloadAssets(mapping, downloadFolder, 1, 0);
+      await downloadAssets(mapping, downloadFolder, 1, 0, {}, { convertImagesToPng: true });
     } catch (error) {
       expect(error.message).to.equal('Failed to fetch http://www.aem.com/asset1.jpg. Status: 404.');
     }
@@ -102,7 +104,7 @@ describe('download assets', function () {
     await scope.done();
   });
 
-  it('should add extension based on content-type when file has no extension', async () => {
+  it('should add extension based on content-type when file has no extension (no conversion)', async () => {
     const scope = nock('http://www.aem.com')
       .get('/asset1')
       .reply(200, 'image data', {
@@ -130,7 +132,8 @@ describe('download assets', function () {
       ['http://www.aem.com/asset1.png', '/content/dam/xwalk/image1.png'],
     ]);
 
-    await downloadAssets(mapping, downloadFolder);
+    await downloadAssets(mapping, downloadFolder, 3, 5000, {}, { convertImagesToPng: true });
+    // png with existing extension should remain png
     expect(fs.existsSync(path.join(downloadFolder, 'xwalk/image1.png'))).to.be.true;
 
     await scope.done();
@@ -147,13 +150,13 @@ describe('download assets', function () {
       ['http://www.aem.com/asset1', '/content/dam/xwalk/image1'],
     ]);
 
-    await downloadAssets(mapping, downloadFolder);
+    await downloadAssets(mapping, downloadFolder, 3, 5000, {}, { convertImagesToPng: true });
     expect(fs.existsSync(path.join(downloadFolder, 'xwalk/image1'))).to.be.true;
 
     await scope.done();
   });
 
-  it('should handle content-type with parameters', async () => {
+  it('should handle content-type with parameters (no conversion)', async () => {
     const scope = nock('http://www.aem.com')
       .get('/asset1')
       .reply(200, 'image data', {
@@ -165,6 +168,35 @@ describe('download assets', function () {
     ]);
 
     await downloadAssets(mapping, downloadFolder);
+    expect(fs.existsSync(path.join(downloadFolder, 'xwalk/image1.jpg'))).to.be.true;
+
+    await scope.done();
+  });
+
+  it('should include correct default headers in the request', async () => {
+    const expectedHeaders = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+      'Accept': '*/*',
+      'Referer': 'http://www.aem.com',
+      'Sec-Fetch-Site': 'same-origin',
+      'Sec-Fetch-Mode': 'no-cors',
+    };
+
+    const scope = nock('http://www.aem.com')
+      .get('/asset1.jpg')
+      .matchHeader('User-Agent', expectedHeaders['User-Agent'])
+      .matchHeader('Accept', expectedHeaders['Accept'])
+      .matchHeader('Referer', expectedHeaders['Referer'])
+      .matchHeader('Sec-Fetch-Site', expectedHeaders['Sec-Fetch-Site'])
+      .matchHeader('Sec-Fetch-Mode', expectedHeaders['Sec-Fetch-Mode'])
+      .replyWithFile(200, path.resolve(__dirname, '../aem/fixtures/image1.jpeg'));
+
+    const mapping = new Map([
+      ['http://www.aem.com/asset1.jpg', '/content/dam/xwalk/image1.jpg'],
+    ]);
+
+    await downloadAssets(mapping, downloadFolder, 3, 5000, {}, { convertImagesToPng: true });
+    // jpeg should not be converted based on new rules
     expect(fs.existsSync(path.join(downloadFolder, 'xwalk/image1.jpg'))).to.be.true;
 
     await scope.done();
