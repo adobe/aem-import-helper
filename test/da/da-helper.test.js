@@ -281,11 +281,10 @@ describe('da-helper.js', () => {
   describe('updatePageReferencesInHTML', () => {
     it('should return unchanged HTML content when siteOrigin is null', () => {
       const htmlContent = '<html><a href="/test-page.html">Test Link</a><a href="https://example.com/page">External Link</a></html>';
-      const daContentUrl = 'https://content.da.live/org/site';
       const matchingAssetUrls = [];
       const siteOrigin = null; // Missing siteOrigin
 
-      const result = updatePageReferencesInHTML(htmlContent, daContentUrl, matchingAssetUrls, siteOrigin, {
+      const result = updatePageReferencesInHTML(htmlContent, matchingAssetUrls, siteOrigin, {
         JSDOM,
         chalk: mockChalk,
       });
@@ -296,11 +295,10 @@ describe('da-helper.js', () => {
 
     it('should return unchanged HTML content when siteOrigin is empty string', () => {
       const htmlContent = '<html><a href="/test-page.html">Test Link</a></html>';
-      const daContentUrl = 'https://content.da.live/org/site';
       const matchingAssetUrls = [];
       const siteOrigin = ''; // Empty siteOrigin
 
-      const result = updatePageReferencesInHTML(htmlContent, daContentUrl, matchingAssetUrls, siteOrigin, {
+      const result = updatePageReferencesInHTML(htmlContent, matchingAssetUrls, siteOrigin, {
         JSDOM,
         chalk: mockChalk,
       });
@@ -311,18 +309,17 @@ describe('da-helper.js', () => {
 
     it('should update page references normally when siteOrigin is provided', () => {
       const htmlContent = '<html><a href="/test-page.html">Test Link</a><a href="https://example.com/page.pdf">Same Origin</a></html>';
-      const daContentUrl = 'https://content.da.live/org/site';
       const matchingAssetUrls = [];
       const siteOrigin = 'https://example.com';
 
-      const result = updatePageReferencesInHTML(htmlContent, daContentUrl, matchingAssetUrls, siteOrigin, {
+      const result = updatePageReferencesInHTML(htmlContent, matchingAssetUrls, siteOrigin, {
         JSDOM,
         chalk: mockChalk,
       });
 
       // Should update the references
-      expect(result).to.include('https://content.da.live/org/site/test-page'); // Extension removed
-      expect(result).to.include('https://content.da.live/org/site/page'); // Extension removed
+      expect(result).to.include('href="/test-page"'); // Extension removed, site-relative
+      expect(result).to.include('href="/page"'); // Extension removed, site-relative
     });
   });
 
@@ -375,7 +372,7 @@ describe('da-helper.js', () => {
       );
 
       const writtenContent = mockFs.writeFileSync.getCall(0).args[1];
-      expect(writtenContent).to.include('https://content.da.live/org/site/.page1/image.jpg');
+      expect(writtenContent).to.include('src="https://content.da.live/org/site/.page1/image.jpg"');
       expect(writtenContent).to.not.include('.png');
     });
     it('should process pages one by one, downloading and uploading assets immediately', async () => {
@@ -433,7 +430,7 @@ describe('da-helper.js', () => {
 
       // Check that the HTML content was updated with proper references
       const writtenContent = mockFs.writeFileSync.getCall(0).args[1];
-      expect(writtenContent).to.include('https://content.da.live/org/site/.page1/image.jpg'); // Asset reference updated with original ext
+      expect(writtenContent).to.include('src="https://content.da.live/org/site/.page1/image.jpg"'); // Asset reference updated with original ext
 
       // Final cleanup should be called for the download folder
       expect(mockFs.unlinkSync.calledWith('/download')).to.be.true;
@@ -489,9 +486,9 @@ describe('da-helper.js', () => {
       // Check that the HTML content was updated correctly
       expect(mockFs.writeFileSync.calledOnce).to.be.true;
       const writtenContent = mockFs.writeFileSync.getCall(0).args[1];
-      expect(writtenContent).to.include('https://content.da.live/org/site/.page1/image.jpg'); // Asset reference updated with original ext
-      expect(writtenContent).to.include('https://content.da.live/org/site/other-page'); // Page reference updated (extension removed)
-      expect(writtenContent).to.include('https://content.da.live/org/site/absolute'); // Absolute URL updated (extension removed)
+      expect(writtenContent).to.include('src="https://content.da.live/org/site/.page1/image.jpg"'); // Asset reference updated with original ext
+      expect(writtenContent).to.include('href="/other-page"'); // Page reference updated (extension removed, site-relative)
+      expect(writtenContent).to.include('href="/absolute"'); // Absolute URL updated (extension removed, site-relative)
       expect(writtenContent).to.include('https://external.com/some-page.html'); // External URL not updated
     });
 
@@ -878,7 +875,7 @@ describe('da-helper.js', () => {
       // Check that page references were NOT updated (original HTML should be preserved)
       const writtenContent = mockFs.writeFileSync.getCall(0).args[1];
       expect(writtenContent).to.include('<a href="/other-page.html">Link</a>'); // Original link unchanged
-      expect(writtenContent).to.include('https://content.da.live/org/site/.page1/image.jpg'); // Asset reference updated with original ext
+      expect(writtenContent).to.include('src="https://content.da.live/org/site/.page1/image.jpg"'); // Asset reference updated with original ext
     });
   });
 
