@@ -110,13 +110,12 @@ function updateAssetReferencesInHTML(fullShadowPath, htmlContent, assetUrls, daC
 /**
  * Update page references in the HTML content to point to their DA location
  * @param {string} htmlContent - The HTML content to update
- * @param {string} daContentUrl - The content.da.live URL
  * @param {Array<string>} matchingAssetUrls - Array of matching asset URLs
  * @param {string} siteOrigin - The site origin
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {string} Updated HTML content
  */
-export function updatePageReferencesInHTML(htmlContent, daContentUrl, matchingAssetUrls, siteOrigin, dependencies = defaultDependencies) {
+export function updatePageReferencesInHTML(htmlContent, matchingAssetUrls, siteOrigin, dependencies = defaultDependencies) {
   const { JSDOM: JSDOMDep, chalk: chalkDep } = dependencies;
   const dom = new JSDOMDep(htmlContent);
   const document = dom.window.document;
@@ -147,8 +146,8 @@ export function updatePageReferencesInHTML(htmlContent, daContentUrl, matchingAs
     const pathWithoutExtension = path.join(parsedPath.dir, parsedPath.name);
     // update the href attribute to point to the DA content location
     const newUrl = pathWithoutExtension.startsWith('/')
-      ? `${daContentUrl}${pathWithoutExtension}`
-      : `${daContentUrl}/${pathWithoutExtension}`;
+      ? `${pathWithoutExtension}`
+      : `/${pathWithoutExtension}`;
     element.setAttribute('href', newUrl);
     updatedCount++;
   });
@@ -447,7 +446,7 @@ async function processSinglePage(pagePath, daFolder, downloadFolder, assetUrls, 
 
       // Make reference updates:
       // 1. Update page references in the HTML content to point to their DA location
-      let updatedHtmlContent = updatePageReferencesInHTML(htmlContent, daContentUrl, matchingAssetUrls, siteOrigin, dependencies);
+      let updatedHtmlContent = updatePageReferencesInHTML(htmlContent, matchingAssetUrls, siteOrigin, dependencies);
       // 2. Update the asset references in the HTML content (always rewrite to DA URL; only switch to .png when enabled)
       updatedHtmlContent = updateAssetReferencesInHTML(
         fullShadowPath,
