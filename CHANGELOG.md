@@ -1,3 +1,10 @@
+## [1.1.7](https://github.com/adobe/aem-import-helper/compare/v1.1.6...v1.1.7) (2025-08-18)
+
+
+### Bug Fixes
+
+* use relative path for Page References in HTML ([9f5e489](https://github.com/adobe/aem-import-helper/commit/9f5e48946b83f6b0711402c9cf2669096346d415))
+
 ## [1.1.6](https://github.com/adobe/aem-import-helper/compare/v1.1.5...v1.1.6) (2025-08-13)
 
 
