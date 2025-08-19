@@ -321,6 +321,24 @@ describe('da-helper.js', () => {
       expect(result).to.include('href="/test-page"'); // Extension removed, site-relative
       expect(result).to.include('href="/page"'); // Extension removed, site-relative
     });
+
+    it('should update localhost absolute links to site-relative path', () => {
+      const htmlContent = '<html><a href="http://localhost/page.html">Localhost Link</a></html>';
+      const result = updatePageReferencesInHTML(htmlContent, [], 'https://example.com', {
+        JSDOM,
+        chalk: mockChalk,
+      });
+      expect(result).to.include('href="/page"');
+    });
+
+    it('should update relative links without leading slash to start with slash', () => {
+      const htmlContent = '<html><a href="sub/page.html">Relative Link</a></html>';
+      const result = updatePageReferencesInHTML(htmlContent, [], 'https://example.com', {
+        JSDOM,
+        chalk: mockChalk,
+      });
+      expect(result).to.include('href="/sub/page"');
+    });
   });
 
   describe('processPages', () => {
@@ -497,7 +515,7 @@ describe('da-helper.js', () => {
       const mockFs = {
         existsSync: sinon.stub().callsFake((p) => createdFolders.has(p)),
         mkdirSync: sinon.stub().callsFake((p) => createdFolders.add(p)),
-        readFileSync: sinon.stub().returns('<html><img src="other.jpg"></html>'),
+        readFileSync: sinon.stub().returns('<html><img src="other.jpg"><a href="/next.html">Next</a></html>'),
         writeFileSync: sinon.stub(),
         readdirSync: sinon.stub().returns([]),
         statSync: sinon.stub().returns({ isFile: () => true, isDirectory: () => false }),
@@ -542,6 +560,9 @@ describe('da-helper.js', () => {
       expect(mockUploadFolder.called).to.be.false; // No assets to upload
       expect(mockUploadFile.calledTwice).to.be.true; // Once for HTML, once for JSON
       expect(results[0].uploaded).to.be.true;
+      // Page references should be updated even when there are no matching assets
+      const writtenContent = mockFs.writeFileSync.getCall(0).args[1];
+      expect(writtenContent).to.include('href="/next"');
       // Final cleanup should be called for the download folder
       expect(mockFs.unlinkSync.calledWith('/download')).to.be.true;
     });
