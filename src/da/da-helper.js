@@ -493,19 +493,23 @@ async function processSinglePage(pagePath, daFolder, downloadFolder, assetUrls, 
       }
 
     } else {
-      // No matching assets found, save HTML to download folder and upload as-is
-      console.log(chalkDep.gray(`No asset references found for page ${pagePath}, saving to download folder and uploading as-is...`));
+      // No matching assets found. Still update page references, then save and upload HTML.
+      console.log(chalkDep.gray(`No asset references found for page ${pagePath}. Updating page references and uploading HTML as-is...`));
+
+      // Update page references (asset updates are not needed since there are no matching assets)
+      const updatedHtmlContent = updatePageReferencesInHTML(htmlContent, [], siteOrigin, dependencies);
 
       // Calculate the path for HTML content
       const { updatedHtmlPath, htmlBaseFolder } = calculateHtmlPathAndBaseFolder(pagePath, daFolder, downloadFolder, dependencies);
 
-      saveHtmlToDownloadFolder(htmlContent, updatedHtmlPath, dependencies);
+      // Save updated HTML content to download folder
+      saveHtmlToDownloadFolder(updatedHtmlContent, updatedHtmlPath, dependencies);
 
       try {
         await uploadHTMLPage(updatedHtmlPath, daAdminUrl, token, uploadOptions, htmlBaseFolder, dependencies);
         return {
           filePath: pagePath,
-          updatedContent: htmlContent,
+          updatedContent: updatedHtmlContent,
           downloadedAssets: [],
           downloadResults: [],
           uploaded: true,
@@ -515,7 +519,7 @@ async function processSinglePage(pagePath, daFolder, downloadFolder, assetUrls, 
         return {
           filePath: pagePath,
           error: uploadError.message,
-          updatedContent: htmlContent,
+          updatedContent: updatedHtmlContent,
           downloadedAssets: [],
           downloadResults: [],
           uploaded: false,
