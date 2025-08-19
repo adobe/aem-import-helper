@@ -1,3 +1,10 @@
+## [1.1.8](https://github.com/adobe/aem-import-helper/compare/v1.1.7...v1.1.8) (2025-08-19)
+
+
+### Bug Fixes
+
+* [DA] PageReferences In HTML not updated when no assets on page ([#48](https://github.com/adobe/aem-import-helper/issues/48)) ([f8294c6](https://github.com/adobe/aem-import-helper/commit/f8294c6593f7b18d3e24d2e20ecb9c4ccce7462f))
+
 ## [1.1.7](https://github.com/adobe/aem-import-helper/compare/v1.1.6...v1.1.7) (2025-08-18)
 
 
