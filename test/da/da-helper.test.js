@@ -318,8 +318,8 @@ describe('da-helper.js', () => {
       });
 
       // Should update the references
-      expect(result).to.include('href="/test-page"'); // Extension removed, site-relative
-      expect(result).to.include('href="/page"'); // Extension removed, site-relative
+      expect(result).to.include('href="/test-page"'); // .html removed, site-relative
+      expect(result).to.include('href="/page-pdf"'); // non-HTML sanitized (dot -> '-')
     });
 
     it('should update localhost absolute links to site-relative path', () => {
@@ -338,6 +338,16 @@ describe('da-helper.js', () => {
         chalk: mockChalk,
       });
       expect(result).to.include('href="/sub/page"');
+    });
+
+    it('should rewrite WSU membership same-origin link to site-relative sanitized path', () => {
+      const siteOrigin = 'https://main--library--wsu-do.aem.page';
+      const htmlContent = '<html><a href="https://main--library--wsu-do.aem.page/about-us/membership">WSU Membership</a></html>';
+      const result = updatePageReferencesInHTML(htmlContent, [], siteOrigin, {
+        JSDOM,
+        chalk: mockChalk,
+      });
+      expect(result).to.include('href="/about-us/membership"');
     });
   });
 
