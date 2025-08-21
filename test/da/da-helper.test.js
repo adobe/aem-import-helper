@@ -21,6 +21,9 @@ import {
   processPages,
   getFullyQualifiedAssetUrls,
   updatePageReferencesInHTML,
+  sanitizeFilename,
+  sanitizePath,
+  generateDocumentPath,
 } from '../../src/da/da-helper.js';
 
 const mockChalk = {
@@ -77,6 +80,49 @@ describe('da-helper.js', () => {
       const assetUrls = ['foo.js'];
       const result = createAssetMapping(assetUrls, '');
       expect(result.get('foo.js')).to.equal('//foo.js');
+    });
+  });
+
+  describe('sanitizers', () => {
+    describe('sanitizeFilename', () => {
+      it('should lowercase and replace non-alphanumerics with hyphens', () => {
+        expect(sanitizeFilename('Hello World!')).to.equal('hello-world');
+      });
+      it('should strip diacritics and collapse hyphens', () => {
+        expect(sanitizeFilename('Café — menú')).to.equal('cafe-menu');
+      });
+      it('should return empty for empty input', () => {
+        expect(sanitizeFilename('')).to.equal('');
+      });
+    });
+
+    describe('sanitizePath', () => {
+      it('should sanitize each URL path segment', () => {
+        expect(sanitizePath('/A B/C&D/file.name')).to.equal('/a-b/c-d/file.name');
+      });
+      it('should handle paths without extension', () => {
+        expect(sanitizePath('/A/B C')).to.equal('/a/b-c');
+      });
+      it('should return empty for falsy input', () => {
+        expect(sanitizePath('')).to.equal('');
+      });
+    });
+
+    describe('generateDocumentPath', () => {
+      it('should decode, lowercase, strip .html/.htm and sanitize', () => {
+        expect(generateDocumentPath('https://example.com/Abc%20Def/Page.htm'))
+          .to.equal('/abc-def/page');
+      });
+      it('should convert /index to / and trim trailing slash', () => {
+        expect(generateDocumentPath('https://example.com/section/index')).to.equal('/section');
+        expect(generateDocumentPath('https://example.com/index')).to.equal('/');
+      });
+      it('should replace non [a-z0-9\/] with hyphens', () => {
+        expect(generateDocumentPath('https://example.com/A&B/C+D.html')).to.equal('/a-b/c-d');
+      });
+      it('should support relative URLs', () => {
+        expect(generateDocumentPath('Folder/Page.HTML')).to.equal('/folder/page');
+      });
     });
   });
 
