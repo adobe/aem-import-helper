@@ -386,6 +386,15 @@ describe('da-helper.js', () => {
       expect(result).to.include('href="/sub/page"');
     });
 
+    it('should not change mailto links', () => {
+      const htmlContent = '<html><a href="mailto:user@example.com">Email</a></html>';
+      const result = updatePageReferencesInHTML(htmlContent, [], 'https://example.com', {
+        JSDOM,
+        chalk: mockChalk,
+      });
+      expect(result).to.include('href="mailto:user@example.com"');
+    });
+
     it('should rewrite WSU membership same-origin link to site-relative sanitized path', () => {
       const siteOrigin = 'https://main--library--wsu-do.aem.page';
       const htmlContent = '<html><a href="https://main--library--wsu-do.aem.page/about-us/membership">WSU Membership</a></html>';
