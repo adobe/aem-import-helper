@@ -1,3 +1,10 @@
+## [1.1.10](https://github.com/adobe/aem-import-helper/compare/v1.1.9...v1.1.10) (2025-08-22)
+
+
+### Bug Fixes
+
+* [DA] Do not modify mailto links ([#54](https://github.com/adobe/aem-import-helper/issues/54)) ([c7e0a98](https://github.com/adobe/aem-import-helper/commit/c7e0a98d8d1164c5e302c0889e348e79c1b76744))
+
 ## [1.1.9](https://github.com/adobe/aem-import-helper/compare/v1.1.8...v1.1.9) (2025-08-22)
 
 
