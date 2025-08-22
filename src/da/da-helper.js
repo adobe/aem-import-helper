@@ -33,6 +33,71 @@ const defaultDependencies = {
 };
 
 /**
+ * Sanitize filename
+ * Ported from https://github.com/adobe/helix-importer
+* @param {string} name
+ * @returns {string}
+*/
+export function sanitizeFilename(name) {
+  if (!name) return '';
+  return decodeURIComponent(name).toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+/**
+ * Sanitize path
+ * Ported from https://github.com/adobe/helix-importer
+ * @param {string} p
+ * @returns {string}
+ */
+export function sanitizePath(p) {
+  if (!p) return '';
+  const extension = p.split('.').pop();
+  const pathname = extension !== p ? p.substring(0, p.lastIndexOf('.')) : p;
+  let sanitizedPath = '';
+  pathname.split('/').forEach((seg) => {
+    if (seg !== '') {
+      sanitizedPath += `/${sanitizeFilename(seg)}`;
+    }
+  });
+  if (extension !== p) {
+    sanitizedPath += `.${extension}`;
+  }
+  return sanitizedPath || '/';
+}
+
+/**
+ * Generate sanitized, extension-less document path
+ * - decodes, lowercases
+ * - strips .html/.htm
+ * - replaces non [a-z0-9/] with '-'
+ * - converts trailing '/index' to '/'
+ * - removes trailing slash (except root)
+ * @param {string} url
+ * @returns {string}
+ */
+export function generateDocumentPath(url) {
+  // Support relative URLs by resolving against localhost base
+  const u = url.startsWith('http') ? new URL(url) : new URL(url, LOCALHOST_URL);
+  let p = u.pathname;
+  p = decodeURIComponent(p)
+    .toLowerCase()
+    .replace(/\.(html|htm)$/i, '')
+    .replace(/[^a-z0-9/]/gm, '-')
+    .replace(/\/index$/, '/');
+  if (p === '/') {
+    return p;
+  }
+  if (p.endsWith('/')) {
+    p = p.slice(0, -1);
+  }
+  return sanitizePath(p);
+}
+
+/**
  * Extract clean filename from URL (no query params or fragments)
  * @param {string} url - The URL to extract filename from
  * @return {string} The filename extracted from the URL
@@ -140,14 +205,8 @@ export function updatePageReferencesInHTML(htmlContent, matchingAssetUrls, siteO
     }
 
     // now we can assume that the reference points to a page on the same site
-    // get the pathname from the href url, without the extension
-    const urlObj = url.startsWith('http') ? new URL(url) : new URL(url, LOCALHOST_URL);
-    const parsedPath = path.parse(urlObj.pathname);
-    const pathWithoutExtension = path.join(parsedPath.dir, parsedPath.name);
-    // update the href attribute to point to the DA content location
-    const newUrl = pathWithoutExtension.startsWith('/')
-      ? `${pathWithoutExtension}`
-      : `/${pathWithoutExtension}`;
+    // sanitize and normalize using generateDocumentPath
+    const newUrl = generateDocumentPath(url);
     element.setAttribute('href', newUrl);
     updatedCount++;
   });
