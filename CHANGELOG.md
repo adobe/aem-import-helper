@@ -1,3 +1,11 @@
+## [1.1.9](https://github.com/adobe/aem-import-helper/compare/v1.1.8...v1.1.9) (2025-08-22)
+
+
+### Bug Fixes
+
+* lint fixes ([#52](https://github.com/adobe/aem-import-helper/issues/52)) ([ee6f662](https://github.com/adobe/aem-import-helper/commit/ee6f662704a897046307b1c7bd1e2b36789dd157))
+* sanitised document paths. ([#50](https://github.com/adobe/aem-import-helper/issues/50)) ([b4345bc](https://github.com/adobe/aem-import-helper/commit/b4345bcbac3259b8a9339eadc3b73231604228a1))
+
 ## [1.1.8](https://github.com/adobe/aem-import-helper/compare/v1.1.7...v1.1.8) (2025-08-19)
 
 
