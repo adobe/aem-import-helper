@@ -117,7 +117,7 @@ describe('da-helper.js', () => {
         expect(generateDocumentPath('https://example.com/section/index')).to.equal('/section');
         expect(generateDocumentPath('https://example.com/index')).to.equal('/');
       });
-      it('should replace non [a-z0-9\/] with hyphens', () => {
+      it('should replace non [a-z0-9\\/] with hyphens', () => {
         expect(generateDocumentPath('https://example.com/A&B/C+D.html')).to.equal('/a-b/c-d');
       });
       it('should support relative URLs', () => {
