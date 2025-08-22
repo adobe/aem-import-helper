@@ -195,6 +195,10 @@ export function updatePageReferencesInHTML(htmlContent, matchingAssetUrls, siteO
   // Get all anchor tags and update their href attributes
   document.querySelectorAll('a[href]').forEach(element => {
     const url = element.getAttribute('href');
+    // Do not modify mailto links
+    if (typeof url === 'string' && url.toLowerCase().startsWith('mailto:')) {
+      return;
+    }
     // Skip if this URL is in the matching asset URLs (already handled by updateImagesInHTML)
     if (matchingAssetUrls.includes(url)) {
       return;
