@@ -24,7 +24,7 @@ export const IMAGE_EXTENSIONS = new Set([
 
 // Extensions that should NOT be converted to PNG when conversion is enabled
 export const DO_NOT_CONVERT_EXTENSIONS = new Set([
-  '.jpg', '.jpeg', '.png', '.gif', '.ico', '.svg', '.mp4',
+  '.jpg', '.jpeg', '.png', '.gif', '.ico', '.svg', '.mp4', '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
 ]);
 
 // Content-Types that should NOT be converted to PNG when conversion is enabled

@@ -158,13 +158,14 @@ function updateAssetReferencesInHTML(fullShadowPath, htmlContent, assetUrls, daC
       const url = element.getAttribute(attribute);
       if (assetUrls.has(url)) {
         let filename = getFilename(url);
-        if (options.convertImagesToPng) {
-          const ext = pathDep.extname(filename).toLowerCase();
-          if (!DO_NOT_CONVERT_EXTENSIONS.has(ext)) {
-            filename = `${pathDep.basename(filename, ext)}.png`;
-          }
+        const ext = pathDep.extname(filename).toLowerCase();
+        const base = pathDep.basename(filename, ext);
+        const sanitizedBase = sanitizeFilename(base);
+        let sanitizedFilename = `${sanitizedBase}${ext}`;
+        if (options.convertImagesToPng && !DO_NOT_CONVERT_EXTENSIONS.has(ext)) {
+          sanitizedFilename = `${sanitizedBase}.png`;
         }
-        element.setAttribute(attribute, `${daContentUrl}/${fullShadowPath}/${filename}`);
+        element.setAttribute(attribute, `${daContentUrl}/${fullShadowPath}/${sanitizedFilename}`);
       }
     });
   });
@@ -195,8 +196,8 @@ export function updatePageReferencesInHTML(htmlContent, matchingAssetUrls, siteO
   // Get all anchor tags and update their href attributes
   document.querySelectorAll('a[href]').forEach(element => {
     const url = element.getAttribute('href');
-    // Do not modify mailto links
-    if (typeof url === 'string' && url.toLowerCase().startsWith('mailto:')) {
+    // Do not modify mailto or telephone links
+    if (typeof url === 'string' && /^(mailto|tel):/i.test(url)) {
       return;
     }
     // Skip if this URL is in the matching asset URLs (already handled by updateImagesInHTML)
@@ -230,7 +231,15 @@ export function updatePageReferencesInHTML(htmlContent, matchingAssetUrls, siteO
  */
 export function createAssetMapping(matchingHrefs, fullShadowPath) {
   return new Map(
-    matchingHrefs.map(url => [url, `/${fullShadowPath}/${getFilename(url)}`]),
+    matchingHrefs.map((url) => {
+      const filename = getFilename(url);
+      const parts = filename.split('.');
+      const ext = parts.length > 1 ? `.${parts.pop().toLowerCase()}` : '';
+      const base = parts.join('.');
+      const sanitizedBase = sanitizeFilename(base);
+      const sanitizedFilename = `${sanitizedBase}${ext}`;
+      return [url, `/${fullShadowPath}/${sanitizedFilename}`];
+    }),
   );
 }
 
