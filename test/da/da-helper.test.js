@@ -81,6 +81,19 @@ describe('da-helper.js', () => {
       const result = createAssetMapping(assetUrls, '');
       expect(result.get('foo.js')).to.equal('//foo.js');
     });
+
+    it('should sanitize filenames while preserving extension', () => {
+      const assetUrls = [
+        'https://example.com/assets/My File(1).JPG',
+        'subdir/Img.Name v2.PNG',
+      ];
+      const result1 = createAssetMapping([assetUrls[0]], '.mypage');
+      expect(result1.get(assetUrls[0])).to.equal('/.mypage/my-file-1.jpg');
+
+      const result2 = createAssetMapping([assetUrls[1]], '.page');
+      // subdir portion is discarded by mapping; only basename is used
+      expect(result2.get(assetUrls[1])).to.equal('/.page/img-name-v2.png');
+    });
   });
 
   describe('sanitizers', () => {
