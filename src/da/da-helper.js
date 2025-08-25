@@ -161,7 +161,7 @@ function updateAssetReferencesInHTML(fullShadowPath, htmlContent, assetUrls, daC
         const ext = pathDep.extname(filename).toLowerCase();
         const base = pathDep.basename(filename, ext);
         const sanitizedBase = sanitizeFilename(base);
-        let outFilename = `${sanitizedBase}${ext}`;
+        let sanitizedFilename = `${sanitizedBase}${ext}`;
         if (options.convertImagesToPng && !DO_NOT_CONVERT_EXTENSIONS.has(ext)) {
           outFilename = `${sanitizedBase}.png`;
         }
