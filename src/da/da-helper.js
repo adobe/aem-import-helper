@@ -163,9 +163,9 @@ function updateAssetReferencesInHTML(fullShadowPath, htmlContent, assetUrls, daC
         const sanitizedBase = sanitizeFilename(base);
         let sanitizedFilename = `${sanitizedBase}${ext}`;
         if (options.convertImagesToPng && !DO_NOT_CONVERT_EXTENSIONS.has(ext)) {
-          outFilename = `${sanitizedBase}.png`;
+          sanitizedFilename = `${sanitizedBase}.png`;
         }
-        element.setAttribute(attribute, `${daContentUrl}/${fullShadowPath}/${outFilename}`);
+        element.setAttribute(attribute, `${daContentUrl}/${fullShadowPath}/${sanitizedFilename}`);
       }
     });
   });
