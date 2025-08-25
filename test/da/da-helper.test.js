@@ -497,7 +497,7 @@ describe('da-helper.js', () => {
         downloadAssets: mockDownloadAssets,
         uploadFolder: mockUploadFolder,
         uploadFile: mockUploadFile,
-        getAllFiles: sinon.stub().callsFake((dir, exts) => {
+        getAllFiles: sinon.stub().callsFake((exts) => {
           if (exts && exts.includes('.json')) {
             return [];
           }
