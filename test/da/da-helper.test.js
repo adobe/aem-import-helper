@@ -81,6 +81,35 @@ describe('da-helper.js', () => {
       const result = createAssetMapping(assetUrls, '');
       expect(result.get('foo.js')).to.equal('//foo.js');
     });
+
+    it('should sanitize filenames while preserving extension', () => {
+      const assetUrls = [
+        'https://example.com/assets/My File(1).JPG',
+        'subdir/Img.Name v2.PNG',
+      ];
+      const result1 = createAssetMapping([assetUrls[0]], '.mypage');
+      expect(result1.get(assetUrls[0])).to.equal('/.mypage/my-file-1.jpg');
+
+      const result2 = createAssetMapping([assetUrls[1]], '.page');
+      // subdir portion is discarded by mapping; only basename is used
+      expect(result2.get(assetUrls[1])).to.equal('/.page/img-name-v2.png');
+    });
+
+    it('should sanitize common special characters and keep various extensions', () => {
+      const cases = [
+        ['ASSET_NAME_01.PDF', '/.page/asset-name-01.pdf'],
+        ['weird*chars@file(2).Docx', '/.page/weird-chars-file-2.docx'],
+        ['spaces%20and+plus.JPG', '/.page/spaces-and-plus.jpg'],
+        ['multi.dot.name.v1.PDF', '/.page/multi-dot-name-v1.pdf'],
+        ['_leading_trailing_.png', '/.page/leading-trailing.png'],
+        ['ümlaut-çédilla.TIFF', '/.page/umlaut-cedilla.tiff'],
+        ['report.final.V2.PPTX', '/.page/report-final-v2.pptx'],
+      ];
+      cases.forEach(([input, expected]) => {
+        const result = createAssetMapping([input], '.page');
+        expect(result.get(input)).to.equal(expected);
+      });
+    });
   });
 
   describe('sanitizers', () => {
@@ -407,6 +436,57 @@ describe('da-helper.js', () => {
   });
 
   describe('processPages', () => {
+    it('should sanitize rewritten asset URLs for images and anchors', async () => {
+      const createdFolders = new Set(['/html', '/download', '/download/assets', '/html', '/download/assets/.page1']);
+      const mockFs = {
+        existsSync: sinon.stub().callsFake((p) => createdFolders.has(p)),
+        mkdirSync: sinon.stub().callsFake((p) => createdFolders.add(p)),
+        readFileSync: sinon.stub().returns('<html><img src="My_File(1).JPG"><a href="report.final.V2.PDF">Download</a></html>'),
+        writeFileSync: sinon.stub(),
+        readdirSync: sinon.stub().returns([]),
+        statSync: sinon.stub().returns({ isFile: () => true, isDirectory: () => false }),
+        unlinkSync: sinon.stub(),
+        rmSync: sinon.stub(),
+        rm: sinon.stub().callsArg(2),
+      };
+      const mockPath = path;
+      const mockDownloadAssets = sinon.stub().resolves([{ status: 'fulfilled', value: 'My_File(1).JPG' }, { status: 'fulfilled', value: 'report.final.V2.PDF' }]);
+      const mockUploadFolder = sinon.stub().resolves({ success: true });
+      const mockUploadFile = sinon.stub().resolves({ success: true });
+      const getHTMLFilesStub = sinon.stub().returns(['/html/page1.html']);
+      const mockDeps = {
+        fs: mockFs,
+        path: mockPath,
+        chalk: mockChalk,
+        JSDOM,
+        downloadAssets: mockDownloadAssets,
+        uploadFolder: mockUploadFolder,
+        uploadFile: mockUploadFile,
+        getAllFiles: sinon.stub().callsFake((dir, exts) => {
+          if (exts && exts.includes('.json')) {
+            return [];
+          }
+          return getHTMLFilesStub();
+        }),
+      };
+      const assetUrls = new Set(['My_File(1).JPG', 'report.final.V2.PDF']);
+      await processPages(
+        'https://admin.da.live/source/org/site',
+        'https://content.da.live/org/site',
+        assetUrls,
+        'https://example.com',
+        '/html',
+        '/download',
+        'token',
+        false,
+        { maxRetries: 3, retryDelay: 100, imagesToPng: false },
+        mockDeps,
+      );
+
+      const writtenContent = mockFs.writeFileSync.getCall(0).args[1];
+      expect(writtenContent).to.include('my-file-1');
+      expect(writtenContent).to.include('report-final-v2');
+    });
     it('should rewrite asset references to DA but keep original extension when imagesToPng is false', async () => {
       const createdFolders = new Set(['/html', '/download', '/download/assets', '/html', '/download/assets/.page1']);
       const mockFs = {
@@ -484,7 +564,7 @@ describe('da-helper.js', () => {
         downloadAssets: mockDownloadAssets,
         uploadFolder: mockUploadFolder,
         uploadFile: mockUploadFile,
-        getAllFiles: sinon.stub().callsFake((dir, exts) => {
+        getAllFiles: sinon.stub().callsFake((exts) => {
           if (exts && exts.includes('.json')) {
             return [];
           }
