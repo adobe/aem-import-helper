@@ -1,3 +1,10 @@
+## [1.1.11](https://github.com/adobe/aem-import-helper/compare/v1.1.10...v1.1.11) (2025-08-26)
+
+
+### Bug Fixes
+
+* [DA] sanitise asset file name before adding to DA  ([#55](https://github.com/adobe/aem-import-helper/issues/55)) ([605738d](https://github.com/adobe/aem-import-helper/commit/605738d8d9af63c31f22ffbae2f00c2ad9d78c63))
+
 ## [1.1.10](https://github.com/adobe/aem-import-helper/compare/v1.1.9...v1.1.10) (2025-08-22)
 
 
