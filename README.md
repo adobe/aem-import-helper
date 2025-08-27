@@ -137,8 +137,6 @@ npm run aem-upload -- \
   --zip /path/to/zip.zip \
   --asset-mapping /path/to/asset-mapping.json \
   --target https://author-p1234-e1234.adobeaemcloud.com
-  --keep
-  --output /path/to/download/folder
 ```
 
 **Required:**
