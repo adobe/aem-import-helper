@@ -47,7 +47,7 @@ describe('da-helper.js', () => {
   });
 
   describe('createAssetMapping', () => {
-    it('should map asset URLs to shadow folder paths', () => {
+    it('should map image URLs to shadow folder and non-images to page parent path', () => {
       const assetUrls = [
         'https://example.com/styles.css',
         'https://example.com/script.js',
@@ -55,17 +55,20 @@ describe('da-helper.js', () => {
         'https://example.com/subfolder/icon.png',
         'https://example.com/document.pdf',
       ];
-      const result = createAssetMapping(assetUrls, '.mypage');
-      expect(result.get('https://example.com/styles.css')).to.equal('/.mypage/styles.css');
-      expect(result.get('https://example.com/script.js')).to.equal('/.mypage/script.js');
-      expect(result.get('https://example.com/image.jpg')).to.equal('/.mypage/image.jpg');
-      expect(result.get('https://example.com/subfolder/icon.png')).to.equal('/.mypage/icon.png');
-      expect(result.get('https://example.com/document.pdf')).to.equal('/.mypage/document.pdf');
+      const result = createAssetMapping(assetUrls, 'documents/.mypage');
+      // Non-images go to media folder under page parent path
+      expect(result.get('https://example.com/styles.css')).to.equal('/documents/media/styles.css');
+      expect(result.get('https://example.com/script.js')).to.equal('/documents/media/script.js');
+      expect(result.get('https://example.com/document.pdf')).to.equal('/documents/media/document.pdf');
+      // Images go to shadow folder
+      expect(result.get('https://example.com/image.jpg')).to.equal('/documents/.mypage/image.jpg');
+      expect(result.get('https://example.com/subfolder/icon.png')).to.equal('/documents/.mypage/icon.png');
     });
 
     it('should handle relative asset URLs', () => {
       const assetUrls = ['local.jpg', 'subdir/photo.png'];
       const result = createAssetMapping(assetUrls, '.page');
+      // Both are images, so go to shadow folder (no parent path, just shadow folder)
       expect(result.get('local.jpg')).to.equal('/.page/local.jpg');
       expect(result.get('subdir/photo.png')).to.equal('/.page/photo.png');
     });
@@ -76,10 +79,11 @@ describe('da-helper.js', () => {
       expect(result.size).to.equal(0);
     });
 
-    it('should handle empty fullShadowPath', () => {
+    it('should handle empty paths', () => {
       const assetUrls = ['foo.js'];
       const result = createAssetMapping(assetUrls, '');
-      expect(result.get('foo.js')).to.equal('//foo.js');
+      // Non-images go to media folder even with empty page parent path
+      expect(result.get('foo.js')).to.equal('/media/foo.js');
     });
 
     it('should sanitize filenames while preserving extension', () => {
@@ -88,25 +92,29 @@ describe('da-helper.js', () => {
         'subdir/Img.Name v2.PNG',
       ];
       const result1 = createAssetMapping([assetUrls[0]], '.mypage');
+      // Images go to shadow folder
       expect(result1.get(assetUrls[0])).to.equal('/.mypage/my-file-1.jpg');
 
       const result2 = createAssetMapping([assetUrls[1]], '.page');
       // subdir portion is discarded by mapping; only basename is used
+      // Images go to shadow folder
       expect(result2.get(assetUrls[1])).to.equal('/.page/img-name-v2.png');
     });
 
-    it('should sanitize common special characters and keep various extensions', () => {
+    it('should sanitize common special characters and route assets correctly', () => {
       const cases = [
-        ['ASSET_NAME_01.PDF', '/.page/asset-name-01.pdf'],
-        ['weird*chars@file(2).Docx', '/.page/weird-chars-file-2.docx'],
-        ['spaces%20and+plus.JPG', '/.page/spaces-and-plus.jpg'],
-        ['multi.dot.name.v1.PDF', '/.page/multi-dot-name-v1.pdf'],
-        ['_leading_trailing_.png', '/.page/leading-trailing.png'],
-        ['ümlaut-çédilla.TIFF', '/.page/umlaut-cedilla.tiff'],
-        ['report.final.V2.PPTX', '/.page/report-final-v2.pptx'],
+        // Non-images go to media folder under page parent path
+        ['ASSET_NAME_01.PDF', '/assets/media/asset-name-01.pdf'],
+        ['weird*chars@file(2).Docx', '/assets/media/weird-chars-file-2.docx'],
+        ['multi.dot.name.v1.PDF', '/assets/media/multi-dot-name-v1.pdf'],
+        ['report.final.V2.PPTX', '/assets/media/report-final-v2.pptx'],
+        // Images go to shadow folder
+        ['spaces%20and+plus.JPG', '/assets/.page/spaces-and-plus.jpg'],
+        ['_leading_trailing_.png', '/assets/.page/leading-trailing.png'],
+        ['ümlaut-çédilla.TIFF', '/assets/.page/umlaut-cedilla.tiff'],
       ];
       cases.forEach(([input, expected]) => {
-        const result = createAssetMapping([input], '.page');
+        const result = createAssetMapping([input], 'assets/.page');
         expect(result.get(input)).to.equal(expected);
       });
     });
@@ -535,7 +543,7 @@ describe('da-helper.js', () => {
       );
 
       const writtenContent = mockFs.writeFileSync.getCall(0).args[1];
-      expect(writtenContent).to.include('src="https://content.da.live/org/site/.page1/image.jpg"');
+      expect(writtenContent).to.include('src="./.page1/image.jpg"');
       expect(writtenContent).to.not.include('.png');
     });
     it('should process pages one by one, downloading and uploading assets immediately', async () => {
@@ -593,7 +601,7 @@ describe('da-helper.js', () => {
 
       // Check that the HTML content was updated with proper references
       const writtenContent = mockFs.writeFileSync.getCall(0).args[1];
-      expect(writtenContent).to.include('src="https://content.da.live/org/site/.page1/image.jpg"'); // Asset reference updated with original ext
+      expect(writtenContent).to.include('src="./.page1/image.jpg"'); // Image uses relative path to shadow folder
 
       // Final cleanup should be called for the download folder
       expect(mockFs.unlinkSync.calledWith('/download')).to.be.true;
@@ -649,7 +657,7 @@ describe('da-helper.js', () => {
       // Check that the HTML content was updated correctly
       expect(mockFs.writeFileSync.calledOnce).to.be.true;
       const writtenContent = mockFs.writeFileSync.getCall(0).args[1];
-      expect(writtenContent).to.include('src="https://content.da.live/org/site/.page1/image.jpg"'); // Asset reference updated with original ext
+      expect(writtenContent).to.include('src="./.page1/image.jpg"'); // Image uses relative path to shadow folder
       expect(writtenContent).to.include('href="/other-page"'); // Page reference updated (extension removed, site-relative)
       expect(writtenContent).to.include('href="/absolute"'); // Absolute URL updated (extension removed, site-relative)
       expect(writtenContent).to.include('https://external.com/some-page.html'); // External URL not updated
@@ -1041,7 +1049,7 @@ describe('da-helper.js', () => {
       // Check that page references were NOT updated (original HTML should be preserved)
       const writtenContent = mockFs.writeFileSync.getCall(0).args[1];
       expect(writtenContent).to.include('<a href="/other-page.html">Link</a>'); // Original link unchanged
-      expect(writtenContent).to.include('src="https://content.da.live/org/site/.page1/image.jpg"'); // Asset reference updated with original ext
+      expect(writtenContent).to.include('src="./.page1/image.jpg"'); // Image uses relative path to shadow folder
     });
   });
 
