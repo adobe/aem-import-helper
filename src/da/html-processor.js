@@ -16,8 +16,7 @@ import { JSDOM } from 'jsdom';
 import { DO_NOT_CONVERT_EXTENSIONS } from '../utils/download-assets.js';
 import { uploadFile } from './upload.js';
 import { 
-  sanitizeFilename, 
-  getFilename, 
+  getSanitizedFilenameFromUrl, 
   generateDocumentPath, 
   extractPageParentPath, 
   buildEdgeDeliveryUrl,
@@ -82,7 +81,15 @@ export function extractUrlsFromHTML(htmlContent, dependencies = defaultDependenc
  * @param {boolean} options.convertImagesToPng - Whether to convert images to PNG
  * @return {string} Updated HTML content with modified hrefs and srcs
  */
-export function updateAssetReferencesInHTML(fullShadowPath, htmlContent, assetUrls, org, site, dependencies = defaultDependencies, options = {}) {
+export function updateAssetReferencesInHTML(
+  fullShadowPath,
+  htmlContent,
+  assetUrls,
+  org,
+  site,
+  dependencies = defaultDependencies,
+  options = {},
+) {
   const { JSDOM: JSDOMDep = JSDOM, path: pathDep = path, chalk: chalkDep } = dependencies;
   const dom = new JSDOMDep(htmlContent);
   const document = dom.window.document;
@@ -103,17 +110,15 @@ export function updateAssetReferencesInHTML(fullShadowPath, htmlContent, assetUr
     document.querySelectorAll(selector).forEach(element => {
       const url = element.getAttribute(attribute);
       if (assetUrls.has(url)) {
-        let filename = getFilename(url);
-        const ext = pathDep.extname(filename).toLowerCase();
-        const base = pathDep.basename(filename, ext);
-        const sanitizedBase = sanitizeFilename(base);
-        let sanitizedFilename = `${sanitizedBase}${ext}`;
+        let sanitizedFilename = getSanitizedFilenameFromUrl(url);
+        const ext = pathDep.extname(sanitizedFilename).toLowerCase();
+        const base = pathDep.basename(sanitizedFilename, ext);
         
         if (options.convertImagesToPng && !DO_NOT_CONVERT_EXTENSIONS.has(ext)) {
-          sanitizedFilename = `${sanitizedBase}.png`;
+          sanitizedFilename = `${base}.png`;
         }
 
-        const isImage = isImageAsset(filename, dependencies);
+        const isImage = isImageAsset(sanitizedFilename, dependencies);
 
         if (isImage) {
           // Images urls point to ${daContentUrl}/${fullShadowPath}/${sanitizedFilename}
@@ -125,7 +130,9 @@ export function updateAssetReferencesInHTML(fullShadowPath, htmlContent, assetUr
         } else {
           // Non-image asset urls should point to their Edge Delivery preview URLs
           const pageParentUrlPath = pageParentPath ? pageParentPath.replace(/\\/g, '/') : '';
-          const mediaPath = pageParentUrlPath ? `${pageParentUrlPath}/media/${sanitizedFilename}` : `media/${sanitizedFilename}`;
+          const mediaPath = pageParentUrlPath
+            ? `${pageParentUrlPath}/media/${sanitizedFilename}`
+            : `media/${sanitizedFilename}`;
           const edgeUrl = buildEdgeDeliveryUrl(org, site, mediaPath);
           console.log(chalkDep.cyan(`  Media: ${url} → ${edgeUrl}`));
           element.setAttribute(attribute, edgeUrl);
@@ -150,7 +157,12 @@ export function updateAssetReferencesInHTML(fullShadowPath, htmlContent, assetUr
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {string} Updated HTML content
  */
-export function updatePageReferencesInHTML(htmlContent, matchingAssetUrls, siteOrigin, dependencies = defaultDependencies) {
+export function updatePageReferencesInHTML(
+  htmlContent,
+  matchingAssetUrls,
+  siteOrigin,
+  dependencies = defaultDependencies,
+) {
   const { JSDOM: JSDOMDep = JSDOM, chalk: chalkDep } = dependencies;
   const dom = new JSDOMDep(htmlContent);
   const document = dom.window.document;
@@ -192,24 +204,20 @@ export function updatePageReferencesInHTML(htmlContent, matchingAssetUrls, siteO
 }
 
 /**
- * Calculate the HTML path and base folder for saving to download folder
+ * Get save location for HTML file operations
  * @param {string} pagePath - Original path to the HTML page
  * @param {string} htmlFolder - Base HTML folder
  * @param {string} downloadFolder - Base download folder
  * @param {Object} dependencies - Dependencies for testing (optional)
- * @return {Object} Object containing the updated HTML path and base folder
+ * @return {string} HTML path for saving
  */
-export function calculateHtmlPathAndBaseFolder(pagePath, htmlFolder, downloadFolder, dependencies = defaultDependencies) {
+export function getSaveLocation(pagePath, htmlFolder, downloadFolder, dependencies = defaultDependencies) {
   const { path: pathDep = path } = dependencies;
 
   const htmlRelativePath = pathDep.relative(htmlFolder, pagePath);
-  const updatedHtmlPath = pathDep.join(downloadFolder, 'html', htmlRelativePath);
-  const htmlBaseFolder = pathDep.join(downloadFolder, 'html');
+  const htmlPath = pathDep.join(downloadFolder, 'html', htmlRelativePath);
 
-  return {
-    updatedHtmlPath,
-    htmlBaseFolder,
-  };
+  return htmlPath;
 }
 
 /**
@@ -235,18 +243,26 @@ export function saveHtmlToDownloadFolder(htmlContent, updatedHtmlPath, dependenc
  * @param {string} daAdminUrl - The admin.da.live URL
  * @param {string} token - Authentication token
  * @param {Object} uploadOptions - Upload options
- * @param {string} htmlFolder - Base HTML folder for relative path calculation
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Promise<void>}
  */
-export async function uploadHTMLPage(pagePath, daAdminUrl, token, uploadOptions, htmlFolder, dependencies = defaultDependencies) {
-  const { chalk: chalkDep, uploadFile: uploadFileDep = uploadFile } = dependencies;
+export async function uploadHTMLPage(
+  pagePath,
+  daAdminUrl,
+  token,
+  uploadOptions,
+  dependencies = defaultDependencies,
+) {
+  const { chalk: chalkDep, uploadFile: uploadFileDep = uploadFile, path: pathDep = path } = dependencies;
+
+  // Calculate baseFolder from pagePath (parent directory)
+  const baseFolder = pathDep.dirname(pagePath);
 
   console.log(chalkDep.yellow(`Uploading updated HTML page: ${pagePath}...`));
   try {
     await uploadFileDep(pagePath, daAdminUrl, token, {
       ...uploadOptions,
-      baseFolder: htmlFolder,
+      baseFolder,
     });
     console.log(chalkDep.green(`Successfully uploaded HTML page: ${pagePath}`));
   } catch (uploadError) {

@@ -32,7 +32,7 @@ import {
   extractUrlsFromHTML,
   updateAssetReferencesInHTML,
   updatePageReferencesInHTML,
-  calculateHtmlPathAndBaseFolder,
+  getSaveLocation,
   saveHtmlToDownloadFolder,
   uploadHTMLPage,
 } from './html-processor.js';
@@ -62,7 +62,19 @@ const defaultDependencies = {
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Promise<void>}
  */
-async function processSinglePage(pagePath, htmlContent, assetUrls, siteOrigin, downloadFolder, org, site, token, uploadOptions, htmlFolder, dependencies = defaultDependencies) {
+async function processSinglePage(
+  pagePath,
+  htmlContent,
+  assetUrls,
+  siteOrigin,
+  downloadFolder,
+  org,
+  site,
+  token,
+  uploadOptions,
+  htmlFolder,
+  dependencies = defaultDependencies,
+) {
   const { chalk: chalkDep } = dependencies;
   
   console.log(chalkDep.blue(`\nProcessing page: ${pagePath}`));
@@ -101,8 +113,10 @@ async function processSinglePage(pagePath, htmlContent, assetUrls, siteOrigin, d
       fullyQualifiedAssetUrls, 
       fullShadowPath, 
       downloadFolder, 
-      uploadOptions.maxRetries || 3, 
-      uploadOptions.retryDelay || 1000, 
+      {
+        maxRetries: uploadOptions.maxRetries || 3,
+        retryDelay: uploadOptions.retryDelay || 1000,
+      },
       dependencies,
     );
 
@@ -110,7 +124,9 @@ async function processSinglePage(pagePath, htmlContent, assetUrls, siteOrigin, d
     const daAdminUrl = buildDaAdminUrl(org, site);
     await uploadPageAssets(assetMapping, daAdminUrl, token, uploadOptions, downloadFolder, dependencies);
   } else {
-    console.log(chalkDep.gray(`No asset references found for page ${pagePath}. Updating page references and uploading HTML as-is...`));
+    console.log(
+      chalkDep.gray(`No asset references found for page ${pagePath}. Updating page references and uploading HTML as-is...`),
+    );
   }
 
   // Update page references in the HTML content to point to their DA location
@@ -127,20 +143,19 @@ async function processSinglePage(pagePath, htmlContent, assetUrls, siteOrigin, d
     uploadOptions,
   );
 
-
-  // Calculate paths and save HTML
-  const { updatedHtmlPath, htmlBaseFolder } = calculateHtmlPathAndBaseFolder(
+  // Get save location and save HTML
+  const htmlPath = getSaveLocation(
     pagePath, 
     htmlFolder, 
     downloadFolder, 
     dependencies,
   );
   
-  saveHtmlToDownloadFolder(finalHtmlContent, updatedHtmlPath, dependencies);
+  saveHtmlToDownloadFolder(finalHtmlContent, htmlPath, dependencies);
 
   // Upload HTML to DA
   const daAdminUrl = buildDaAdminUrl(org, site);
-  await uploadHTMLPage(updatedHtmlPath, daAdminUrl, token, uploadOptions, htmlBaseFolder, dependencies);
+  await uploadHTMLPage(htmlPath, daAdminUrl, token, uploadOptions, dependencies);
 
   console.log(chalkDep.green(`Completed processing page: ${pagePath}`));
 }
@@ -159,7 +174,18 @@ async function processSinglePage(pagePath, htmlContent, assetUrls, siteOrigin, d
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Promise<void>}
  */
-export async function processPages(org, site, assetUrls, siteOrigin, daFolder, downloadFolder, token, keep = false, uploadOptions = {}, dependencies = defaultDependencies) {
+export async function processPages(
+  org,
+  site,
+  assetUrls,
+  siteOrigin,
+  daFolder,
+  downloadFolder,
+  token,
+  keep = false,
+  uploadOptions = {},
+  dependencies = defaultDependencies,
+) {
   const { fs: fsDep, chalk: chalkDep, getAllFiles: getAllFilesDep } = dependencies;
 
   console.log(chalkDep.blue(`Starting DA upload process for ${org}/${site}`));
@@ -213,6 +239,3 @@ export async function processPages(org, site, assetUrls, siteOrigin, daFolder, d
     }
   }
 }
-
-// Export the updateAssetReferencesInHTML function for backwards compatibility and testing
-export { updateAssetReferencesInHTML } from './html-processor.js';

@@ -12,6 +12,7 @@
 
 import path from 'path';
 import { JSDOM } from 'jsdom';
+import sinon from 'sinon';
 
 // Common mock objects for DA tests
 export const mockChalk = {
@@ -24,24 +25,35 @@ export const mockChalk = {
 };
 
 // Common mock dependencies
-export const createMockDependencies = (overrides = {}) => ({
-  fs: {
-    readFileSync: () => '<html><body></body></html>',
-    writeFileSync: () => {},
-    mkdirSync: () => {},
-    existsSync: () => true,
-    rmSync: () => {},
-    ...overrides.fs,
-  },
-  path,
-  JSDOM,
-  chalk: mockChalk,
-  downloadAssets: async (mapping) => Array.from(mapping.keys()).map(() => ({ status: 'fulfilled' })),
-  uploadFolder: async () => {},
-  uploadFile: async () => {},
-  getAllFiles: () => ['/html/page1.html'],
-  ...overrides,
-});
+export const createMockDependencies = (overrides = {}) => {
+  const dependencies = {
+    fs: {
+      readFileSync: sinon.stub().returns('<html><body></body></html>'),
+      writeFileSync: sinon.stub(),
+      mkdirSync: sinon.stub(),
+      existsSync: sinon.stub().returns(true),
+      rmSync: sinon.stub(),
+      ...overrides.fs,
+    },
+    path,
+    JSDOM,
+    chalk: mockChalk,
+    downloadAssets: sinon.stub().callsFake(async (mapping) => Array.from(mapping.keys()).map(() => ({ status: 'fulfilled' }))),
+    uploadFolder: sinon.stub().resolves(),
+    uploadFile: sinon.stub().resolves(),
+    getAllFiles: sinon.stub().returns(['/html/page1.html']),
+    ...overrides,
+  };
+
+  // Apply overrides to individual properties if they exist
+  Object.keys(overrides).forEach(key => {
+    if (typeof overrides[key] === 'function' && dependencies[key]) {
+      dependencies[key] = sinon.stub().callsFake(overrides[key]);
+    }
+  });
+
+  return dependencies;
+};
 
 // Common test data
 export const testAssetUrls = [

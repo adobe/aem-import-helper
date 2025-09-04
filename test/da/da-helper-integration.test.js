@@ -233,10 +233,10 @@ describe('da-helper.js - Integration Tests', () => {
     });
 
     it('should handle no HTML files gracefully', async () => {
-      const mockDeps = createMockDependencies({
-        getAllFiles: () => [], // No files
-      });
+      const mockDeps = createMockDependencies();
+      mockDeps.getAllFiles.returns([]); // No files
 
+      // Just verify it completes without throwing errors
       await processPages(
         testOrg,
         testSite,
@@ -250,21 +250,14 @@ describe('da-helper.js - Integration Tests', () => {
         mockDeps,
       );
 
-      // Should complete without error
-      expect(true).to.be.true;
+      // Verify getAllFiles was called and returned empty array
+      expect(mockDeps.getAllFiles.calledOnce).to.be.true;
+      expect(mockDeps.getAllFiles.returnValues[0]).to.deep.equal([]);
     });
 
     it('should handle missing siteOrigin gracefully', async () => {
-      const mockDeps = createMockDependencies({
-        fs: {
-          readFileSync: () => '<html><body><a href="/page">Link</a></body></html>',
-          writeFileSync: () => {},
-          mkdirSync: () => {},
-          existsSync: () => true,
-          rmSync: () => {},
-        },
-        getAllFiles: () => ['/html/page1.html'],
-      });
+      const mockDeps = createMockDependencies();
+      mockDeps.fs.readFileSync.returns('<html><body><a href="/page">Link</a></body></html>');
 
       await processPages(
         testOrg,
@@ -279,8 +272,11 @@ describe('da-helper.js - Integration Tests', () => {
         mockDeps,
       );
 
-      // Should complete without error
-      expect(true).to.be.true;
+      // Verify the page was actually processed successfully
+      expect(mockDeps.getAllFiles.calledOnce).to.be.true;
+      expect(mockDeps.uploadFile.calledOnce).to.be.true;
+      
+      // Should complete without throwing errors even with null siteOrigin
     });
   });
 

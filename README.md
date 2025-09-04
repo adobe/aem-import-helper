@@ -186,7 +186,6 @@ npm run da-upload -- \
   --asset-list /path/to/asset-list.json \
   --da-folder /path/to/da/folder \
   --output /path/to/download/folder \
-  --keep
 ```
 
 **Required:**

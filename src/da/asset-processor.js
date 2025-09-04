@@ -13,7 +13,7 @@
 import path from 'path';
 import { downloadAssets, IMAGE_EXTENSIONS } from '../utils/download-assets.js';
 import { uploadFolder } from './upload.js';
-import { sanitizeFilename, getFilename, extractPageParentPath } from './url-utils.js';
+import { getSanitizedFilenameFromUrl, extractPageParentPath } from './url-utils.js';
 
 /**
  * Check if a file is an image based on its extension
@@ -41,15 +41,10 @@ export function createAssetMapping(matchingHrefs, fullShadowPath, dependencies =
   
   return new Map(
     matchingHrefs.map((url) => {
-      const filename = getFilename(url);
-      const parts = filename.split('.');
-      const ext = parts.length > 1 ? `.${parts.pop().toLowerCase()}` : '';
-      const base = parts.join('.');
-      const sanitizedBase = sanitizeFilename(base);
-      const sanitizedFilename = `${sanitizedBase}${ext}`;
+      const sanitizedFilename = getSanitizedFilenameFromUrl(url);
       
       // Determine if this is an image asset
-      const isImage = isImageAsset(filename, dependencies);
+      const isImage = isImageAsset(sanitizedFilename, dependencies);
       
       if (isImage) {
         // Images go to shadow folder path
@@ -67,12 +62,20 @@ export function createAssetMapping(matchingHrefs, fullShadowPath, dependencies =
  * @param {Array<string>} matchingHrefs - Array of asset URLs to download
  * @param {string} fullShadowPath - The full shadow folder path (format: {relativePath}/.{pageName} or .{pageName})
  * @param {string} downloadFolder - Base download folder
- * @param {number} maxRetries - Maximum retries for download
- * @param {number} retryDelay - Delay between retries
+ * @param {Object} options - Download options
+ * @param {number} options.maxRetries - Maximum retries for download (default: 3)
+ * @param {number} options.retryDelay - Delay between retries (default: 1000)
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Promise<{downloadResults: Array, assetMapping: Map}>} Download results and asset mapping
  */
-export async function downloadPageAssets(matchingHrefs, fullShadowPath, downloadFolder, maxRetries, retryDelay, dependencies = {}) {
+export async function downloadPageAssets(
+  matchingHrefs,
+  fullShadowPath,
+  downloadFolder,
+  options = {},
+  dependencies = {},
+) {
+  const { maxRetries = 3, retryDelay = 1000 } = options;
   const chalkDep = dependencies.chalk;
   const downloadAssetsFn = dependencies.downloadAssets || downloadAssets;
   
@@ -104,7 +107,14 @@ export async function downloadPageAssets(matchingHrefs, fullShadowPath, download
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Promise<void>}
  */
-export async function uploadPageAssets(assetMapping, daAdminUrl, token, uploadOptions, downloadFolder, dependencies = {}) {
+export async function uploadPageAssets(
+  assetMapping,
+  daAdminUrl,
+  token,
+  uploadOptions,
+  downloadFolder,
+  dependencies = {},
+) {
   const chalkDep = dependencies.chalk;
   const uploadFolderFn = dependencies.uploadFolder || uploadFolder;
   const fsDep = dependencies.fs;

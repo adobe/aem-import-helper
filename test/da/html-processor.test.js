@@ -20,7 +20,7 @@ import {
   extractUrlsFromHTML,
   updateAssetReferencesInHTML,
   updatePageReferencesInHTML,
-  calculateHtmlPathAndBaseFolder,
+  getSaveLocation,
   saveHtmlToDownloadFolder,
   uploadHTMLPage,
 } from '../../src/da/html-processor.js';
@@ -77,8 +77,8 @@ describe('html-processor.js', () => {
         deps,
       );
       
-      expect(result).to.include('https://content.da.live/org/site/page-parent-folder/.board-paper-templates-and-submission-information/image.jpg');
-      expect(result).to.include('https://main--site--org.aem.page/page-parent-folder/media/document.pdf');
+      expect(result).to.include('src="https://content.da.live/org/site/page-parent-folder/.board-paper-templates-and-submission-information/image.jpg"');
+      expect(result).to.include('href="https://main--site--org.aem.page/page-parent-folder/media/document.pdf"');
     });
 
     it('should handle image assets with relative paths', () => {
@@ -98,7 +98,7 @@ describe('html-processor.js', () => {
         deps,
       );
       
-      expect(result).to.include('https://content.da.live/org/site/test-folder/.test-page/photo.png');
+      expect(result).to.include('src="https://content.da.live/org/site/test-folder/.test-page/photo.png"');
     });
 
     it('should handle non-image assets correctly', () => {
@@ -118,7 +118,7 @@ describe('html-processor.js', () => {
         deps,
       );
       
-      expect(result).to.include('https://main--site--org.aem.page/media/document.pdf');
+      expect(result).to.include('href="https://main--site--org.aem.page/media/document.pdf"');
     });
 
     it('should handle assets with parent path correctly', () => {
@@ -138,7 +138,7 @@ describe('html-processor.js', () => {
         deps,
       );
       
-      expect(result).to.include('https://main--site--org.aem.page/documents/reports/media/document.pdf');
+      expect(result).to.include('href="https://main--site--org.aem.page/documents/reports/media/document.pdf"');
     });
   });
 
@@ -199,13 +199,19 @@ describe('html-processor.js', () => {
     });
   });
 
-  describe('calculateHtmlPathAndBaseFolder', () => {
-    it('should calculate correct paths', () => {
+  describe('getSaveLocation', () => {
+    it('should return correct save location path', () => {
       const deps = { path };
-      const result = calculateHtmlPathAndBaseFolder('/html/page.html', '/html', '/download', deps);
+      const htmlPath = getSaveLocation('/html/page.html', '/html', '/download', deps);
       
-      expect(result.updatedHtmlPath).to.include('download/html/page.html');
-      expect(result.htmlBaseFolder).to.include('download/html');
+      expect(htmlPath).to.equal('/download/html/page.html');
+    });
+
+    it('should handle nested paths correctly', () => {
+      const deps = { path };
+      const htmlPath = getSaveLocation('/html/subfolder/page.html', '/html', '/download', deps);
+      
+      expect(htmlPath).to.equal('/download/html/subfolder/page.html');
     });
   });
 
@@ -232,13 +238,122 @@ describe('html-processor.js', () => {
   });
 
   describe('uploadHTMLPage', () => {
-    it('should upload HTML page', async () => {
-      const deps = createMockDependencies();
+    it('should upload HTML page with correct parameters', async () => {
+      let uploadFileCalled = false;
+      let uploadFileArgs = null;
+      const logs = [];
       
-      await uploadHTMLPage('/path/page.html', 'https://admin.da.live/source/org/site', 'token', {}, '/html', deps);
+      const deps = {
+        ...createMockDependencies(),
+        uploadFile: async (pagePath, daAdminUrl, token, options) => {
+          uploadFileCalled = true;
+          uploadFileArgs = { pagePath, daAdminUrl, token, options };
+          return Promise.resolve();
+        },
+        chalk: {
+          yellow: (msg) => { logs.push(`YELLOW: ${msg}`); return msg; },
+          green: (msg) => { logs.push(`GREEN: ${msg}`); return msg; },
+          red: (msg) => { logs.push(`RED: ${msg}`); return msg; },
+        },
+      };
       
-      // Should not throw error
-      expect(true).to.be.true;
+      const uploadOptions = { maxRetries: 3, convertImagesToPng: true };
+      
+      await uploadHTMLPage(
+        '/path/to/page.html',
+        'https://admin.da.live/source/org/site',
+        'test-token',
+        uploadOptions,
+        deps,
+      );
+      
+      // Verify uploadFile was called with correct parameters
+      expect(uploadFileCalled).to.be.true;
+      expect(uploadFileArgs.pagePath).to.equal('/path/to/page.html');
+      expect(uploadFileArgs.daAdminUrl).to.equal('https://admin.da.live/source/org/site');
+      expect(uploadFileArgs.token).to.equal('test-token');
+      expect(uploadFileArgs.options).to.deep.equal({
+        maxRetries: 3,
+        convertImagesToPng: true,
+        baseFolder: '/path/to',
+      });
+      
+      // Verify logging
+      expect(logs).to.include('YELLOW: Uploading updated HTML page: /path/to/page.html...');
+      expect(logs).to.include('GREEN: Successfully uploaded HTML page: /path/to/page.html');
+    });
+
+    it('should handle upload errors properly', async () => {
+      const logs = [];
+      const uploadError = new Error('Upload failed');
+      
+      const deps = {
+        ...createMockDependencies(),
+        uploadFile: async () => {
+          throw uploadError;
+        },
+        chalk: {
+          yellow: (msg) => { logs.push(`YELLOW: ${msg}`); return msg; },
+          green: (msg) => { logs.push(`GREEN: ${msg}`); return msg; },
+          red: (msg) => { logs.push(`RED: ${msg}`); return msg; },
+        },
+      };
+      
+      let thrownError = null;
+      try {
+        await uploadHTMLPage(
+          '/path/to/page.html',
+          'https://admin.da.live/source/org/site',
+          'test-token',
+          {},
+          deps,
+        );
+      } catch (error) {
+        thrownError = error;
+      }
+      
+      // Verify error was re-thrown
+      expect(thrownError).to.equal(uploadError);
+      
+      // Verify error logging
+      expect(logs).to.include('YELLOW: Uploading updated HTML page: /path/to/page.html...');
+      expect(logs).to.include('RED: Error uploading HTML page: /path/to/page.html:');
+      expect(logs).to.not.include('GREEN: Successfully uploaded HTML page: /path/to/page.html');
+    });
+
+    it('should merge upload options with baseFolder correctly', async () => {
+      let capturedOptions = null;
+      
+      const deps = {
+        ...createMockDependencies(),
+        uploadFile: async (pagePath, daAdminUrl, token, options) => {
+          capturedOptions = options;
+          return Promise.resolve();
+        },
+        chalk: mockChalk,
+      };
+      
+      const originalOptions = {
+        maxRetries: 5,
+        retryDelay: 2000,
+        existingOption: 'value',
+      };
+      
+      await uploadHTMLPage(
+        '/page.html',
+        'https://admin.da.live/source/org/site',
+        'token',
+        originalOptions,
+        deps,
+      );
+      
+      // Verify options are merged correctly
+      expect(capturedOptions).to.deep.equal({
+        maxRetries: 5,
+        retryDelay: 2000,
+        existingOption: 'value',
+        baseFolder: '/',
+      });
     });
   });
 
@@ -268,22 +383,24 @@ describe('html-processor.js', () => {
       );
 
       // Should create shadow folder path with dot prefix and full DA content URL
-      expect(result).to.include('https://content.da.live/test-org/test-site/about-uws/leadership/.executive/test-image.jpg');
+      expect(result).to.include(
+        'src="https://content.da.live/test-org/test-site/about-uws/leadership/.executive/test-image.jpg"',
+      );
     });
 
     it('should handle different page names correctly for shadow folders', () => {
       const testCases = [
         {
           fullShadowPath: '.simple-page',
-          expectedPath: 'https://content.da.live/test-org/test-site/.simple-page/test-image.jpg',
+          expectedPath: 'src="https://content.da.live/test-org/test-site/.simple-page/test-image.jpg"',
         },
         {
           fullShadowPath: '.complex-page-name',
-          expectedPath: 'https://content.da.live/test-org/test-site/.complex-page-name/test-image.jpg',
+          expectedPath: 'src="https://content.da.live/test-org/test-site/.complex-page-name/test-image.jpg"',
         },
         {
           fullShadowPath: 'about-uws/leadership/.executive',
-          expectedPath: 'https://content.da.live/test-org/test-site/about-uws/leadership/.executive/test-image.jpg',
+          expectedPath: 'src="https://content.da.live/test-org/test-site/about-uws/leadership/.executive/test-image.jpg"',
         },
       ];
 
@@ -339,7 +456,9 @@ describe('html-processor.js', () => {
       );
 
       // Should create: https://content.da.live/test-org/test-site/about-uws/leadership/.executive/bg-person.png
-      expect(result).to.include('https://content.da.live/test-org/test-site/about-uws/leadership/.executive/bg-person.png');
+      expect(result).to.include(
+        'src="https://content.da.live/test-org/test-site/about-uws/leadership/.executive/bg-person.png"',
+      );
     });
 
     it('should handle root level pages correctly', () => {
@@ -367,7 +486,7 @@ describe('html-processor.js', () => {
       );
 
       // Should create: https://content.da.live/test-org/test-site/.index/logo.png
-      expect(result).to.include('https://content.da.live/test-org/test-site/.index/logo.png');
+      expect(result).to.include('src="https://content.da.live/test-org/test-site/.index/logo.png"');
     });
   });
 });

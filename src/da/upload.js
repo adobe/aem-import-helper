@@ -160,7 +160,9 @@ export async function uploadFile(filePath, uploadUrl, token, options = {}, depen
       // Create upload request
       const { fetchOptions } = createUploadRequest(filePath, userAgent, token, dependencies);
 
-      console.log(chalkDep.yellow(`Uploading file '${filePath}' to '${fullUploadUrl}' (Attempt ${attempts + 1}/${retries + 1})`));
+      console.log(
+        chalkDep.yellow(`Uploading file '${filePath}' to '${fullUploadUrl}' (Attempt ${attempts + 1}/${retries + 1})`),
+      );
 
       // Make the upload request
       const response = await fetchDep(fullUploadUrl, fetchOptions);
@@ -171,7 +173,9 @@ export async function uploadFile(filePath, uploadUrl, token, options = {}, depen
           throw new Error(`Upload failed with status: ${response.status} - ${response.statusText}`);
         } else {
           // Log retry attempt and continue to next iteration
-          console.warn(chalkDep.yellow(`Upload failed for ${filePath} with status: ${response.status}. Retrying in ${retryDelay}ms...`));
+          console.warn(
+            chalkDep.yellow(`Upload failed for ${filePath} with status: ${response.status}. Retrying in ${retryDelay}ms...`),
+          );
           await new Promise(resolve => setTimeout(resolve, retryDelay));
           attempts++;
           continue; // Skip to the next iteration of the while loop
@@ -197,7 +201,9 @@ export async function uploadFile(filePath, uploadUrl, token, options = {}, depen
         console.error(chalkDep.red(`Upload failed for ${filePath} after ${retries + 1} attempts: ${error.message}`));
         throw error; // Re-throw error after all retries are exhausted
       } else {
-        console.warn(chalkDep.yellow(`Upload failed for ${filePath}: ${error.message}. Retrying in ${retryDelay}ms...`));
+        console.warn(
+          chalkDep.yellow(`Upload failed for ${filePath}: ${error.message}. Retrying in ${retryDelay}ms...`),
+        );
         await new Promise(resolve => setTimeout(resolve, retryDelay));
         attempts++;
       }
@@ -309,7 +315,13 @@ export async function uploadFolder(folderPath, uploadUrl, token, options = {}, d
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Promise<Array>} Array of upload results
  */
-export async function uploadFilesBatched(filePaths, uploadUrl, token, options = {}, dependencies = defaultDependencies) {
+export async function uploadFilesBatched(
+  filePaths,
+  uploadUrl,
+  token,
+  options = {},
+  dependencies = defaultDependencies,
+) {
   const { chalk: chalkDep } = dependencies;
   
   if (filePaths.length === 0) {

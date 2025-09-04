@@ -38,7 +38,8 @@ function validateFiles(assetListFile, daFolder) {
 
 /**
  * Validate access to the DA site by making a HEAD request to the target environment.
- * @param {string} listUrl - The DA list URL constructed from org and site (e.g., https://admin.da.live/list/geometrixx/outdoors)
+ * @param {string} listUrl - The DA list URL constructed from org and site
+ *   (e.g., https://admin.da.live/list/geometrixx/outdoors)
  * @param {string} token - The DA authentication token (optional)
  * @return {Promise<Object>} Object with success status and whether token is required
  */
@@ -163,13 +164,17 @@ export const daHandler = async (args) => {
     // Extract the assets array from the JSON structure
     const assetUrls = new Set(assetListJson.assets || []);
     if (assetUrls.size === 0) {
-      console.warn(chalk.yellow('No asset urls found in the asset-list file. Expected format: {"assets": ["url1", "url2", ...]}'));
+      console.warn(
+        chalk.yellow('No asset urls found in the asset-list file. Expected format: {"assets": ["url1", "url2", ...]}'),
+      );
     }
 
     // get the site origin from the asset-list.json
     const siteOrigin = assetListJson.siteOrigin || '';
     if (!siteOrigin) {
-      console.warn(chalk.yellow('No site origin found in the asset-list file. Relative references will not be updated.'));
+      console.warn(
+        chalk.yellow('No site origin found in the asset-list file. Relative references will not be updated.'),
+      );
     }
 
     await processPages(

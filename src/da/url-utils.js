@@ -193,6 +193,20 @@ function getFullyQualifiedAssetUrl(assetUrl, siteOrigin) {
 }
 
 /**
+ * Get sanitized filename with extension from a URL.
+ * @param {string} url - The URL to extract and sanitize the filename from
+ * @return {string} Sanitized filename with preserved extension
+ */
+export function getSanitizedFilenameFromUrl(url) {
+  const filename = getFilename(url);
+  const parts = filename.split('.');
+  const ext = parts.length > 1 ? `.${parts.pop().toLowerCase()}` : '';
+  const base = parts.join('.');
+  const sanitizedBase = sanitizeFilename(base);
+  return `${sanitizedBase}${ext}`;
+}
+
+/**
  * Get fully qualified asset URLs from a list of asset URLs and a site origin
  * @param {Array<string>} assetUrls - List of asset URLs
  * @param {string} siteOrigin - The site origin

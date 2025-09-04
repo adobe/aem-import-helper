@@ -24,6 +24,7 @@ import {
   buildDaListUrl,
   buildEdgeDeliveryUrl,
   getFullyQualifiedAssetUrls,
+  getSanitizedFilenameFromUrl,
 } from '../../src/da/url-utils.js';
 
 describe('url-utils.js', () => {
@@ -70,12 +71,42 @@ describe('url-utils.js', () => {
   });
 
   describe('getFilename', () => {
-    it('should extract filename from URL', () => {
+    it('should extract filename from absolute HTTPS URL', () => {
       expect(getFilename('https://example.com/path/file.jpg')).to.equal('file.jpg');
     });
 
-    it('should handle URLs without filename', () => {
+    it('should extract filename from absolute HTTP URL', () => {
+      expect(getFilename('http://example.com/path/document.pdf')).to.equal('document.pdf');
+    });
+
+    it('should handle URLs without filename (directory paths)', () => {
       expect(getFilename('https://example.com/path/')).to.equal('path');
+    });
+
+    it('should handle relative URLs (resolved against localhost)', () => {
+      expect(getFilename('/assets/image.png')).to.equal('image.png');
+    });
+
+    it('should handle relative URLs without leading slash', () => {
+      expect(getFilename('images/photo.jpg')).to.equal('photo.jpg');
+    });
+
+    it('should handle root path', () => {
+      expect(getFilename('/')).to.equal('');
+    });
+
+    it('should ignore query parameters and fragments', () => {
+      expect(getFilename('https://example.com/file.txt?param=value&other=123')).to.equal('file.txt');
+      expect(getFilename('/path/file.css#section')).to.equal('file.css');
+      expect(getFilename('https://example.com/app.js?v=1.2.3#main')).to.equal('app.js');
+    });
+
+    it('should handle URLs with encoded characters', () => {
+      expect(getFilename('https://example.com/path/file%20name.jpg')).to.equal('file%20name.jpg');
+    });
+
+    it('should handle nested paths', () => {
+      expect(getFilename('/deep/nested/path/to/file.xml')).to.equal('file.xml');
     });
   });
 
@@ -113,11 +144,41 @@ describe('url-utils.js', () => {
 
   describe('buildEdgeDeliveryUrl', () => {
     it('should build correct Edge Delivery URL', () => {
-      expect(buildEdgeDeliveryUrl('org', 'site', 'path/to/file.pdf')).to.equal('https://main--site--org.aem.page/path/to/file.pdf');
+      expect(buildEdgeDeliveryUrl('org', 'site', 'path/to/file.pdf')).to.equal(
+        'https://main--site--org.aem.page/path/to/file.pdf',
+      );
     });
 
     it('should handle path starting with slash', () => {
-      expect(buildEdgeDeliveryUrl('org', 'site', '/path/to/file.pdf')).to.equal('https://main--site--org.aem.page/path/to/file.pdf');
+      expect(buildEdgeDeliveryUrl('org', 'site', '/path/to/file.pdf')).to.equal(
+        'https://main--site--org.aem.page/path/to/file.pdf',
+      );
+    });
+  });
+
+  describe('getSanitizedFilenameFromUrl', () => {
+    it('should sanitize filename while preserving extension', () => {
+      const url = 'https://example.com/path/Café & Menu.PDF';
+      const result = getSanitizedFilenameFromUrl(url);
+      expect(result).to.equal('cafe-menu.pdf');
+    });
+
+    it('should handle URLs without extensions', () => {
+      const url = 'https://example.com/path/filename';
+      const result = getSanitizedFilenameFromUrl(url);
+      expect(result).to.equal('filename');
+    });
+
+    it('should handle encoded URLs with query parameters', () => {
+      const url = 'https://example.com/path/hello%20world.jpg?version=1&cache=false';
+      const result = getSanitizedFilenameFromUrl(url);
+      expect(result).to.equal('hello-world.jpg');
+    });
+
+    it('should handle complex filenames with multiple dots', () => {
+      const url = 'https://example.com/file.name.with.dots.jpeg';
+      const result = getSanitizedFilenameFromUrl(url);
+      expect(result).to.equal('file-name-with-dots.jpeg');
     });
   });
 
