@@ -307,7 +307,7 @@ describe('html-processor.js', () => {
           assetUrls,
           org,
           site,
-          dependencies
+          dependencies,
         );
 
         expect(result).to.include(expectedPath);
