@@ -215,13 +215,12 @@ npm run da-upload -- \
 * _keep_ [default=false]: Keep the downloaded assets and updated HTML locally after upload instead of cleaning up.
 * _images-to-png_ [default=true]: When true, converts downloaded image assets to PNG (except for JPEG, PNG, GIF, ICO, SVG, MP4) before upload.
 
-
 When false, preserves original image formats and updates references with the original extension. 
 Only use this option if you know your images are supported by DA.
 
 Once the command is executed, the HTML pages and associated assets are uploaded to Author Bus.
 
-#### Asset Reference Strategy
+#### Asset Referencing Strategy
 
 The tool handles images and non-image assets differently to optimize for DA/Edge Delivery Services:
 
