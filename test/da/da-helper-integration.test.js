@@ -30,7 +30,9 @@ describe('da-helper.js - Integration Tests', () => {
 
   describe('processPages', () => {
     it('should process pages one by one, downloading and uploading assets immediately', async () => {
-      const downloadAssetsSpy = sandbox.stub().resolves([{ status: 'fulfilled' }]);
+      const downloadAssetsSpy = sandbox.stub().callsFake(async (mapping) => 
+        Array.from(mapping.keys()).map(() => ({ status: 'fulfilled' }))
+      );
       const uploadFolderSpy = sandbox.stub().resolves();
       const uploadFileSpy = sandbox.stub().resolves();
 
@@ -61,34 +63,39 @@ describe('da-helper.js - Integration Tests', () => {
         mockDeps,
       );
 
+      // Verify download assets was called with correct parameters
       expect(downloadAssetsSpy.calledOnce).to.be.true;
+      const downloadCall = downloadAssetsSpy.getCall(0);
+      expect(downloadCall.args[0]).to.be.instanceOf(Map); // Should be a Map (asset mapping)
+      expect(downloadCall.args[1]).to.equal('/download'); // Download folder
+      expect(downloadCall.args[2]).to.equal(3); // Max retries
+      expect(downloadCall.args[3]).to.equal(1000); // Retry delay
+
+      // Verify upload folder was called for assets
       expect(uploadFolderSpy.calledOnce).to.be.true;
+      const uploadFolderCall = uploadFolderSpy.getCall(0);
+      expect(uploadFolderCall.args[0]).to.include('/.page1'); // Local folder path with shadow folder
+      expect(uploadFolderCall.args[1]).to.include('admin.da.live'); // DA admin URL
+      expect(uploadFolderCall.args[2]).to.equal('token123'); // Token
+
+      // Verify HTML upload was called
       expect(uploadFileSpy.calledOnce).to.be.true;
+      const uploadFileCall = uploadFileSpy.getCall(0);
+      expect(uploadFileCall.args[0]).to.include('/html/page1.html'); // HTML file path
+      expect(uploadFileCall.args[1]).to.include('admin.da.live'); // DA admin URL
+      expect(uploadFileCall.args[2]).to.equal('token123'); // Token
     });
 
     it('should handle pages with no matching assets', async () => {
-      const downloadAssetsSpy = sandbox.spy();
-      const uploadFolderSpy = sandbox.spy();
-      const uploadFileSpy = sandbox.spy();
-
-      const mockDeps = createMockDependencies({
-        fs: {
-          readFileSync: () => '<html><body>No assets here</body></html>',
-          writeFileSync: () => {},
-          mkdirSync: () => {},
-          existsSync: () => true,
-          rmSync: () => {},
-        },
-        downloadAssets: downloadAssetsSpy,
-        uploadFolder: uploadFolderSpy,
-        uploadFile: uploadFileSpy,
-        getAllFiles: () => ['/html/page1.html'],
-      });
-
+      const mockDeps = createMockDependencies();
+      
+      // HTML content with no asset references
+      mockDeps.fs.readFileSync.returns('<html><body><p>Just text content, no images or links</p></body></html>');
+      
       await processPages(
         testOrg,
         testSite,
-        testAssetUrls,
+        ['https://example.com/image1.jpg', 'https://example.com/doc.pdf'], // Asset list provided but won't match
         testSiteOrigin,
         '/da/folder',
         '/download',
@@ -98,10 +105,23 @@ describe('da-helper.js - Integration Tests', () => {
         mockDeps,
       );
 
-      // No assets to download/upload, but HTML should still be uploaded
-      expect(downloadAssetsSpy.called).to.be.false;
-      expect(uploadFolderSpy.called).to.be.false;
-      expect(uploadFileSpy.calledOnce).to.be.true;
+      // Verify asset processing behavior - should skip asset operations
+      expect(mockDeps.downloadAssets.called).to.be.false; // No matching assets found
+      expect(mockDeps.uploadFolder.called).to.be.false; // No assets to upload
+      
+      // Verify HTML processing still happens - core functionality
+      expect(mockDeps.uploadFile.calledOnce).to.be.true; // HTML should still be uploaded
+      expect(mockDeps.fs.writeFileSync.calledOnce).to.be.true; // HTML should be saved
+      
+      // Verify file operations use correct paths
+      const writeCall = mockDeps.fs.writeFileSync.getCall(0);
+      expect(writeCall.args[0]).to.include('/html/'); // Should save to HTML folder
+      expect(writeCall.args[1]).to.include('<html>'); // Should save HTML content
+      
+      // Verify upload was called with correct parameters  
+      const uploadCall = mockDeps.uploadFile.getCall(0);
+      expect(uploadCall.args[0]).to.include('/html/'); // Upload path should be HTML file
+      expect(uploadCall.args[1]).to.include('admin.da.live'); // Should upload to DA admin
     });
 
     it('should handle file read errors gracefully', async () => {

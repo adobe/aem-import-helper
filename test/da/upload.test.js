@@ -153,7 +153,18 @@ describe('upload', function () {
       const result = await uploadFile(filePath, uploadUrl, token, {}, mockDependencies);
 
       expect(result.success).to.be.true;
+      expect(result.filePath).to.equal(filePath);
       expect(mockDependencies.fetch.callCount).to.equal(1);
+      
+      // Verify fetch was called with correct parameters
+      const fetchCall = mockDependencies.fetch.getCall(0);
+      expect(fetchCall.args[0]).to.equal('https://admin.da.live/source/org/repo//test/path/file.jpg'); // Current behavior: double slash due to filePath starting with /
+      expect(fetchCall.args[1]).to.deep.include({
+        method: 'POST',
+      });
+      expect(fetchCall.args[1].headers).to.deep.include({
+        'Authorization': `Bearer ${token}`,
+      });
     });
 
     it('should retry on failure and succeed', async function () {

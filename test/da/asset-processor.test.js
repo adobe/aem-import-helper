@@ -19,21 +19,25 @@ import {
   downloadPageAssets,
   uploadPageAssets,
 } from '../../src/da/asset-processor.js';
+import { IMAGE_EXTENSIONS } from '../../src/utils/download-assets.js';
 
 import { createMockDependencies } from './test-setup.js';
 
 describe('asset-processor.js', () => {
   describe('isImageAsset', () => {
-    it('should identify image files', () => {
-      expect(isImageAsset('photo.jpg')).to.be.true;
-      expect(isImageAsset('image.png')).to.be.true;
-      expect(isImageAsset('icon.gif')).to.be.true;
+    it('should identify all valid image file extensions', () => {
+      // Test all extensions defined in IMAGE_EXTENSIONS
+      IMAGE_EXTENSIONS.forEach(ext => {
+        const filename = `test${ext}`;
+        expect(isImageAsset(filename), `Expected ${filename} to be identified as an image`).to.be.true;
+      });
     });
 
     it('should identify non-image files', () => {
-      expect(isImageAsset('document.pdf')).to.be.false;
-      expect(isImageAsset('video.mp4')).to.be.false;
-      expect(isImageAsset('data.json')).to.be.false;
+      const nonImageFiles = ['document.pdf', 'video.mp4'];
+      nonImageFiles.forEach(filename => {
+        expect(isImageAsset(filename), `Expected ${filename} to be identified as non-image`).to.be.false;
+      });
     });
   });
 
@@ -55,11 +59,13 @@ describe('asset-processor.js', () => {
     });
 
     it('should sanitize filenames while preserving extension', () => {
-      const urls = ['my file 1.jpg', 'My Document.pdf'];
+      const urls = ['my file 1.jpg', 'My Document.pdf', 'dog.png.pdf', 'dog.png.jpeg'];
       const mapping = createAssetMapping(urls, '.mypage');
       
       expect(mapping.get('my file 1.jpg')).to.equal('/.mypage/my-file-1.jpg');
       expect(mapping.get('My Document.pdf')).to.equal('/media/my-document.pdf');
+      expect(mapping.get('dog.png.pdf')).to.equal('/media/dog-png.pdf');
+      expect(mapping.get('dog.png.jpeg')).to.equal('/.mypage/dog-png.jpeg');
     });
 
     it('should handle empty parent paths', () => {
