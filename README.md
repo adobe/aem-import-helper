@@ -227,19 +227,13 @@ The tool handles images and non-image assets differently to optimize for DA/Edge
 
 **Images** (JPG, PNG, GIF, etc.):
 - Stored in shadow folders alongside each page
-- Referenced using relative paths
-- **Example**: Page `board-paper.html` → Image reference `./.board-paper/photo.jpg`
+- Referenced via `https://content.da.live/...` path.
+- **Example**: Page `intro.html` → Image reference `https://content.da.live/aemysites/mySite/about-me/.intro/photo.jpg`
 
 **Non-Image Media** (PDFs, other media etc.):
 - Stored in a `media` folder under the page's parent directory
-- Referenced via Edge Delivery preview URLs  
-- **Example**: PDF stored at `documents/reports/media/document.pdf` → Referenced as `https://main--site--org.aem.page/documents/reports/media/document.pdf`
-
-**Benefits:**
-- ✅ Images are co-located with pages for optimal organization
-- ✅ Media assets are organized by parent directory and shared across related pages
-- ✅ No hardcoded external URLs for images
-- ✅ Consistent, predictable URL structure
+- Referenced via Edge Delivery preview URL
+- **Example**: PDF stored at `about-me/media/resume.pdf` → Referenced as `https://main--mySite--aemysites.aem.page/about-me/media/resume.pdf` inside `intro.html`.
 
 **Upload Performance:**
 The tool optimizes upload performance by processing assets within each page in parallel (up to 50 concurrent uploads), while respecting CDN's concurrent request limits.
