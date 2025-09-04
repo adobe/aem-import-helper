@@ -264,7 +264,7 @@ describe('html-processor.js', () => {
         assetUrls,
         org,
         site,
-        dependencies
+        dependencies,
       );
 
       // Should create shadow folder path with dot prefix and full DA content URL
@@ -275,16 +275,16 @@ describe('html-processor.js', () => {
       const testCases = [
         {
           fullShadowPath: '.simple-page',
-          expectedPath: 'https://content.da.live/test-org/test-site/.simple-page/test-image.jpg'
+          expectedPath: 'https://content.da.live/test-org/test-site/.simple-page/test-image.jpg',
         },
         {
           fullShadowPath: '.complex-page-name',
-          expectedPath: 'https://content.da.live/test-org/test-site/.complex-page-name/test-image.jpg'
+          expectedPath: 'https://content.da.live/test-org/test-site/.complex-page-name/test-image.jpg',
         },
         {
           fullShadowPath: 'about-uws/leadership/.executive',
-          expectedPath: 'https://content.da.live/test-org/test-site/about-uws/leadership/.executive/test-image.jpg'
-        }
+          expectedPath: 'https://content.da.live/test-org/test-site/about-uws/leadership/.executive/test-image.jpg',
+        },
       ];
 
       testCases.forEach(({ fullShadowPath, expectedPath }) => {
@@ -335,7 +335,7 @@ describe('html-processor.js', () => {
         assetUrls,
         org,
         site,
-        dependencies
+        dependencies,
       );
 
       // Should create: https://content.da.live/test-org/test-site/about-uws/leadership/.executive/bg-person.png
@@ -363,7 +363,7 @@ describe('html-processor.js', () => {
         assetUrls,
         org,
         site,
-        dependencies
+        dependencies,
       );
 
       // Should create: https://content.da.live/test-org/test-site/.index/logo.png

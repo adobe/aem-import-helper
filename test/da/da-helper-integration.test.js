@@ -291,13 +291,13 @@ describe('da-helper.js - Integration Tests', () => {
         'http://localhost:3001/image1.jpg',
         'http://localhost:3001/image2.png',
         'http://localhost:3001/document.pdf',
-        'http://localhost:3001/other-page.html'
+        'http://localhost:3001/other-page.html',
       ];
 
       // Only include image1.jpg and document.pdf in the asset list
       const assetUrlsArray = [
         'http://localhost:3001/image1.jpg',
-        'http://localhost:3001/document.pdf'
+        'http://localhost:3001/document.pdf',
       ];
 
       // Simulate the filtering logic from da-helper.js
@@ -322,13 +322,13 @@ describe('da-helper.js - Integration Tests', () => {
       // Test URL decoding logic that was fixed
       const urls = [
         'http://localhost:3001/image%20with%20spaces.jpg',
-        'http://localhost:3001/document%20with%20spaces.pdf'
+        'http://localhost:3001/document%20with%20spaces.pdf',
       ];
 
       // Asset list contains decoded URLs
       const assetUrlsArray = [
         'http://localhost:3001/image with spaces.jpg',
-        'http://localhost:3001/document with spaces.pdf'
+        'http://localhost:3001/document with spaces.pdf',
       ];
 
       // Simulate the filtering logic from da-helper.js

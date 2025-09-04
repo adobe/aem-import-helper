@@ -17,18 +17,15 @@ import { getAllFiles } from './upload.js';
 
 // Import functions from modular components
 import {
-  generateDocumentPath,
   buildDaAdminUrl,
   buildDaContentUrl,
   buildDaListUrl,
   getFullyQualifiedAssetUrls,
-  getFilename,
 } from './url-utils.js';
 
 import {
   downloadPageAssets,
   uploadPageAssets,
-  isImageAsset,
 } from './asset-processor.js';
 
 import {
