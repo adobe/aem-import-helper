@@ -279,7 +279,6 @@ export async function uploadFolder(folderPath, uploadUrl, token, options = {}, d
         results: [],
       };
     }
-    console.log(chalkDep.yellow(`Found ${allFiles.length} files to upload`));
 
     if (useBatching && allFiles.length > 1) {
       // Use batched upload for better performance

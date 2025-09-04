@@ -12,7 +12,8 @@
 import fs from 'fs';
 import chalk from 'chalk';
 import fetch from 'node-fetch';
-import { processPages, buildDaListUrl } from './da-helper.js';
+import { processPages } from './da-helper.js';
+import { buildDaListUrl } from './url-utils.js';
 
 /**
  * Validate the existence of the asset-list.json and HTML folder.
