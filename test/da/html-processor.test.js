@@ -123,7 +123,7 @@ describe('html-processor.js', () => {
       
       // Should update assets that are in the assetUrls set
       expect(result).to.include('src="https://content.da.live/org/site/page-parent-folder/.board-paper-templates-and-submission-information/image.jpg"');
-      expect(result).to.include('href="https://main--site--org.aem.page/page-parent-folder/media/document.pdf"');
+      expect(result).to.include('href="https://main--site--org.aem.page/page-parent-folder/shared-media/document.pdf"');
       
       // Should NOT update assets that are not in the assetUrls set
       expect(result).to.include('src="https://example.com/not-in-list.png"'); // Unchanged
@@ -173,7 +173,7 @@ describe('html-processor.js', () => {
         deps,
       );
       
-      expect(result).to.include('href="https://main--site--org.aem.page/media/document.pdf"');
+      expect(result).to.include('href="https://main--site--org.aem.page/shared-media/document.pdf"');
     });
   });
 

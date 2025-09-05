@@ -42,12 +42,12 @@ describe('asset-processor.js', () => {
   });
 
   describe('createAssetMapping', () => {
-    it('should map image URLs to shadow folder and non-images to media folder', () => {
+    it('should map image URLs to shadow folder and non-images to shared-media folder', () => {
       const urls = ['https://example.com/image.jpg', 'https://example.com/document.pdf'];
       const mapping = createAssetMapping(urls, 'documents/.mypage');
       
       expect(mapping.get('https://example.com/image.jpg')).to.equal('/documents/.mypage/image.jpg');
-      expect(mapping.get('https://example.com/document.pdf')).to.equal('/documents/media/document.pdf');
+      expect(mapping.get('https://example.com/document.pdf')).to.equal('/documents/shared-media/document.pdf');
     });
 
     it('should handle relative asset URLs', () => {
@@ -55,7 +55,7 @@ describe('asset-processor.js', () => {
       const mapping = createAssetMapping(urls, '.page');
       
       expect(mapping.get('local.jpg')).to.equal('/.page/local.jpg');
-      expect(mapping.get('data.pdf')).to.equal('/media/data.pdf');
+      expect(mapping.get('data.pdf')).to.equal('/shared-media/data.pdf');
     });
 
     it('should sanitize filenames while preserving extension', () => {
@@ -63,8 +63,8 @@ describe('asset-processor.js', () => {
       const mapping = createAssetMapping(urls, '.mypage');
       
       expect(mapping.get('my file 1.jpg')).to.equal('/.mypage/my-file-1.jpg');
-      expect(mapping.get('My Document.pdf')).to.equal('/media/my-document.pdf');
-      expect(mapping.get('dog.png.pdf')).to.equal('/media/dog-png.pdf');
+      expect(mapping.get('My Document.pdf')).to.equal('/shared-media/my-document.pdf');
+      expect(mapping.get('dog.png.pdf')).to.equal('/shared-media/dog-png.pdf');
       expect(mapping.get('dog.png.jpeg')).to.equal('/.mypage/dog-png.jpeg');
     });
 
@@ -74,8 +74,8 @@ describe('asset-processor.js', () => {
       
       // Images go to shadow folder even with empty parent path
       expect(mapping.get('foo.jpg')).to.equal('/.page/foo.jpg');
-      // Non-images go to media folder at root level when no parent path
-      expect(mapping.get('document.pdf')).to.equal('/media/document.pdf');
+      // Non-images go to shared-media folder at root level when no parent path
+      expect(mapping.get('document.pdf')).to.equal('/shared-media/document.pdf');
     });
   });
 
@@ -91,8 +91,8 @@ describe('asset-processor.js', () => {
 
       const urls = [
         'https://example.com/image.jpg',      // Image: should go to shadow folder
-        'https://example.com/document.pdf',   // Non-image: should go to media folder
-        'https://example.com/video.mp4',      // Non-image: should go to media folder
+        'https://example.com/document.pdf',   // Non-image: should go to shared-media folder
+        'https://example.com/video.mp4',      // Non-image: should go to shared-media folder
       ];
       const options = { maxRetries: 3, retryDelay: 1000 };
       const result = await downloadPageAssets(urls, 'about/leadership/.executive', '/download', options, deps);
@@ -108,9 +108,9 @@ describe('asset-processor.js', () => {
       // Verify image goes to shadow folder
       expect(mappingObj['https://example.com/image.jpg']).to.equal('/about/leadership/.executive/image.jpg');
       
-      // Verify non-images go to media folder under parent
-      expect(mappingObj['https://example.com/document.pdf']).to.equal('/about/leadership/media/document.pdf');
-      expect(mappingObj['https://example.com/video.mp4']).to.equal('/about/leadership/media/video.mp4');
+      // Verify non-images go to shared-media folder under parent
+      expect(mappingObj['https://example.com/document.pdf']).to.equal('/about/leadership/shared-media/document.pdf');
+      expect(mappingObj['https://example.com/video.mp4']).to.equal('/about/leadership/shared-media/video.mp4');
       
       // Verify download results are returned
       expect(result.downloadResults).to.have.length(3);
@@ -143,8 +143,8 @@ describe('asset-processor.js', () => {
       const mapping = new Map([
         ['https://example.com/image1.jpg', '/documents/.page/image1.jpg'],    // Shadow folder
         ['https://example.com/image2.png', '/documents/.page/image2.png'],    // Shadow folder  
-        ['https://example.com/doc.pdf', '/documents/media/doc.pdf'],          // Media folder
-        ['https://example.com/video.mp4', '/documents/media/video.mp4'],      // Media folder
+        ['https://example.com/doc.pdf', '/documents/shared-media/doc.pdf'],          // Shared-media folder
+        ['https://example.com/video.mp4', '/documents/shared-media/video.mp4'],      // Shared-media folder
       ]);
 
       const uploadOptions = { maxRetries: 5, customOption: 'test' };
@@ -174,9 +174,9 @@ describe('asset-processor.js', () => {
         baseFolder: '/download',
       });
       
-      // Verify media folder upload (non-images)
+      // Verify shared-media folder upload (non-images)
       const mediaFolderCall = uploadCalls.find(call => 
-        call.localFolderPath === '/download/documents/media',
+        call.localFolderPath === '/download/documents/shared-media',
       );
       expect(mediaFolderCall).to.exist;
       expect(mediaFolderCall.daAdminUrl).to.equal('https://admin.da.live/source/org/site');
@@ -190,7 +190,7 @@ describe('asset-processor.js', () => {
       // Verify logging
       expect(logs).to.include('YELLOW: Uploading assets to 2 different folder(s)...');
       expect(logs).to.include('CYAN: Uploading 2 image(s) from /documents/.page/');
-      expect(logs).to.include('CYAN: Uploading 2 non-image asset(s) from /documents/media/');
+      expect(logs).to.include('CYAN: Uploading 2 non-image asset(s) from /documents/shared-media/');
       expect(logs).to.include('GREEN: Successfully uploaded all page assets');
     });
 

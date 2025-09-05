@@ -206,7 +206,7 @@ npm run da-upload -- \
 }
 ```
 
-**Note**: Images and non-image assets are handled differently. Images are stored in page-specific shadow (.dot) folders, while non-image media (PDFs, docs) are stored in `media` folders under each page's parent directory.
+**Note**: Images and non-image assets are handled differently. Images are stored in page-specific shadow (.dot) folders, while non-image media (PDFs, docs) are stored in `shared-media` folders under each page's parent directory.
 
 **Optional:**
 * _token_: Absolute path to the file containing the IMS token for your DA environment, or the token value.
@@ -229,9 +229,9 @@ The tool handles images and non-image assets differently to optimize for DA/Edge
 - **Example**: Page `intro.html` → Image reference `https://content.da.live/aemysites/mySite/about-me/.intro/photo.jpg`
 
 **Non-Image Media** (PDFs, other media etc.):
-- Stored in a `media` folder under the page's parent directory
+- Stored in a `shared-media` folder under the page's parent directory
 - Referenced via Edge Delivery preview URL
-- **Example**: PDF stored at `about-me/media/resume.pdf` → Referenced as `https://main--mySite--aemysites.aem.page/about-me/media/resume.pdf` inside `intro.html`.
+- **Example**: PDF stored at `about-me/shared-media/resume.pdf` → Referenced as `https://main--mySite--aemysites.aem.page/about-me/shared-media/resume.pdf` inside `intro.html`.
 
 **Upload Performance:**
 The tool optimizes upload performance by processing assets within each page in parallel (up to 50 concurrent uploads), while respecting CDN's concurrent request limits.

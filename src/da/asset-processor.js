@@ -29,7 +29,7 @@ export function isImageAsset(filename, dependencies = {}) {
 
 /**
  * Create a mapping of asset URLs to their target paths in DA
- * Images go to shadow folders, non-images go to media folders under parent
+ * Images go to shadow folders, non-images go to shared-media folders under parent
  * @param {Array<string>} matchingHrefs - Array of asset URLs to map
  * @param {string} fullShadowPath - The full shadow folder path (format: {relativePath}/.{pageName} or .{pageName})
  * @param {Object} dependencies - Dependencies for testing (optional)
@@ -50,8 +50,8 @@ export function createAssetMapping(matchingHrefs, fullShadowPath, dependencies =
         // Images go to shadow folder path
         return [url, `/${fullShadowPath}/${sanitizedFilename}`];
       } else {
-        // Non-images go to media folder under the parent directory
-        return [url, pageParentPath ? `/${pageParentPath}/media/${sanitizedFilename}` : `/media/${sanitizedFilename}`];
+        // Non-images go to shared-media folder under the parent directory
+        return [url, pageParentPath ? `/${pageParentPath}/shared-media/${sanitizedFilename}` : `/shared-media/${sanitizedFilename}`];
       }
     }),
   );
@@ -140,7 +140,7 @@ export async function uploadPageAssets(
       
       if (fsDep && fsDep.existsSync(localFolderPath)) {
         // Determine asset type based on folder path
-        const isMediaFolder = targetFolder.endsWith('/media') || targetFolder.endsWith('\\media');
+        const isMediaFolder = targetFolder.endsWith('/shared-media') || targetFolder.endsWith('\\shared-media');
         const assetType = isMediaFolder ? 'non-image asset(s)' : 'image(s)';
         
         console.log(chalkDep.cyan(`Uploading ${assets.length} ${assetType} from ${targetFolder}/`));

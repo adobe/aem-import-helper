@@ -70,7 +70,7 @@ export function extractUrlsFromHTML(htmlContent, dependencies = defaultDependenc
 }
 
 /**
- * Update asset references in HTML content to use DA URLs (images point to shadow folders, non-images to media folders).
+ * Update asset references in HTML content to use DA URLs (images point to shadow folders, non-images to shared-media folders).
  * @param {string} fullShadowPath - The full shadow folder path
  * @param {string} htmlContent - The HTML content to update
  * @param {Set<string>} assetUrls - Set of asset URLs that should be updated
@@ -131,8 +131,8 @@ export function updateAssetReferencesInHTML(
           // Non-image asset urls should point to their Edge Delivery preview URLs
           const pageParentUrlPath = pageParentPath ? pageParentPath.replace(/\\/g, '/') : '';
           const mediaPath = pageParentUrlPath
-            ? `${pageParentUrlPath}/media/${sanitizedFilename}`
-            : `media/${sanitizedFilename}`;
+            ? `${pageParentUrlPath}/shared-media/${sanitizedFilename}`
+            : `shared-media/${sanitizedFilename}`;
           const edgeUrl = buildEdgeDeliveryUrl(org, site, mediaPath);
           console.log(chalkDep.cyan(`  Media: ${url} → ${edgeUrl}`));
           element.setAttribute(attribute, edgeUrl);
