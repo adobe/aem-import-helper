@@ -69,10 +69,13 @@ describe('asset-processor.js', () => {
     });
 
     it('should handle empty parent paths', () => {
-      const urls = ['foo.js'];
+      const urls = ['foo.jpg', 'document.pdf'];
       const mapping = createAssetMapping(urls, '.page');
       
-      expect(mapping.get('foo.js')).to.equal('/media/foo.js');
+      // Images go to shadow folder even with empty parent path
+      expect(mapping.get('foo.jpg')).to.equal('/.page/foo.jpg');
+      // Non-images go to media folder at root level when no parent path
+      expect(mapping.get('document.pdf')).to.equal('/media/document.pdf');
     });
   });
 

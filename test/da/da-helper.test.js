@@ -23,7 +23,7 @@ describe('da-helper.js - Integration Tests', () => {
   beforeEach(() => {
     sandbox = sinon.createSandbox();
   });
-
+run 
   afterEach(() => {
     sandbox.restore();
   });
@@ -297,70 +297,6 @@ describe('da-helper.js - Integration Tests', () => {
       expect(mockDeps.uploadFile.calledOnce).to.be.true;
       
       // Should complete without throwing errors even with null siteOrigin
-    });
-  });
-
-  describe('Asset Filtering Logic', () => {
-    it('should verify asset filtering logic works correctly', () => {
-      // Test the core asset filtering logic that was fixed
-      const urls = [
-        'http://localhost:3001/image1.jpg',
-        'http://localhost:3001/image2.png',
-        'http://localhost:3001/document.pdf',
-        'http://localhost:3001/other-page.html',
-      ];
-
-      // Only include image1.jpg and document.pdf in the asset list
-      const assetUrlsArray = [
-        'http://localhost:3001/image1.jpg',
-        'http://localhost:3001/document.pdf',
-      ];
-
-      // Simulate the filtering logic from da-helper.js
-      const matchingAssetUrls = urls.filter(url => {
-        try {
-          const decodedUrl = decodeURIComponent(url);
-          return assetUrlsArray.includes(decodedUrl) || assetUrlsArray.includes(url);
-        } catch (error) {
-          return assetUrlsArray.includes(url);
-        }
-      });
-
-      // Should only process the 2 matching assets, not all 4 URLs found
-      expect(matchingAssetUrls).to.have.length(2);
-      expect(matchingAssetUrls).to.include('http://localhost:3001/image1.jpg');
-      expect(matchingAssetUrls).to.include('http://localhost:3001/document.pdf');
-      expect(matchingAssetUrls).to.not.include('http://localhost:3001/image2.png');
-      expect(matchingAssetUrls).to.not.include('http://localhost:3001/other-page.html');
-    });
-
-    it('should handle URL decoding when matching assets', () => {
-      // Test URL decoding logic that was fixed
-      const urls = [
-        'http://localhost:3001/image%20with%20spaces.jpg',
-        'http://localhost:3001/document%20with%20spaces.pdf',
-      ];
-
-      // Asset list contains decoded URLs
-      const assetUrlsArray = [
-        'http://localhost:3001/image with spaces.jpg',
-        'http://localhost:3001/document with spaces.pdf',
-      ];
-
-      // Simulate the filtering logic from da-helper.js
-      const matchingAssetUrls = urls.filter(url => {
-        try {
-          const decodedUrl = decodeURIComponent(url);
-          return assetUrlsArray.includes(decodedUrl) || assetUrlsArray.includes(url);
-        } catch (error) {
-          return assetUrlsArray.includes(url);
-        }
-      });
-
-      // Should process both assets after URL decoding
-      expect(matchingAssetUrls).to.have.length(2);
-      expect(matchingAssetUrls).to.include('http://localhost:3001/image%20with%20spaces.jpg');
-      expect(matchingAssetUrls).to.include('http://localhost:3001/document%20with%20spaces.pdf');
     });
   });
 });

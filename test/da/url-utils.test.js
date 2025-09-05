@@ -184,9 +184,9 @@ describe('url-utils.js', () => {
 
   describe('getFullyQualifiedAssetUrls', () => {
     it('should qualify relative URLs', () => {
-      const assetUrls = ['/image.jpg', 'https://example.com/external.jpg'];
+      const assetUrls = ['/image.jpg', 'https://example.com/external.jpg', 'http://localhost:3001/image.jpg'];
       const result = getFullyQualifiedAssetUrls(assetUrls, 'https://example.com');
-      expect(result).to.deep.equal(['https://example.com/image.jpg', 'https://example.com/external.jpg']);
+      expect(result).to.deep.equal(['https://example.com/image.jpg', 'https://example.com/external.jpg', 'https://example.com/image.jpg']);
     });
 
     it('should handle missing siteOrigin', () => {

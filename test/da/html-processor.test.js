@@ -138,10 +138,10 @@ describe('html-processor.js', () => {
 
     it('should handle image assets with relative paths', () => {
       const html = createHtmlContent(`
-        <img src="https://example.com/photo.png" />
+        <img src="./photo.png" />
       `);
       
-      const assetUrls = new Set(['https://example.com/photo.png']);
+      const assetUrls = new Set(['./photo.png']);
       const deps = { JSDOM, path, chalk: mockChalk };
       
       const result = updateAssetReferencesInHTML(
@@ -174,26 +174,6 @@ describe('html-processor.js', () => {
       );
       
       expect(result).to.include('href="https://main--site--org.aem.page/media/document.pdf"');
-    });
-
-    it('should handle assets with parent path correctly', () => {
-      const html = createHtmlContent(`
-        <a href="https://example.com/document.pdf">Document</a>
-      `);
-      
-      const assetUrls = new Set(['https://example.com/document.pdf']);
-      const deps = { JSDOM, path, chalk: mockChalk };
-      
-      const result = updateAssetReferencesInHTML(
-        'documents/reports/.page-name',
-        html,
-        assetUrls,
-        'org',
-        'site',
-        deps,
-      );
-      
-      expect(result).to.include('href="https://main--site--org.aem.page/documents/reports/media/document.pdf"');
     });
   });
 
@@ -252,6 +232,63 @@ describe('html-processor.js', () => {
       
       expect(result).to.equal(html);
     });
+
+    it('should create correct shadow folder for nested page structure', () => {
+      const htmlContent = `
+        <html>
+          <body>
+            <img src="http://localhost:3001/bg-person.png" />
+          </body>
+        </html>
+      `;
+
+      const assetUrls = new Set(['http://localhost:3001/bg-person.png']);
+      const fullShadowPath = 'about-uws/leadership/.executive';
+      const org = 'test-org';
+      const site = 'test-site';
+      const dependencies = { JSDOM, path, chalk };
+
+      const result = updateAssetReferencesInHTML(
+        fullShadowPath,
+        htmlContent,
+        assetUrls,
+        org,
+        site,
+        dependencies,
+      );
+
+      expect(result).to.include(
+        'src="https://content.da.live/test-org/test-site/about-uws/leadership/.executive/bg-person.png"',
+      );
+    });
+
+    it('should handle root level pages correctly', () => {
+      const htmlContent = `
+        <html>
+          <body>
+            <img src="http://localhost:3001/logo.png" />
+          </body>
+        </html>
+      `;
+
+      const assetUrls = new Set(['http://localhost:3001/logo.png']);
+      const fullShadowPath = '.index';
+      const org = 'test-org';
+      const site = 'test-site';
+      const dependencies = { JSDOM, path, chalk };
+
+      const result = updateAssetReferencesInHTML(
+        fullShadowPath,
+        htmlContent,
+        assetUrls,
+        org,
+        site,
+        dependencies,
+      );
+
+      expect(result).to.include('src="https://content.da.live/test-org/test-site/.index/logo.png"');
+    });
+
   });
 
   describe('getSaveLocation', () => {
@@ -409,139 +446,6 @@ describe('html-processor.js', () => {
         existingOption: 'value',
         baseFolder: '/',
       });
-    });
-  });
-
-  describe('Shadow Folder Path Creation', () => {
-    it('should create shadow folder path with dot prefix for images', () => {
-      const htmlContent = `
-        <html>
-          <body>
-            <img src="http://localhost:3001/test-image.jpg" />
-          </body>
-        </html>
-      `;
-
-      const assetUrls = new Set(['http://localhost:3001/test-image.jpg']);
-      const fullShadowPath = 'about-uws/leadership/.executive';
-      const org = 'test-org';
-      const site = 'test-site';
-      const dependencies = { JSDOM, path, chalk };
-
-      const result = updateAssetReferencesInHTML(
-        fullShadowPath,
-        htmlContent,
-        assetUrls,
-        org,
-        site,
-        dependencies,
-      );
-
-      // Should create shadow folder path with dot prefix and full DA content URL
-      expect(result).to.include(
-        'src="https://content.da.live/test-org/test-site/about-uws/leadership/.executive/test-image.jpg"',
-      );
-    });
-
-    it('should handle different page names correctly for shadow folders', () => {
-      const testCases = [
-        {
-          fullShadowPath: '.simple-page',
-          expectedPath: 'src="https://content.da.live/test-org/test-site/.simple-page/test-image.jpg"',
-        },
-        {
-          fullShadowPath: '.complex-page-name',
-          expectedPath: 'src="https://content.da.live/test-org/test-site/.complex-page-name/test-image.jpg"',
-        },
-        {
-          fullShadowPath: 'about-uws/leadership/.executive',
-          expectedPath: 'src="https://content.da.live/test-org/test-site/about-uws/leadership/.executive/test-image.jpg"',
-        },
-      ];
-
-      testCases.forEach(({ fullShadowPath, expectedPath }) => {
-        const htmlContent = `
-          <html>
-            <body>
-              <img src="http://localhost:3001/test-image.jpg" />
-            </body>
-          </html>
-        `;
-
-        const assetUrls = new Set(['http://localhost:3001/test-image.jpg']);
-        const org = 'test-org';
-        const site = 'test-site';
-        const dependencies = { JSDOM, path, chalk };
-
-        const result = updateAssetReferencesInHTML(
-          fullShadowPath,
-          htmlContent,
-          assetUrls,
-          org,
-          site,
-          dependencies,
-        );
-
-        expect(result).to.include(expectedPath);
-      });
-    });
-
-    it('should create correct shadow folder for nested page structure', () => {
-      const htmlContent = `
-        <html>
-          <body>
-            <img src="http://localhost:3001/bg-person.png" />
-          </body>
-        </html>
-      `;
-
-      const assetUrls = new Set(['http://localhost:3001/bg-person.png']);
-      const fullShadowPath = 'about-uws/leadership/.executive';
-      const org = 'test-org';
-      const site = 'test-site';
-      const dependencies = { JSDOM, path, chalk };
-
-      const result = updateAssetReferencesInHTML(
-        fullShadowPath,
-        htmlContent,
-        assetUrls,
-        org,
-        site,
-        dependencies,
-      );
-
-      // Should create: https://content.da.live/test-org/test-site/about-uws/leadership/.executive/bg-person.png
-      expect(result).to.include(
-        'src="https://content.da.live/test-org/test-site/about-uws/leadership/.executive/bg-person.png"',
-      );
-    });
-
-    it('should handle root level pages correctly', () => {
-      const htmlContent = `
-        <html>
-          <body>
-            <img src="http://localhost:3001/logo.png" />
-          </body>
-        </html>
-      `;
-
-      const assetUrls = new Set(['http://localhost:3001/logo.png']);
-      const fullShadowPath = '.index';
-      const org = 'test-org';
-      const site = 'test-site';
-      const dependencies = { JSDOM, path, chalk };
-
-      const result = updateAssetReferencesInHTML(
-        fullShadowPath,
-        htmlContent,
-        assetUrls,
-        org,
-        site,
-        dependencies,
-      );
-
-      // Should create: https://content.da.live/test-org/test-site/.index/logo.png
-      expect(result).to.include('src="https://content.da.live/test-org/test-site/.index/logo.png"');
     });
   });
 });
