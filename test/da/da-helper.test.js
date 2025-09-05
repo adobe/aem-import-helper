@@ -23,7 +23,7 @@ describe('da-helper.js - Integration Tests', () => {
   beforeEach(() => {
     sandbox = sinon.createSandbox();
   });
-run 
+
   afterEach(() => {
     sandbox.restore();
   });
@@ -31,7 +31,7 @@ run
   describe('processPages', () => {
     it('should process pages one by one, downloading and uploading assets immediately', async () => {
       const downloadAssetsSpy = sandbox.stub().callsFake(async (mapping) => 
-        Array.from(mapping.keys()).map(() => ({ status: 'fulfilled' }))
+        Array.from(mapping.keys()).map(() => ({ status: 'fulfilled' })),
       );
       const uploadFolderSpy = sandbox.stub().resolves();
       const uploadFileSpy = sandbox.stub().resolves();
