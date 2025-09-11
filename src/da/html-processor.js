@@ -255,8 +255,14 @@ export async function uploadHTMLPage(
 ) {
   const { chalk: chalkDep, uploadFile: uploadFileDep = uploadFile, path: pathDep = path } = dependencies;
 
-  // Calculate baseFolder from pagePath (parent directory)
-  const baseFolder = pathDep.dirname(pagePath);
+  // Calculate baseFolder - should be the download folder + 'html' part
+  // For path like 'da-content/html/about-us/leadership/executive.html'
+  // we want baseFolder to be 'da-content/html'
+  const pathParts = pagePath.split(pathDep.sep);
+  const htmlIndex = pathParts.findIndex(part => part === 'html');
+  const baseFolder = htmlIndex !== -1 
+    ? pathParts.slice(0, htmlIndex + 1).join(pathDep.sep)
+    : pathDep.dirname(pagePath);
 
   console.log(chalkDep.yellow(`Uploading updated HTML page: ${pagePath}...`));
   try {

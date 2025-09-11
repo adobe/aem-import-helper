@@ -352,7 +352,7 @@ describe('html-processor.js', () => {
       const uploadOptions = { maxRetries: 3, convertImagesToPng: true };
       
       await uploadHTMLPage(
-        '/path/to/page.html',
+        'da-content/html/about-us/leadership/executive.html',
         'https://admin.da.live/source/org/site',
         'test-token',
         uploadOptions,
@@ -361,18 +361,18 @@ describe('html-processor.js', () => {
       
       // Verify uploadFile was called with correct parameters
       expect(uploadFileCalled).to.be.true;
-      expect(uploadFileArgs.pagePath).to.equal('/path/to/page.html');
+      expect(uploadFileArgs.pagePath).to.equal('da-content/html/about-us/leadership/executive.html');
       expect(uploadFileArgs.daAdminUrl).to.equal('https://admin.da.live/source/org/site');
       expect(uploadFileArgs.token).to.equal('test-token');
       expect(uploadFileArgs.options).to.deep.equal({
         maxRetries: 3,
         convertImagesToPng: true,
-        baseFolder: '/path/to',
+        baseFolder: 'da-content/html',
       });
       
       // Verify logging
-      expect(logs).to.include('YELLOW: Uploading updated HTML page: /path/to/page.html...');
-      expect(logs).to.include('GREEN: Successfully uploaded HTML page: /path/to/page.html');
+      expect(logs).to.include('YELLOW: Uploading updated HTML page: da-content/html/about-us/leadership/executive.html...');
+      expect(logs).to.include('GREEN: Successfully uploaded HTML page: da-content/html/about-us/leadership/executive.html');
     });
 
     it('should handle upload errors properly', async () => {
@@ -394,7 +394,7 @@ describe('html-processor.js', () => {
       let thrownError = null;
       try {
         await uploadHTMLPage(
-          '/path/to/page.html',
+          'da-content/html/path/to/page.html',
           'https://admin.da.live/source/org/site',
           'test-token',
           {},
@@ -408,9 +408,9 @@ describe('html-processor.js', () => {
       expect(thrownError).to.equal(uploadError);
       
       // Verify error logging
-      expect(logs).to.include('YELLOW: Uploading updated HTML page: /path/to/page.html...');
-      expect(logs).to.include('RED: Error uploading HTML page: /path/to/page.html:');
-      expect(logs).to.not.include('GREEN: Successfully uploaded HTML page: /path/to/page.html');
+      expect(logs).to.include('YELLOW: Uploading updated HTML page: da-content/html/path/to/page.html...');
+      expect(logs).to.include('RED: Error uploading HTML page: da-content/html/path/to/page.html:');
+      expect(logs).to.not.include('GREEN: Successfully uploaded HTML page: da-content/html/path/to/page.html');
     });
 
     it('should merge upload options with baseFolder correctly', async () => {
@@ -446,6 +446,52 @@ describe('html-processor.js', () => {
         existingOption: 'value',
         baseFolder: '/',
       });
+    });
+
+    it('should calculate baseFolder correctly for paths with html directory', async () => {
+      let capturedOptions = null;
+      
+      const deps = {
+        ...createMockDependencies(),
+        uploadFile: async (pagePath, daAdminUrl, token, options) => {
+          capturedOptions = options;
+          return Promise.resolve();
+        },
+        chalk: mockChalk,
+      };
+      
+      await uploadHTMLPage(
+        'da-content/html/about-uws/leadership/executive.html',
+        'https://admin.da.live/source/org/site',
+        'token',
+        {},
+        deps,
+      );
+      
+      expect(capturedOptions.baseFolder).to.equal('da-content/html');
+    });
+
+    it('should fall back to dirname for paths without html directory', async () => {
+      let capturedOptions = null;
+      
+      const deps = {
+        ...createMockDependencies(),
+        uploadFile: async (pagePath, daAdminUrl, token, options) => {
+          capturedOptions = options;
+          return Promise.resolve();
+        },
+        chalk: mockChalk,
+      };
+      
+      await uploadHTMLPage(
+        '/some/other/path/page.html',
+        'https://admin.da.live/source/org/site',
+        'token',
+        {},
+        deps,
+      );
+      
+      expect(capturedOptions.baseFolder).to.equal('/some/other/path');
     });
   });
 });
