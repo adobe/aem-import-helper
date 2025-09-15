@@ -444,7 +444,7 @@ describe('html-processor.js', () => {
         maxRetries: 5,
         retryDelay: 2000,
         existingOption: 'value',
-        baseFolder: '/',
+        baseFolder: '',
       });
     });
 
@@ -471,7 +471,7 @@ describe('html-processor.js', () => {
       expect(capturedOptions.baseFolder).to.equal('da-content/html');
     });
 
-    it('should fall back to dirname for paths without html directory', async () => {
+    it('should handle paths with html directory not at the end', async () => {
       let capturedOptions = null;
       
       const deps = {
@@ -484,14 +484,14 @@ describe('html-processor.js', () => {
       };
       
       await uploadHTMLPage(
-        '/some/other/path/page.html',
+        'da-content/html/some/other/path/html/folder/page.html',
         'https://admin.da.live/source/org/site',
         'token',
         {},
         deps,
       );
       
-      expect(capturedOptions.baseFolder).to.equal('/some/other/path');
+      expect(capturedOptions.baseFolder).to.equal('da-content/html');
     });
   });
 });

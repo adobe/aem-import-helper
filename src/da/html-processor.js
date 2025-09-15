@@ -260,9 +260,7 @@ export async function uploadHTMLPage(
   // we want baseFolder to be 'da-content/html'
   const pathParts = pagePath.split(pathDep.sep);
   const htmlIndex = pathParts.findIndex(part => part === 'html');
-  const baseFolder = htmlIndex !== -1 
-    ? pathParts.slice(0, htmlIndex + 1).join(pathDep.sep)
-    : pathDep.dirname(pagePath);
+  const baseFolder = pathParts.slice(0, htmlIndex + 1).join(pathDep.sep);
 
   console.log(chalkDep.yellow(`Uploading updated HTML page: ${pagePath}...`));
   try {

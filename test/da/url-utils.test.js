@@ -102,7 +102,10 @@ describe('url-utils.js', () => {
     });
 
     it('should handle URLs with encoded characters', () => {
+      // getFilename should return the raw filename from the URL (still encoded)
       expect(getFilename('https://example.com/path/file%20name.jpg')).to.equal('file%20name.jpg');
+      // getSanitizedFilenameFromUrl should decode and sanitize
+      expect(getSanitizedFilenameFromUrl('https://example.com/path/file%20name.jpg')).to.equal('file-name.jpg');
     });
 
     it('should handle nested paths', () => {
