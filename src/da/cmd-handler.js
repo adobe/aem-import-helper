@@ -13,10 +13,7 @@ import fs from 'fs';
 import chalk from 'chalk';
 import fetch from 'node-fetch';
 import { processPages } from './da-helper.js';
-
-// DA API base URL
-const DA_BASE_URL = 'https://admin.da.live';
-const DA_CONTENT_URL = 'https://content.da.live';
+import { buildDaListUrl } from './url-utils.js';
 
 /**
  * Validate the existence of the asset-list.json and HTML folder.
@@ -41,7 +38,8 @@ function validateFiles(assetListFile, daFolder) {
 
 /**
  * Validate access to the DA site by making a HEAD request to the target environment.
- * @param {string} listUrl - The DA list URL constructed from org and site (e.g., https://admin.da.live/list/geometrixx/outdoors)
+ * @param {string} listUrl - The DA list URL constructed from org and site
+ *   (e.g., https://admin.da.live/list/geometrixx/outdoors)
  * @param {string} token - The DA authentication token (optional)
  * @return {Promise<Object>} Object with success status and whether token is required
  */
@@ -129,10 +127,8 @@ export const daHandler = async (args) => {
     process.exit(1);
   }
 
-  // Construct the DA URL from org and site
-  const daAdminUrl = `${DA_BASE_URL}/source/${args.org}/${args.site}`;
-  const daContentUrl = `${DA_CONTENT_URL}/${args.org}/${args.site}`;
-  const listUrl = `${DA_BASE_URL}/list/${args.org}/${args.site}`;
+  // Construct the list URL for validation
+  const listUrl = buildDaListUrl(args.org, args.site);
 
   // Handle token (optional)
   let token = args.token;
@@ -168,18 +164,22 @@ export const daHandler = async (args) => {
     // Extract the assets array from the JSON structure
     const assetUrls = new Set(assetListJson.assets || []);
     if (assetUrls.size === 0) {
-      console.warn(chalk.yellow('No asset urls found in the asset-list file. Expected format: {"assets": ["url1", "url2", ...]}'));
+      console.warn(
+        chalk.yellow('No asset urls found in the asset-list file. Expected format: {"assets": ["url1", "url2", ...]}'),
+      );
     }
 
     // get the site origin from the asset-list.json
     const siteOrigin = assetListJson.siteOrigin || '';
     if (!siteOrigin) {
-      console.warn(chalk.yellow('No site origin found in the asset-list file. Relative references will not be updated.'));
+      console.warn(
+        chalk.yellow('No site origin found in the asset-list file. Relative references will not be updated.'),
+      );
     }
 
     await processPages(
-      daAdminUrl,
-      daContentUrl,
+      args.org,
+      args.site,
       assetUrls,
       siteOrigin,
       args['da-folder'],
