@@ -44,7 +44,7 @@ export const createMockDependencies = (overrides = {}) => {
       totalFiles: 0, 
       uploadedFiles: 0, 
       failedFiles: 0, 
-      results: [] 
+      results: [], 
     }),
     uploadFile: sinon.stub().resolves(),
     getAllFiles: sinon.stub().returns(['/html/page1.html']),

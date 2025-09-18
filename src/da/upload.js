@@ -27,6 +27,39 @@ const defaultDependencies = {
 // Constant for maximum concurrent uploads per page
 const MAX_CONCURRENT_UPLOADS = 50;
 
+// Common OS system files to exclude during upload
+const SYSTEM_EXCLUSIONS = new Set([
+  '.DS_Store',      // macOS metadata files
+  '.DS_Store?',     // macOS metadata files (variant)
+  'Thumbs.db',      // Windows thumbnail cache
+  'ehthumbs.db',    // Windows thumbnail cache
+  'desktop.ini',    // Windows folder settings
+]);
+
+/**
+ * Check if a file should be excluded based on common OS system file patterns
+ * @param {string} filePath - The file path to check
+ * @param {Object} dependencies - Dependencies for testing (optional)
+ * @return {boolean} True if the file should be excluded
+ */
+function isSystemFile(filePath, dependencies = defaultDependencies) {
+  const { path: pathDep } = dependencies;
+  
+  const filename = pathDep.basename(filePath);
+  
+  // Check exact filename matches for common OS system files
+  if (SYSTEM_EXCLUSIONS.has(filename)) {
+    return true;
+  }
+  
+  // Check for macOS resource fork files (._filename)
+  if (filename.startsWith('._')) {
+    return true;
+  }
+  
+  return false;
+}
+
 /**
  * Recursively get all files from a directory with optional filtering by file extensions and exclude extensions.
  * @param {string} dirPath - The directory path to scan
@@ -44,6 +77,11 @@ export function getAllFiles(dirPath, fileExtensions = [], excludeExtensions = []
       .filter((entry) => entry.isFile())
       .map((entry) => pathDep.join(entry.parentPath, entry.name))
       .filter((file) => {
+        // Filter out system files first
+        if (isSystemFile(file, dependencies)) {
+          return false;
+        }
+        
         const ext = pathDep.extname(file);
         const included = fileExtensions.length === 0 || fileExtensions.includes(ext);
         const excluded = excludeExtensions.length > 0 && excludeExtensions.includes(ext);

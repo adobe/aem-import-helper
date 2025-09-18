@@ -187,7 +187,7 @@ async function processOtherFiles(daFolder, org, site, token, uploadOptions, depe
     baseFolder: daFolder,
     excludeExtensions: ['.html', '.htm'],
     useBatching: false, // Use sequential upload for non-HTML files
-  }, dependencies);
+  });
   
   // Return the results array from uploadFolder
   return result.results || [];

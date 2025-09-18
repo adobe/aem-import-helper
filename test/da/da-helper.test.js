@@ -35,7 +35,7 @@ describe('da-helper.js - Integration Tests', () => {
       );
       const uploadFolderSpy = sandbox.stub().resolves({ 
         success: true, 
-        results: [] 
+        results: [], 
       });
       const uploadFileSpy = sandbox.stub().resolves();
 
