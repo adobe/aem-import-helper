@@ -13,7 +13,7 @@
 import fs from 'fs';
 import path from 'path';
 import chalk from 'chalk';
-import { getAllFiles } from './upload.js';
+import { getAllFiles, uploadFolder, uploadFile } from './upload.js';
 
 // Import functions from modular components
 import {
@@ -45,6 +45,8 @@ const defaultDependencies = {
   path,
   chalk,
   getAllFiles,
+  uploadFolder,
+  uploadFile,
 };
 
 /**
@@ -60,7 +62,7 @@ const defaultDependencies = {
  * @param {Object} uploadOptions - Upload options
  * @param {string} htmlFolder - Base HTML folder
  * @param {Object} dependencies - Dependencies for testing (optional)
- * @return {Promise<void>}
+ * @return {Promise<Array<string>>} Array of matching asset URLs processed
  */
 async function processSinglePage(
   pagePath,
@@ -158,6 +160,37 @@ async function processSinglePage(
   await uploadHTMLPage(htmlPath, daAdminUrl, token, uploadOptions, dependencies);
 
   console.log(chalkDep.green(`Completed processing page: ${pagePath}`));
+  
+  return matchingAssetUrls;
+}
+
+/**
+ * Process other (non-HTML) files in the given DA folder
+ * @param {string} daFolder - DA folder containing other files
+ * @param {string} org - Organization name
+ * @param {string} site - Site name
+ * @param {string} token - Authentication token
+ * @param {Object} uploadOptions - Upload options including maxRetries and retryDelay
+ * @param {Object} dependencies - Dependencies for testing (optional)
+ * @return {Promise<Array>} Array of upload results for non-HTML files
+ */
+async function processOtherFiles(daFolder, org, site, token, uploadOptions, dependencies = defaultDependencies) {
+  const { chalk: chalkDep, uploadFolder: uploadFolderDep } = dependencies;
+  
+  console.log(chalkDep.blue('\nProcessing non-HTML files...'));
+  
+  const daAdminUrl = buildDaAdminUrl(org, site);
+  
+  // Use uploadFolder with exclude extensions to skip HTML files
+  const result = await uploadFolderDep(daFolder, daAdminUrl, token, {
+    ...uploadOptions,
+    baseFolder: daFolder,
+    excludeExtensions: ['.html', '.htm'],
+    useBatching: false, // Use sequential upload for non-HTML files
+  }, dependencies);
+  
+  // Return the results array from uploadFolder
+  return result.results || [];
 }
 
 /**
@@ -172,7 +205,7 @@ async function processSinglePage(
  * @param {boolean} keep - Whether to keep downloaded files after processing
  * @param {Object} uploadOptions - Options for upload (convertImagesToPng, maxRetries, etc.)
  * @param {Object} dependencies - Dependencies for testing (optional)
- * @return {Promise<void>}
+ * @return {Promise<Array>} Array of processing results including both HTML and non-HTML files
  */
 export async function processPages(
   org,
@@ -198,37 +231,71 @@ export async function processPages(
     const allFiles = getAllFilesDep(daFolder);
     const htmlFiles = allFiles.filter(file => path.extname(file).toLowerCase() === '.html');
 
+    const htmlResults = [];
+    
     if (htmlFiles.length === 0) {
       console.log(chalkDep.yellow('No HTML files found in DA folder'));
-      return;
-    }
+    } else {
+      console.log(chalkDep.blue(`Found ${htmlFiles.length} HTML files to process`));
 
-    console.log(chalkDep.blue(`Found ${htmlFiles.length} HTML files to process`));
-
-    // Process each HTML file
-    for (const htmlFile of htmlFiles) {
-      try {
-        const htmlContent = fsDep.readFileSync(htmlFile, UTF8_ENCODING);
-        await processSinglePage(
-          htmlFile, 
-          htmlContent, 
-          assetUrls, 
-          siteOrigin, 
-          downloadFolder, 
-          org, 
-          site, 
-          token, 
-          uploadOptions, 
-          daFolder, 
-          dependencies,
-        );
-      } catch (error) {
-        console.error(chalkDep.red(`Error processing ${htmlFile}:`, error.message));
-        throw error;
+      // Process each HTML file and collect results
+      for (const htmlFile of htmlFiles) {
+        try {
+          const htmlContent = fsDep.readFileSync(htmlFile, UTF8_ENCODING);
+          const processedAssets = await processSinglePage(
+            htmlFile, 
+            htmlContent, 
+            assetUrls, 
+            siteOrigin, 
+            downloadFolder, 
+            org, 
+            site, 
+            token, 
+            uploadOptions, 
+            daFolder, 
+            dependencies,
+          );
+          // Add success result for HTML file with asset information
+          htmlResults.push({
+            filePath: htmlFile,
+            uploaded: true,
+            downloadedAssets: processedAssets,
+          });
+        } catch (error) {
+          console.error(chalkDep.red(`Error processing ${htmlFile}:`, error.message));
+          // Add error result for HTML file
+          htmlResults.push({
+            filePath: htmlFile,
+            error: error.message,
+            uploaded: false,
+            downloadedAssets: [],
+          });
+          throw error;
+        }
       }
+
+      console.log(chalkDep.green(`Successfully processed all ${htmlFiles.length} pages`));
     }
 
-    console.log(chalkDep.green(`Successfully processed all ${htmlFiles.length} pages`));
+    // Process other (non-HTML) files
+    const otherFilesResults = await processOtherFiles(daFolder, org, site, token, uploadOptions, dependencies);
+    
+    // Combine all results
+    const allResults = [...htmlResults, ...otherFilesResults];
+    
+    // Summary
+    const successfulPages = allResults.filter(result => {
+      // Handle both HTML results (uploaded/error format) and upload results (success format)
+      return result.success === true || (result.uploaded === true && !result.error);
+    }).length;
+    const totalAssets = htmlResults.reduce((sum, result) => sum + (result.downloadedAssets?.length || 0), 0);
+    const totalFiles = htmlFiles.length + otherFilesResults.length;
+    
+    console.log(chalkDep.green('\nProcessing complete!'));
+    console.log(chalkDep.green(`- Processed ${successfulPages}/${totalFiles} files successfully`));
+    console.log(chalkDep.green(`- Downloaded and uploaded ${totalAssets} assets`));
+    
+    return allResults;
 
   } finally {
     // Clean up downloaded files if not keeping them

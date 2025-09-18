@@ -254,6 +254,7 @@ function getSummaryFromUploadResults(results, totalFiles, dependencies = default
  * @param {string} token - The authentication token
  * @param {Object} options - Additional options for the upload
  * @param {Array<string>} options.fileExtensions - Array of file extensions to include (e.g., ['.html', '.htm'])
+ * @param {Array<string>} options.excludeExtensions - Array of file extensions to exclude (e.g., ['.html', '.htm'])
  * @param {string} options.baseFolder - The base folder to calculate relative paths from (default: folderPath)
  * @param {boolean} options.useBatching - Whether to use batched uploads (default: true)
  * @param {Object} dependencies - Dependencies for testing (optional)
@@ -273,7 +274,7 @@ export async function uploadFolder(folderPath, uploadUrl, token, options = {}, d
 
   try {
     // Get all files recursively
-    let allFiles = getFiles(folderPath, options.fileExtensions || [], dependencies);
+    let allFiles = getFiles(folderPath, options.fileExtensions || [], options.excludeExtensions || [], dependencies);
     
     if (allFiles.length === 0) {
       console.log(chalkDep.yellow('No files found to upload'));

@@ -33,7 +33,10 @@ describe('da-helper.js - Integration Tests', () => {
       const downloadAssetsSpy = sandbox.stub().callsFake(async (mapping) => 
         Array.from(mapping.keys()).map(() => ({ status: 'fulfilled' })),
       );
-      const uploadFolderSpy = sandbox.stub().resolves();
+      const uploadFolderSpy = sandbox.stub().resolves({ 
+        success: true, 
+        results: [] 
+      });
       const uploadFileSpy = sandbox.stub().resolves();
 
       const mockDeps = createMockDependencies({
@@ -71,9 +74,9 @@ describe('da-helper.js - Integration Tests', () => {
       expect(downloadCall.args[2]).to.equal(3); // Max retries
       expect(downloadCall.args[3]).to.equal(1000); // Retry delay
 
-      // Verify upload folder was called for assets
-      expect(uploadFolderSpy.calledOnce).to.be.true;
-      const uploadFolderCall = uploadFolderSpy.getCall(0);
+      // Verify upload folder was called (twice: once for page assets, once for non-HTML files)
+      expect(uploadFolderSpy.calledTwice).to.be.true;
+      const uploadFolderCall = uploadFolderSpy.getCall(0); // First call is for page assets
       expect(uploadFolderCall.args[0]).to.include('/.page1'); // Local folder path with shadow folder
       expect(uploadFolderCall.args[1]).to.include('admin.da.live'); // DA admin URL
       expect(uploadFolderCall.args[2]).to.equal('token123'); // Token
@@ -105,9 +108,10 @@ describe('da-helper.js - Integration Tests', () => {
         mockDeps,
       );
 
-      // Verify asset processing behavior - should skip asset operations
-      expect(mockDeps.downloadAssets.called).to.be.false; // No matching assets found
-      expect(mockDeps.uploadFolder.called).to.be.false; // No assets to upload
+      // Verify asset processing behavior - should skip asset operations for HTML pages
+      expect(mockDeps.downloadAssets.called).to.be.false; // No matching assets found for HTML pages
+      // But uploadFolder should still be called for non-HTML files
+      expect(mockDeps.uploadFolder.calledOnce).to.be.true; // Non-HTML files are still processed
       
       // Verify HTML processing still happens - core functionality
       expect(mockDeps.uploadFile.calledOnce).to.be.true; // HTML should still be uploaded
@@ -298,5 +302,75 @@ describe('da-helper.js - Integration Tests', () => {
       
       // Should complete without throwing errors even with null siteOrigin
     });
+
+    it('should process non-HTML files successfully', async () => {
+      const uploadFolderSpy = sandbox.stub().resolves({
+        success: true,
+        results: [
+          { success: true, filePath: '/da/folder/styles.css' },
+          { success: true, filePath: '/da/folder/document.pdf' },
+        ],
+      });
+
+      const mockDeps = createMockDependencies({
+        getAllFiles: () => ['/da/folder/page.html'],
+        uploadFolder: uploadFolderSpy,
+      });
+
+      const results = await processPages(
+        testOrg,
+        testSite,
+        testAssetUrls,
+        testSiteOrigin,
+        '/da/folder',
+        '/download',
+        'token123',
+        false,
+        {},
+        mockDeps,
+      );
+
+      // Verify non-HTML files were processed
+      expect(uploadFolderSpy.calledOnce).to.be.true;
+      expect(results).to.include.deep.members([
+        { success: true, filePath: '/da/folder/styles.css' },
+        { success: true, filePath: '/da/folder/document.pdf' },
+      ]);
+    });
+
+    it('should handle non-HTML file upload failures gracefully', async () => {
+      const uploadFolderSpy = sandbox.stub().resolves({
+        results: [
+          { success: true, filePath: '/da/folder/styles.css' },
+          { success: false, filePath: '/da/folder/script.js', error: 'Upload failed' },
+        ],
+      });
+
+      const mockDeps = createMockDependencies({
+        getAllFiles: () => ['/da/folder/page.html'],
+        uploadFolder: uploadFolderSpy,
+      });
+
+      // Should not throw even when some non-HTML files fail
+      const results = await processPages(
+        testOrg,
+        testSite,
+        testAssetUrls,
+        testSiteOrigin,
+        '/da/folder',
+        '/download',
+        'token123',
+        false,
+        {},
+        mockDeps,
+      );
+
+      // Should include both successful and failed file results
+      expect(results).to.include.deep.members([
+        { success: true, filePath: '/da/folder/styles.css' },
+        { success: false, filePath: '/da/folder/script.js', error: 'Upload failed' },
+      ]);
+    });
+
   });
 });
