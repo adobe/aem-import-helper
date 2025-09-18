@@ -13,7 +13,7 @@
 import fs from 'fs';
 import path from 'path';
 import chalk from 'chalk';
-import { getAllFiles, uploadFolder, uploadFile } from './upload.js';
+import { getAllFiles, uploadFolder } from './upload.js';
 
 // Import functions from modular components
 import {
@@ -46,7 +46,6 @@ const defaultDependencies = {
   chalk,
   getAllFiles,
   uploadFolder,
-  uploadFile,
 };
 
 /**
