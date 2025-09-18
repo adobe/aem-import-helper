@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/adobe/aem-import-helper/compare/v1.1.11...v1.2.0) (2025-09-18)
+
+
+### Features
+
+* store non-image assets in shared-media folders under parent directories ([#58](https://github.com/adobe/aem-import-helper/issues/58)) ([eeee3f6](https://github.com/adobe/aem-import-helper/commit/eeee3f606e7a4849ce92c2c97cd64bc9a627b3d5))
+
 ## [1.1.11](https://github.com/adobe/aem-import-helper/compare/v1.1.10...v1.1.11) (2025-08-26)
 
 
