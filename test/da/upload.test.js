@@ -41,6 +41,9 @@ describe('upload', function () {
         relative: sinon.stub(),
         join: path.join,
         extname: sinon.stub(),
+        basename: sinon.stub(),
+        dirname: sinon.stub(),
+        sep: '/',
       },
       FormData: mockFormData,
       fetch: sinon.stub(),
@@ -73,6 +76,13 @@ describe('upload', function () {
       ];
       mockDependencies.fs.existsSync.returns(true);
       mockDependencies.fs.readdirSync.returns(files);
+      
+      // Mock path functions for system file detection
+      mockDependencies.path.basename.withArgs('/fake/dir/file1.html').returns('file1.html');
+      mockDependencies.path.basename.withArgs('/fake/dir/sub/file2.js').returns('file2.js');
+      mockDependencies.path.dirname.withArgs('/fake/dir/file1.html').returns('/fake/dir');
+      mockDependencies.path.dirname.withArgs('/fake/dir/sub/file2.js').returns('/fake/dir/sub');
+      
       const result = getAllFiles('/fake/dir', [], [], mockDependencies);
       expect(result).to.have.length(2);
       expect(result[0]).to.equal('/fake/dir/file1.html');
@@ -87,6 +97,12 @@ describe('upload', function () {
       mockDependencies.fs.readdirSync.returns(files);
       mockDependencies.path.extname.withArgs('/fake/dir/file1.html').returns('.html');
       mockDependencies.path.extname.withArgs('/fake/dir/sub/file2.js').returns('.js');
+      
+      // Mock path functions for system file detection
+      mockDependencies.path.basename.withArgs('/fake/dir/file1.html').returns('file1.html');
+      mockDependencies.path.basename.withArgs('/fake/dir/sub/file2.js').returns('file2.js');
+      mockDependencies.path.dirname.withArgs('/fake/dir/file1.html').returns('/fake/dir');
+      mockDependencies.path.dirname.withArgs('/fake/dir/sub/file2.js').returns('/fake/dir/sub');
 
       const result = getAllFiles('/fake/dir', ['.html'], [], mockDependencies);
       expect(result).to.have.length(1);
@@ -105,6 +121,16 @@ describe('upload', function () {
       mockDependencies.path.extname.withArgs('/fake/dir/file2.js').returns('.js');
       mockDependencies.path.extname.withArgs('/fake/dir/file3.docx').returns('.docx');
       mockDependencies.path.extname.withArgs('/fake/dir/file4.txt').returns('.txt');
+      
+      // Mock path functions for system file detection
+      mockDependencies.path.basename.withArgs('/fake/dir/file1.html').returns('file1.html');
+      mockDependencies.path.basename.withArgs('/fake/dir/file2.js').returns('file2.js');
+      mockDependencies.path.basename.withArgs('/fake/dir/file3.docx').returns('file3.docx');
+      mockDependencies.path.basename.withArgs('/fake/dir/file4.txt').returns('file4.txt');
+      mockDependencies.path.dirname.withArgs('/fake/dir/file1.html').returns('/fake/dir');
+      mockDependencies.path.dirname.withArgs('/fake/dir/file2.js').returns('/fake/dir');
+      mockDependencies.path.dirname.withArgs('/fake/dir/file3.docx').returns('/fake/dir');
+      mockDependencies.path.dirname.withArgs('/fake/dir/file4.txt').returns('/fake/dir');
 
       const result = getAllFiles('/fake/dir', [], ['.docx', '.txt'], mockDependencies);
       expect(result).to.have.length(2);
@@ -126,11 +152,55 @@ describe('upload', function () {
       mockDependencies.path.extname.withArgs('/fake/dir/file3.docx').returns('.docx');
       mockDependencies.path.extname.withArgs('/fake/dir/file4.txt').returns('.txt');
       mockDependencies.path.extname.withArgs('/fake/dir/file5.html').returns('.html');
+      
+      // Mock path functions for system file detection
+      mockDependencies.path.basename.withArgs('/fake/dir/file1.html').returns('file1.html');
+      mockDependencies.path.basename.withArgs('/fake/dir/file2.js').returns('file2.js');
+      mockDependencies.path.basename.withArgs('/fake/dir/file3.docx').returns('file3.docx');
+      mockDependencies.path.basename.withArgs('/fake/dir/file4.txt').returns('file4.txt');
+      mockDependencies.path.basename.withArgs('/fake/dir/file5.html').returns('file5.html');
+      mockDependencies.path.dirname.withArgs('/fake/dir/file1.html').returns('/fake/dir');
+      mockDependencies.path.dirname.withArgs('/fake/dir/file2.js').returns('/fake/dir');
+      mockDependencies.path.dirname.withArgs('/fake/dir/file3.docx').returns('/fake/dir');
+      mockDependencies.path.dirname.withArgs('/fake/dir/file4.txt').returns('/fake/dir');
+      mockDependencies.path.dirname.withArgs('/fake/dir/file5.html').returns('/fake/dir');
 
       const result = getAllFiles('/fake/dir', ['.html', '.js'], ['.js'], mockDependencies);
       expect(result).to.have.length(2);
       expect(result).to.include('/fake/dir/file1.html');
       expect(result).to.include('/fake/dir/file5.html');
+    });
+
+    it('should exclude common OS system files like .DS_Store', function() {
+      const files = [
+        { isFile: () => true, parentPath: '/fake/dir', name: 'file1.html' },
+        { isFile: () => true, parentPath: '/fake/dir', name: '.DS_Store' },
+        { isFile: () => true, parentPath: '/fake/dir', name: 'Thumbs.db' },
+        { isFile: () => true, parentPath: '/fake/dir', name: 'desktop.ini' },
+        { isFile: () => true, parentPath: '/fake/dir', name: '._hidden_file' },
+        { isFile: () => true, parentPath: '/fake/dir', name: 'file2.js' },
+      ];
+      mockDependencies.fs.readdirSync.returns(files);
+      mockDependencies.path.extname.withArgs('/fake/dir/file1.html').returns('.html');
+      mockDependencies.path.extname.withArgs('/fake/dir/.DS_Store').returns('');
+      mockDependencies.path.extname.withArgs('/fake/dir/Thumbs.db').returns('.db');
+      mockDependencies.path.extname.withArgs('/fake/dir/desktop.ini').returns('.ini');
+      mockDependencies.path.extname.withArgs('/fake/dir/._hidden_file').returns('');
+      mockDependencies.path.extname.withArgs('/fake/dir/file2.js').returns('.js');
+      
+      // Mock path.basename for system file detection
+      mockDependencies.path.basename = (filePath) => filePath.split('/').pop();
+      mockDependencies.path.dirname = (filePath) => filePath.substring(0, filePath.lastIndexOf('/'));
+      mockDependencies.path.sep = '/';
+
+      const result = getAllFiles('/fake/dir', [], [], mockDependencies);
+      expect(result).to.have.length(2);
+      expect(result).to.include('/fake/dir/file1.html');
+      expect(result).to.include('/fake/dir/file2.js');
+      expect(result).to.not.include('/fake/dir/.DS_Store');
+      expect(result).to.not.include('/fake/dir/Thumbs.db');
+      expect(result).to.not.include('/fake/dir/desktop.ini');
+      expect(result).to.not.include('/fake/dir/._hidden_file');
     });
 
     it('should throw "Folder not found" for non-existent directory', function() {
