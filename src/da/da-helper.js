@@ -261,7 +261,7 @@ export async function processPages(
             downloadedAssets: processedAssets,
           });
         } catch (error) {
-          console.error(chalkDep.red(`Error processing ${htmlFile}:`, error.message));
+          console.error(chalkDep.red(`Error processing ${htmlFile}: `, error.message));
           // Add error result for HTML file
           htmlResults.push({
             filePath: htmlFile,
