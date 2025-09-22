@@ -1,3 +1,10 @@
+## [1.2.1](https://github.com/adobe/aem-import-helper/compare/v1.2.0...v1.2.1) (2025-09-22)
+
+
+### Bug Fixes
+
+* [DA][Regression] Add back processing for non-html files ([#63](https://github.com/adobe/aem-import-helper/issues/63)) ([76e2723](https://github.com/adobe/aem-import-helper/commit/76e27237fa2107d1ffd4ca382cdc59fb41e57934))
+
 # [1.2.0](https://github.com/adobe/aem-import-helper/compare/v1.1.11...v1.2.0) (2025-09-18)
 
 
