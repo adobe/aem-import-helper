@@ -1,3 +1,10 @@
+## [1.2.2](https://github.com/adobe/aem-import-helper/compare/v1.2.1...v1.2.2) (2025-09-25)
+
+
+### Bug Fixes
+
+* unzipping is not extracting all files ([#66](https://github.com/adobe/aem-import-helper/issues/66)) ([5da3042](https://github.com/adobe/aem-import-helper/commit/5da3042dd5a2fb51f215f85a4c9decdb9cc23baa)), closes [#65](https://github.com/adobe/aem-import-helper/issues/65)
+
 ## [1.2.1](https://github.com/adobe/aem-import-helper/compare/v1.2.0...v1.2.1) (2025-09-22)
 
 
