@@ -65,6 +65,7 @@ export function createAssetMapping(matchingHrefs, fullShadowPath, dependencies =
  * @param {Object} options - Download options
  * @param {number} options.maxRetries - Maximum retries for download (default: 3)
  * @param {number} options.retryDelay - Delay between retries (default: 1000)
+ * @param {boolean} options.compressImages - Whether to compress large images (default: false)
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Promise<{downloadResults: Array, assetMapping: Map}>} Download results and asset mapping
  */
@@ -75,7 +76,7 @@ export async function downloadPageAssets(
   options = {},
   dependencies = {},
 ) {
-  const { maxRetries = 3, retryDelay = 1000 } = options;
+  const { maxRetries = 3, retryDelay = 1000, compressImages } = options;
   const chalkDep = dependencies.chalk;
   const downloadAssetsFn = dependencies.downloadAssets || downloadAssets;
   
@@ -83,7 +84,14 @@ export async function downloadPageAssets(
   
   console.log(chalkDep.yellow(`Downloading ${simplifiedAssetMapping.size} unique assets for this page...`));
 
-  const downloadResults = await downloadAssetsFn(simplifiedAssetMapping, downloadFolder, maxRetries, retryDelay);
+  const downloadResults = await downloadAssetsFn(
+    simplifiedAssetMapping, 
+    downloadFolder, 
+    maxRetries, 
+    retryDelay, 
+    {}, // headers
+    { compressImages },
+  );
 
   // Count successful downloads
   const successfulDownloads = downloadResults.filter(result => result.status === 'fulfilled').length;
@@ -142,7 +150,7 @@ export async function uploadPageAssets(
         // Determine asset type based on folder path
         const isMediaFolder = targetFolder.endsWith('/shared-media') || targetFolder.endsWith('\\shared-media');
         const assetType = isMediaFolder ? 'non-image asset(s)' : 'image(s)';
-        
+
         console.log(chalkDep.cyan(`Uploading ${assets.length} ${assetType} from ${targetFolder}/`));
         
         await uploadFolderFn(localFolderPath, daAdminUrl, token, {
