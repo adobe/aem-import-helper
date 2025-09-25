@@ -33,9 +33,8 @@ function ensureDir(dirPath) {
  */
 async function unzip(zipPath, destDir) {
   ensureDir(destDir);
-  await fs.createReadStream(zipPath)
-    .pipe(unzipper.Extract({ path: destDir }))
-    .promise();
+  const directory = await unzipper.Open.file(zipPath);
+  await directory.extract({ path: destDir });
 }
 
 /**
