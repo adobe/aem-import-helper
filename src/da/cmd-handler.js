@@ -119,6 +119,11 @@ export const daBuilder = (yargs) => {
       describe: 'Keep downloaded/processed DA assets and HTML on local disk after upload',
       type: 'boolean',
       default: false,
+    })
+    .option('compress-images', {
+      describe: 'Compress large images before upload to meet AEM.live size limits (default: false)',
+      type: 'boolean',
+      default: false,
     });
 }
 
@@ -186,7 +191,10 @@ export const daHandler = async (args) => {
       args['output'],
       token,
       args.keep,
-      { imagesToPng: args['images-to-png'] },
+      { 
+        imagesToPng: args['images-to-png'],
+        compressImages: args['compress-images'],
+      },
     );
 
   } catch (err) {
