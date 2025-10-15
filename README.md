@@ -152,13 +152,13 @@ to the asset mapping file (`asset-mapping.json`), which contains mappings for as
 * _skip-assets_ [default=false]: Skip uploading assets to AEM..
 * _asset-mapping_: Only optional if --skip-assets is true.
 * _images-to-png_ [default=true]: When true, converts downloaded image assets to PNG (except for JPEG, PNG, GIF, ICO, SVG, MP4) before upload.
-* _compress-images_ [default=true]: Compress large images that exceed [AEM.live file size limits](https://www.aem.live/docs/limits#file-size-limits) before upload. Automatically calculates optimal quality to meet size limits.
+* _compress-images_ [default=true]: Compress large images that exceed [AEM Edge Delivery file size limits](https://www.aem.live/docs/limits#file-size-limits) before upload using maximum quality (Q100) compression.
 
 **Image Compression:**
-When `--compress-images` is enabled, images exceeding AEM.live limits are automatically compressed:
+When `--compress-images` is enabled, images exceeding AEM Edge Delivery limits are automatically compressed:
 - **Images (.png, .jpg, .webp, etc.)**: 20 MB limit
 
-The compression is intelligent - it automatically calculates the optimal quality needed to meet size limits. The system will iteratively adjust compression settings until files fit within AEM.live constraints. No manual quality tuning required! Note: Non-image files (PDF, MP4, etc.) are not compressed.
+The compression uses Quality 100 (maximum quality) to preserve visual fidelity while ensuring files stay under the 20MB limit. Original image formats are preserved (PNG stays PNG, JPEG stays JPEG, etc.). Progressive encoding is applied for better web loading performance. Note: Non-image files (PDF, MP4, etc.) are not compressed.
 
 Once the command is executed, the content package and associated assets are uploaded to your AEM author environment. The content package is installed and the assets are uploaded to the DAM.
 
@@ -220,13 +220,13 @@ npm run da-upload -- \
 * _output_ [default='da-content']: Absolute path to the output folder where the DA content (pages, assets, etc.) will be stored.
 * _keep_ [default=false]: Keep the downloaded assets and updated HTML locally after upload instead of cleaning up.
 * _images-to-png_ [default=true]: When true, converts downloaded image assets to PNG (except for JPEG, PNG, GIF, ICO, SVG, MP4) before upload.
-* _compress-images_ [default=true]: Compress large images that exceed [AEM.live file size limits](https://www.aem.live/docs/limits#file-size-limits) before upload. Automatically calculates optimal quality to meet size limits.
+* _compress-images_ [default=true]: Compress large images that exceed [AEM Edge Delivery file size limits](https://www.aem.live/docs/limits#file-size-limits) before upload using maximum quality (Q100) compression.
 
 **Image Compression:**
-When `--compress-images` is enabled, images exceeding AEM.live limits are automatically compressed:
+When `--compress-images` is enabled, images exceeding AEM Edge Delivery limits are automatically compressed:
 - **Images (.png, .jpg, .webp, etc.)**: 20 MB limit
 
-The compression is intelligent - it automatically calculates the optimal quality needed to meet size limits. The system will iteratively adjust compression settings until files fit within AEM.live constraints. No manual quality tuning required! Note: Non-image files (PDF, MP4, etc.) are not compressed.
+The compression uses Quality 100 (maximum quality) to preserve visual fidelity while ensuring files stay under the 20MB limit. Original image formats are preserved (PNG stays PNG, JPEG stays JPEG, etc.). Progressive encoding is applied for better web loading performance. Note: Non-image files (PDF, MP4, etc.) are not compressed.
 
 When `--images-to-png` is false, preserves original image formats and updates references with the original extension. 
 Only use this option if you know your images are supported by DA.

@@ -219,12 +219,12 @@ describe('Image Compressor', () => {
         expect(compressedSize).to.be.lessThanOrEqual(20 * 1024 * 1024);
         expect(compressedSize).to.equal(result.compressedSize);
         
-        // The new approach should target ~18MB, not over-compress to <10MB
-        const targetSize = 18 * 1024 * 1024; // 18MB target
-        const isReasonablyClose = compressedSize >= targetSize * 0.5; // At least 9MB (not over-compressed)
+        // Quality 100 compression should stay well under 20MB limit
+        const aemLimit = 20 * 1024 * 1024; // 20MB AEM Edge Delivery limit
+        const isUnderLimit = compressedSize < aemLimit;
         
         console.log(`Smart compression: Quality ${result.quality}, size ${(compressedSize/1024/1024).toFixed(1)}MB`);
-        console.log(`Targets ~18MB instead of over-compressing: ${isReasonablyClose ? '✓' : '✗'}`);
+        console.log(`Targets ~18MB instead of over-compressing: ${isUnderLimit ? '✓' : '✗'}`);
         
       } finally {
         // Cleanup

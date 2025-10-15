@@ -11,12 +11,12 @@
  */
 
 /**
- * @fileoverview Image Compression Utility for AEM.live
+ * @fileoverview Image Compression Utility for AEM Edge Delivery
  * 
  * COMPRESSION STRATEGY:
  * ====================
  * 
- * This module provides simple, high-quality image compression for AEM.live's 20MB file size limit.
+ * This module provides simple, high-quality image compression for AEM Edge Delivery's 20MB file size limit.
  * 
  * APPROACH:
  * 
@@ -55,14 +55,14 @@ import path from 'path';
 import sharp from 'sharp';
 import chalk from 'chalk';
 
-// AEM.live file size limits for compressible image formats (in bytes)
+// AEM Edge Delivery file size limits for compressible image formats (in bytes)
 const AEM_IMAGE_SIZE_LIMITS = {
   images: 20 * 1024 * 1024, // 20 MB for images (.png, .jpg, .webp, etc.)
 };
 
 
 /**
- * Check if an image file exceeds AEM.live size limits for compressible formats
+ * Check if an image file exceeds AEM Edge Delivery size limits for compressible formats
  * @param {string} filePath - Path to the file
  * @param {string} fileExtension - File extension (with dot)
  * @return {boolean} True if image file exceeds limits that this compressor can handle
