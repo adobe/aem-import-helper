@@ -18,6 +18,21 @@ import { compressImage, exceedsAemSizeLimit } from './image-compressor.js';
 
 const CONTENT_DAM_PREFIX = '/content/dam';
 
+/**
+ * Format file size in bytes to human-readable format
+ * @param {number} bytes - File size in bytes
+ * @returns {string} Formatted file size
+ */
+export function formatFileSize(bytes) {
+  if (bytes === 0) return '0 B';
+  
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  
+  return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
+}
+
 // Image/file extension constants
 export const IMAGE_EXTENSIONS = new Set([
   '.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.tiff', '.bmp', '.ico', '.heic', '.heif', '.avif', '.apng',
@@ -74,7 +89,7 @@ const MIME_TO_EXTENSION = {
  * @param {boolean} options.compressImages - Whether compression is enabled
  * @return {Promise<void>}
  */
-async function compressImageIfNeeded(assetPath, options = {}) {
+async function compressImageIfExceedsAemSizeLimit(assetPath, options = {}) {
   if (!options.compressImages) {
     return;
   }
@@ -85,8 +100,9 @@ async function compressImageIfNeeded(assetPath, options = {}) {
       preserveFormat: true,
     });
     if (compressionResult.success && !compressionResult.skipped) {
-      const savings = ((compressionResult.originalSize - compressionResult.compressedSize) / compressionResult.originalSize * 100).toFixed(1);
-      console.log(chalk.green(`  ✓ Compressed ${path.basename(assetPath)}: saved ${savings}%`));
+      const originalSize = formatFileSize(compressionResult.originalSize);
+      const compressedSize = formatFileSize(compressionResult.compressedSize);
+      console.log(chalk.green(`  ✓ Compressed ${path.basename(assetPath)}: original size ${originalSize} → compressed size ${compressedSize}`));
     }
   }
 }
@@ -100,7 +116,7 @@ async function compressImageIfNeeded(assetPath, options = {}) {
  * @param {string} contentType - The content type from the response headers.
  * @param {Object} [options={}] - Options for the function
  * @param {boolean} [options.convertImagesToPng=false] - Whether to convert images to PNG
- * @param {boolean} [options.compressImages=false] - Whether to compress large images
+ * @param {boolean} [options.compressImages=true] - Whether to compress large images
  * @return {Promise<void>} A promise that resolves when the blob is saved to a file.
  */
 async function saveBlobToFile(blob, downloadPath, downloadFolder, contentType, options = {}) {
@@ -130,7 +146,7 @@ async function saveBlobToFile(blob, downloadPath, downloadFolder, contentType, o
       fs.writeFileSync(assetPath, pngBuffer);
       
       // Compress the converted PNG if it exceeds AEM limits and compression is enabled
-      await compressImageIfNeeded(assetPath, options);
+      await compressImageIfExceedsAemSizeLimit(assetPath, options);
       return;
     } catch (e) {
       // If conversion fails, fall back to saving the original buffer
@@ -147,7 +163,7 @@ async function saveBlobToFile(blob, downloadPath, downloadFolder, contentType, o
       
       // Try to compress the original file if it's large
       if (isImageByContentType) {
-        await compressImageIfNeeded(assetPath, options);
+        await compressImageIfExceedsAemSizeLimit(assetPath, options);
       }
       return;
     }
@@ -165,7 +181,7 @@ async function saveBlobToFile(blob, downloadPath, downloadFolder, contentType, o
   
   // Compress the image if it exceeds AEM limits and compression is enabled
   if (isImageByContentType || isImageByExt) {
-    await compressImageIfNeeded(assetPath, options);
+    await compressImageIfExceedsAemSizeLimit(assetPath, options);
   }
 }
 

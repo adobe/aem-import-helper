@@ -152,7 +152,7 @@ to the asset mapping file (`asset-mapping.json`), which contains mappings for as
 * _skip-assets_ [default=false]: Skip uploading assets to AEM..
 * _asset-mapping_: Only optional if --skip-assets is true.
 * _images-to-png_ [default=true]: When true, converts downloaded image assets to PNG (except for JPEG, PNG, GIF, ICO, SVG, MP4) before upload.
-* _compress-images_ [default=false]: Compress large images that exceed [AEM.live file size limits](https://www.aem.live/docs/limits#file-size-limits) before upload. Automatically calculates optimal quality to meet size limits.
+* _compress-images_ [default=true]: Compress large images that exceed [AEM.live file size limits](https://www.aem.live/docs/limits#file-size-limits) before upload. Automatically calculates optimal quality to meet size limits.
 
 **Image Compression:**
 When `--compress-images` is enabled, images exceeding AEM.live limits are automatically compressed:
@@ -220,7 +220,7 @@ npm run da-upload -- \
 * _output_ [default='da-content']: Absolute path to the output folder where the DA content (pages, assets, etc.) will be stored.
 * _keep_ [default=false]: Keep the downloaded assets and updated HTML locally after upload instead of cleaning up.
 * _images-to-png_ [default=true]: When true, converts downloaded image assets to PNG (except for JPEG, PNG, GIF, ICO, SVG, MP4) before upload.
-* _compress-images_ [default=false]: Compress large images that exceed [AEM.live file size limits](https://www.aem.live/docs/limits#file-size-limits) before upload. Automatically calculates optimal quality to meet size limits.
+* _compress-images_ [default=true]: Compress large images that exceed [AEM.live file size limits](https://www.aem.live/docs/limits#file-size-limits) before upload. Automatically calculates optimal quality to meet size limits.
 
 **Image Compression:**
 When `--compress-images` is enabled, images exceeding AEM.live limits are automatically compressed:

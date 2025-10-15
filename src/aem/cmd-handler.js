@@ -121,9 +121,9 @@ export const aemBuilder = (yargs) => {
       default: true,
     })
     .option('compress-images', {
-      describe: 'Compress large images before upload to meet AEM.live size limits (default: false)',
+      describe: 'Compress large images before upload to meet AEM.live size limits (default: true)',
       type: 'boolean',
-      default: false,
+      default: true,
     });
 }
 

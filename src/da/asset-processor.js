@@ -65,7 +65,7 @@ export function createAssetMapping(matchingHrefs, fullShadowPath, dependencies =
  * @param {Object} options - Download options
  * @param {number} options.maxRetries - Maximum retries for download (default: 3)
  * @param {number} options.retryDelay - Delay between retries (default: 1000)
- * @param {boolean} options.compressImages - Whether to compress large images (default: false)
+ * @param {boolean} options.compressImages - Whether to compress large images (default: true)
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Promise<{downloadResults: Array, assetMapping: Map}>} Download results and asset mapping
  */

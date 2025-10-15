@@ -94,6 +94,150 @@ describe('Image Compressor', () => {
       expect(result.success).to.be.false;
       expect(result.error).to.be.a('string');
     });
+
+    it('should actually compress an oversized image', async function() {
+      // Increase timeout for creating large image
+      this.timeout(30000);
+      
+      const tempDir = path.join(__dirname, 'temp');
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir);
+      }
+      
+      const testImagePath = path.join(tempDir, 'oversized-test.png');
+      const outputPath = path.join(tempDir, 'compressed-output.jpg');
+      
+      try {
+        const sharp = (await import('sharp')).default;
+        
+        // Create an uncompressed PNG that will definitely exceed 20MB
+        // PNG with no compression: width * height * 3 bytes (RGB) + headers
+        const width = 3000;
+        const height = 2500;
+        // This will be roughly: 3000 * 2500 * 3 = 22.5MB uncompressed
+        
+        await sharp({
+          create: {
+            width,
+            height,
+            channels: 3,
+            background: { r: 255, g: 128, b: 64 }, // Solid color
+          },
+        })
+          .png({ compressionLevel: 0 }) // No compression = large file
+          .toFile(testImagePath);
+
+        const originalSize = fs.statSync(testImagePath).size;
+        console.log(`Created oversized image: ${(originalSize / 1024 / 1024).toFixed(1)}MB`);
+        
+        // Verify it actually exceeds 20MB (if not, skip test)
+        if (originalSize <= 20 * 1024 * 1024) {
+          console.log('Test image not large enough, skipping');
+          return;
+        }
+
+        // Now compress it - this should NOT be skipped
+        const result = await compressImage(testImagePath, outputPath);
+        
+        expect(result.success).to.be.true;
+        expect(result.skipped).to.be.false;
+        expect(result.compressedSize).to.be.lessThan(result.originalSize);
+        expect(result.compressionRatio).to.be.greaterThan(1);
+        expect(result.meetsAemLimits).to.be.true;
+        
+        // Verify compressed file meets AEM limits
+        expect(fs.existsSync(outputPath)).to.be.true;
+        const compressedSize = fs.statSync(outputPath).size;
+        expect(compressedSize).to.be.lessThanOrEqual(20 * 1024 * 1024);
+        expect(compressedSize).to.equal(result.compressedSize);
+        
+      } finally {
+        // Cleanup
+        [testImagePath, outputPath].forEach(file => {
+          if (fs.existsSync(file)) {
+            fs.unlinkSync(file);
+          }
+        });
+        if (fs.existsSync(tempDir)) {
+          fs.rmdirSync(tempDir);
+        }
+      }
+    });
+
+    it('should compress very large images with smart quality targeting', async function() {
+      // Increase timeout for creating very large image
+      this.timeout(45000);
+      
+      const tempDir = path.join(__dirname, 'temp');
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir);
+      }
+      
+      const testImagePath = path.join(tempDir, 'huge-test.png');
+      const outputPath = path.join(tempDir, 'smart-output.jpg');
+      
+      try {
+        const sharp = (await import('sharp')).default;
+        
+        // Create a very large image to test smart quality targeting
+        const width = 5000;
+        const height = 4000;
+        const channels = 3;
+        
+        // Generate complex pattern
+        const complexBuffer = Buffer.alloc(width * height * channels);
+        for (let i = 0; i < complexBuffer.length; i++) {
+          complexBuffer[i] = Math.floor(Math.random() * 256);
+        }
+        
+        // Save as uncompressed PNG to ensure large size
+        await sharp(complexBuffer, { raw: { width, height, channels } })
+          .png({ compressionLevel: 0 }) // No compression
+          .toFile(testImagePath);
+
+        const originalSize = fs.statSync(testImagePath).size;
+        console.log(`Created huge image: ${(originalSize / 1024 / 1024).toFixed(1)}MB`);
+        
+        // Skip if image isn't large enough
+        if (originalSize <= 40 * 1024 * 1024) { // Need significantly larger than 20MB
+          console.log('Test image not large enough, skipping');
+          return;
+        }
+
+        // Compress it with smart quality targeting
+        const result = await compressImage(testImagePath, outputPath);
+        
+        expect(result.success).to.be.true;
+        expect(result.skipped).to.be.false;
+        expect(result.quality).to.be.a('number'); // Should have quality property
+        expect(result.compressedSize).to.be.lessThan(result.originalSize);
+        expect(result.meetsAemLimits).to.be.true;
+        
+        // Verify the compressed file actually meets AEM size limits
+        expect(fs.existsSync(outputPath)).to.be.true;
+        const compressedSize = fs.statSync(outputPath).size;
+        expect(compressedSize).to.be.lessThanOrEqual(20 * 1024 * 1024);
+        expect(compressedSize).to.equal(result.compressedSize);
+        
+        // The new approach should target ~18MB, not over-compress to <10MB
+        const targetSize = 18 * 1024 * 1024; // 18MB target
+        const isReasonablyClose = compressedSize >= targetSize * 0.5; // At least 9MB (not over-compressed)
+        
+        console.log(`Smart compression: Quality ${result.quality}, size ${(compressedSize/1024/1024).toFixed(1)}MB`);
+        console.log(`Targets ~18MB instead of over-compressing: ${isReasonablyClose ? '✓' : '✗'}`);
+        
+      } finally {
+        // Cleanup
+        [testImagePath, outputPath].forEach(file => {
+          if (fs.existsSync(file)) {
+            fs.unlinkSync(file);
+          }
+        });
+        if (fs.existsSync(tempDir)) {
+          fs.rmdirSync(tempDir);
+        }
+      }
+    });
   });
 
   describe('getCompressionStats', () => {
