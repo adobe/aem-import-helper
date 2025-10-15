@@ -119,6 +119,11 @@ export const aemBuilder = (yargs) => {
       describe: 'Convert downloaded images to PNG and update references to .png (default: true)',
       type: 'boolean',
       default: true,
+    })
+    .option('compress-images', {
+      describe: 'Compress large images before upload to meet AEM.live size limits (default: true)',
+      type: 'boolean',
+      default: true,
     });
 }
 
@@ -156,7 +161,10 @@ export const aemHandler = async (args) => {
         : args.output;
 
       console.log(chalk.yellow(`Downloading origin assets to ${downloadFolder}...`));
-      await downloadAssets(assetMapping, downloadFolder, undefined, undefined, {}, { convertImagesToPng: imagesToPng });
+      await downloadAssets(assetMapping, downloadFolder, undefined, undefined, {}, { 
+        convertImagesToPng: imagesToPng,
+        compressImages: args['compress-images'],
+      });
 
       const assetFolder = path.join(downloadFolder, getDamRootFolder(assetMapping));
 

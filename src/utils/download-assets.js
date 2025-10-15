@@ -14,8 +14,24 @@ import fs from 'fs';
 import path from 'path';
 import chalk from 'chalk';
 import sharp from 'sharp';
+import { compressImage, exceedsAemSizeLimit } from './image-compressor.js';
 
 const CONTENT_DAM_PREFIX = '/content/dam';
+
+/**
+ * Format file size in bytes to human-readable format
+ * @param {number} bytes - File size in bytes
+ * @returns {string} Formatted file size
+ */
+export function formatFileSize(bytes) {
+  if (bytes === 0) return '0 B';
+  
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  
+  return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
+}
 
 // Image/file extension constants
 export const IMAGE_EXTENSIONS = new Set([
@@ -67,6 +83,31 @@ const MIME_TO_EXTENSION = {
 };
 
 /**
+ * Compress an image file if it exceeds AEM size limits and compression is enabled
+ * @param {string} assetPath - Path to the image file
+ * @param {Object} options - Compression options
+ * @param {boolean} options.compressImages - Whether compression is enabled
+ * @return {Promise<void>}
+ */
+async function compressImageIfExceedsAemSizeLimit(assetPath, options = {}) {
+  if (!options.compressImages) {
+    return;
+  }
+
+  const currentExt = path.extname(assetPath).toLowerCase();
+  if (currentExt && exceedsAemSizeLimit(assetPath, currentExt)) {
+    const compressionResult = await compressImage(assetPath, null, {
+      preserveFormat: true,
+    });
+    if (compressionResult.success && !compressionResult.skipped) {
+      const originalSize = formatFileSize(compressionResult.originalSize);
+      const compressedSize = formatFileSize(compressionResult.compressedSize);
+      console.log(chalk.green(`  ✓ Compressed ${path.basename(assetPath)}: original size ${originalSize} → compressed size ${compressedSize}`));
+    }
+  }
+}
+
+/**
  * Save the given blob to a file in the download folder.
  * For image blobs, convert to PNG and force a .png extension.
  * @param {Blob} blob - The blob to save.
@@ -75,6 +116,7 @@ const MIME_TO_EXTENSION = {
  * @param {string} contentType - The content type from the response headers.
  * @param {Object} [options={}] - Options for the function
  * @param {boolean} [options.convertImagesToPng=false] - Whether to convert images to PNG
+ * @param {boolean} [options.compressImages=true] - Whether to compress large images
  * @return {Promise<void>} A promise that resolves when the blob is saved to a file.
  */
 async function saveBlobToFile(blob, downloadPath, downloadFolder, contentType, options = {}) {
@@ -102,6 +144,9 @@ async function saveBlobToFile(blob, downloadPath, downloadFolder, contentType, o
       const parsed = path.parse(assetPath);
       assetPath = path.join(parsed.dir, `${parsed.name}.png`);
       fs.writeFileSync(assetPath, pngBuffer);
+      
+      // Compress the converted PNG if it exceeds AEM limits and compression is enabled
+      await compressImageIfExceedsAemSizeLimit(assetPath, options);
       return;
     } catch (e) {
       // If conversion fails, fall back to saving the original buffer
@@ -115,6 +160,11 @@ async function saveBlobToFile(blob, downloadPath, downloadFolder, contentType, o
         assetPath += extension;
       }
       fs.writeFileSync(assetPath, sourceBuffer);
+      
+      // Try to compress the original file if it's large
+      if (isImageByContentType) {
+        await compressImageIfExceedsAemSizeLimit(assetPath, options);
+      }
       return;
     }
   }
@@ -128,6 +178,11 @@ async function saveBlobToFile(blob, downloadPath, downloadFolder, contentType, o
     assetPath += extension;
   }
   fs.writeFileSync(assetPath, sourceBuffer);
+  
+  // Compress the image if it exceeds AEM limits and compression is enabled
+  if (isImageByContentType || isImageByExt) {
+    await compressImageIfExceedsAemSizeLimit(assetPath, options);
+  }
 }
 
 /**

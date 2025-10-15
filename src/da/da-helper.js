@@ -117,6 +117,7 @@ async function processSinglePage(
       {
         maxRetries: uploadOptions.maxRetries || 3,
         retryDelay: uploadOptions.retryDelay || 1000,
+        compressImages: uploadOptions.compressImages,
       },
       dependencies,
     );
