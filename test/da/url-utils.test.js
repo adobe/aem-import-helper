@@ -104,8 +104,9 @@ describe('url-utils.js', () => {
     it('should handle URLs with encoded characters', () => {
       // getFilename should return the raw filename from the URL (still encoded)
       expect(getFilename('https://example.com/path/file%20name.jpg')).to.equal('file%20name.jpg');
-      // getSanitizedFilenameFromUrl should decode and sanitize
-      expect(getSanitizedFilenameFromUrl('https://example.com/path/file%20name.jpg')).to.equal('file-name.jpg');
+      // getSanitizedFilenameFromUrl should decode and sanitize with hash
+      const result = getSanitizedFilenameFromUrl('https://example.com/path/file%20name.jpg');
+      expect(result).to.match(/^file-name-[a-f0-9]{8}\.jpg$/);
     });
 
     it('should handle nested paths', () => {
@@ -160,28 +161,32 @@ describe('url-utils.js', () => {
   });
 
   describe('getSanitizedFilenameFromUrl', () => {
-    it('should sanitize filename while preserving extension', () => {
+    it('should sanitize filename while preserving extension and add hash', () => {
       const url = 'https://example.com/path/Café & Menu.PDF';
       const result = getSanitizedFilenameFromUrl(url);
-      expect(result).to.equal('cafe-menu.pdf');
+      // Should be sanitized, lowercased, with hash suffix: cafe-menu-{hash}.pdf
+      expect(result).to.match(/^cafe-menu-[a-f0-9]{8}\.pdf$/);
     });
 
-    it('should handle URLs without extensions', () => {
+    it('should handle URLs without extensions and add hash', () => {
       const url = 'https://example.com/path/filename';
       const result = getSanitizedFilenameFromUrl(url);
-      expect(result).to.equal('filename');
+      // Should be filename-{hash} with no extension
+      expect(result).to.match(/^filename-[a-f0-9]{8}$/);
     });
 
-    it('should handle encoded URLs with query parameters', () => {
+    it('should handle encoded URLs with query parameters and add hash', () => {
       const url = 'https://example.com/path/hello%20world.jpg?version=1&cache=false';
       const result = getSanitizedFilenameFromUrl(url);
-      expect(result).to.equal('hello-world.jpg');
+      // Should be hello-world-{hash}.jpg
+      expect(result).to.match(/^hello-world-[a-f0-9]{8}\.jpg$/);
     });
 
-    it('should handle complex filenames with multiple dots', () => {
+    it('should handle complex filenames with multiple dots and add hash', () => {
       const url = 'https://example.com/file.name.with.dots.jpeg';
       const result = getSanitizedFilenameFromUrl(url);
-      expect(result).to.equal('file-name-with-dots.jpeg');
+      // Should be file-name-with-dots-{hash}.jpeg
+      expect(result).to.match(/^file-name-with-dots-[a-f0-9]{8}\.jpeg$/);
     });
   });
 

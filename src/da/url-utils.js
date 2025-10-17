@@ -11,6 +11,7 @@
  */
 
 import path from 'path';
+import crypto from 'crypto';
 
 // Constants
 const LOCALHOST_URL = 'http://localhost';
@@ -203,7 +204,12 @@ export function getSanitizedFilenameFromUrl(url) {
   const ext = parts.length > 1 ? `.${parts.pop().toLowerCase()}` : '';
   const base = parts.join('.');
   const sanitizedBase = sanitizeFilename(base);
-  return `${sanitizedBase}${ext}`;
+
+  // Always add hash suffix to ensure uniqueness
+  const hash = crypto.createHash('md5').update(url).digest('hex').substring(0, 8);
+
+  // Combine sanitized base with hash and extension
+  return `${sanitizedBase}-${hash}${ext}`;
 }
 
 /**

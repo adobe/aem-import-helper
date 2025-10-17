@@ -46,26 +46,27 @@ describe('asset-processor.js', () => {
       const urls = ['https://example.com/image.jpg', 'https://example.com/document.pdf'];
       const mapping = createAssetMapping(urls, 'documents/.mypage');
       
-      expect(mapping.get('https://example.com/image.jpg')).to.equal('/documents/.mypage/image.jpg');
-      expect(mapping.get('https://example.com/document.pdf')).to.equal('/documents/shared-media/document.pdf');
+      // Filenames now include hash suffix for uniqueness
+      expect(mapping.get('https://example.com/image.jpg')).to.match(/^\/documents\/\.mypage\/image-[a-f0-9]{8}\.jpg$/);
+      expect(mapping.get('https://example.com/document.pdf')).to.match(/^\/documents\/shared-media\/document-[a-f0-9]{8}\.pdf$/);
     });
 
     it('should handle relative asset URLs', () => {
       const urls = ['local.jpg', 'data.pdf'];
       const mapping = createAssetMapping(urls, '.page');
       
-      expect(mapping.get('local.jpg')).to.equal('/.page/local.jpg');
-      expect(mapping.get('data.pdf')).to.equal('/shared-media/data.pdf');
+      expect(mapping.get('local.jpg')).to.match(/^\/\.page\/local-[a-f0-9]{8}\.jpg$/);
+      expect(mapping.get('data.pdf')).to.match(/^\/shared-media\/data-[a-f0-9]{8}\.pdf$/);
     });
 
     it('should sanitize filenames while preserving extension', () => {
       const urls = ['my file 1.jpg', 'My Document.pdf', 'dog.png.pdf', 'dog.png.jpeg'];
       const mapping = createAssetMapping(urls, '.mypage');
       
-      expect(mapping.get('my file 1.jpg')).to.equal('/.mypage/my-file-1.jpg');
-      expect(mapping.get('My Document.pdf')).to.equal('/shared-media/my-document.pdf');
-      expect(mapping.get('dog.png.pdf')).to.equal('/shared-media/dog-png.pdf');
-      expect(mapping.get('dog.png.jpeg')).to.equal('/.mypage/dog-png.jpeg');
+      expect(mapping.get('my file 1.jpg')).to.match(/^\/\.mypage\/my-file-1-[a-f0-9]{8}\.jpg$/);
+      expect(mapping.get('My Document.pdf')).to.match(/^\/shared-media\/my-document-[a-f0-9]{8}\.pdf$/);
+      expect(mapping.get('dog.png.pdf')).to.match(/^\/shared-media\/dog-png-[a-f0-9]{8}\.pdf$/);
+      expect(mapping.get('dog.png.jpeg')).to.match(/^\/\.mypage\/dog-png-[a-f0-9]{8}\.jpeg$/);
     });
 
     it('should handle empty parent paths', () => {
@@ -73,9 +74,9 @@ describe('asset-processor.js', () => {
       const mapping = createAssetMapping(urls, '.page');
       
       // Images go to shadow folder even with empty parent path
-      expect(mapping.get('foo.jpg')).to.equal('/.page/foo.jpg');
+      expect(mapping.get('foo.jpg')).to.match(/^\/\.page\/foo-[a-f0-9]{8}\.jpg$/);
       // Non-images go to shared-media folder at root level when no parent path
-      expect(mapping.get('document.pdf')).to.equal('/shared-media/document.pdf');
+      expect(mapping.get('document.pdf')).to.match(/^\/shared-media\/document-[a-f0-9]{8}\.pdf$/);
     });
   });
 
@@ -105,12 +106,12 @@ describe('asset-processor.js', () => {
       const mappingEntries = Array.from(result.assetMapping.entries());
       const mappingObj = Object.fromEntries(mappingEntries);
       
-      // Verify image goes to shadow folder
-      expect(mappingObj['https://example.com/image.jpg']).to.equal('/about/leadership/.executive/image.jpg');
+      // Verify image goes to shadow folder (with hash suffix)
+      expect(mappingObj['https://example.com/image.jpg']).to.match(/^\/about\/leadership\/\.executive\/image-[a-f0-9]{8}\.jpg$/);
       
-      // Verify non-images go to shared-media folder under parent
-      expect(mappingObj['https://example.com/document.pdf']).to.equal('/about/leadership/shared-media/document.pdf');
-      expect(mappingObj['https://example.com/video.mp4']).to.equal('/about/leadership/shared-media/video.mp4');
+      // Verify non-images go to shared-media folder under parent (with hash suffix)
+      expect(mappingObj['https://example.com/document.pdf']).to.match(/^\/about\/leadership\/shared-media\/document-[a-f0-9]{8}\.pdf$/);
+      expect(mappingObj['https://example.com/video.mp4']).to.match(/^\/about\/leadership\/shared-media\/video-[a-f0-9]{8}\.mp4$/);
       
       // Verify download results are returned
       expect(result.downloadResults).to.have.length(3);
