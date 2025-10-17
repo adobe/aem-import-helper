@@ -200,13 +200,9 @@ function getFullyQualifiedAssetUrl(assetUrl, siteOrigin) {
  */
 export function getSanitizedFilenameFromUrl(url) {
   const filename = getFilename(url);
-
   const parts = filename.split('.');
-
   const ext = parts.length > 1 ? `.${parts.pop().toLowerCase()}` : '';
-
   const base = parts.join('.');
-
   const sanitizedBase = sanitizeFilename(base);
 
   // Always add hash suffix to ensure uniqueness
