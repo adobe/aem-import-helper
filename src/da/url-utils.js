@@ -199,19 +199,14 @@ function getFullyQualifiedAssetUrl(assetUrl, siteOrigin) {
  * @return {string} Sanitized filename with preserved extension
  */
 export function getSanitizedFilenameFromUrl(url) {
-  // Get the base filename from the URL
   const filename = getFilename(url);
 
-  // Split the filename into parts
   const parts = filename.split('.');
 
-  // Preserve the file extension (if any)
   const ext = parts.length > 1 ? `.${parts.pop().toLowerCase()}` : '';
 
-  // Join remaining parts back together
   const base = parts.join('.');
 
-  // Sanitize the base filename
   const sanitizedBase = sanitizeFilename(base);
 
   // Always add hash suffix to ensure uniqueness
