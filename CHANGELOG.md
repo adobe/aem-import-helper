@@ -1,3 +1,13 @@
+## [1.2.3](https://github.com/adobe/aem-import-helper/compare/v1.2.2...v1.2.3) (2025-10-17)
+
+
+### Bug Fixes
+
+* Add changes to fix the duplicate image issue ([d240f45](https://github.com/adobe/aem-import-helper/commit/d240f4544a19c1c08fc275ff3b86a398b25adeae))
+* Add unit test changes ([5b4f4ce](https://github.com/adobe/aem-import-helper/commit/5b4f4ce61f1b2e18024b8dac7c31821597dad6bf))
+* Prevent filename collisions ([d5767e0](https://github.com/adobe/aem-import-helper/commit/d5767e061c574d5e6fbbfecdd656e6c82c62dbef))
+* Remove additional space ([fd5ad23](https://github.com/adobe/aem-import-helper/commit/fd5ad23da59292f97a285e8c6cab0ecf273f48f8))
+
 ## [1.2.2](https://github.com/adobe/aem-import-helper/compare/v1.2.1...v1.2.2) (2025-09-25)
 
 
