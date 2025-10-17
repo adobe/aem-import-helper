@@ -11,6 +11,7 @@
  */
 
 import path from 'path';
+import crypto from 'crypto';
 
 // Constants
 const LOCALHOST_URL = 'http://localhost';
@@ -198,12 +199,26 @@ function getFullyQualifiedAssetUrl(assetUrl, siteOrigin) {
  * @return {string} Sanitized filename with preserved extension
  */
 export function getSanitizedFilenameFromUrl(url) {
+  // Get the base filename from the URL
   const filename = getFilename(url);
+
+  // Split the filename into parts
   const parts = filename.split('.');
+
+  // Preserve the file extension (if any)
   const ext = parts.length > 1 ? `.${parts.pop().toLowerCase()}` : '';
+
+  // Join remaining parts back together
   const base = parts.join('.');
+
+  // Sanitize the base filename
   const sanitizedBase = sanitizeFilename(base);
-  return `${sanitizedBase}${ext}`;
+
+  // Always add hash suffix to ensure uniqueness
+  const hash = crypto.createHash('md5').update(url).digest('hex').substring(0, 8);
+
+  // Combine sanitized base with hash and extension
+  return `${sanitizedBase}-${hash}${ext}`;
 }
 
 /**
