@@ -121,9 +121,9 @@ describe('html-processor.js', () => {
         deps,
       );
       
-      // Should update assets that are in the assetUrls set
-      expect(result).to.include('src="https://content.da.live/org/site/page-parent-folder/.board-paper-templates-and-submission-information/image.jpg"');
-      expect(result).to.include('href="https://main--site--org.aem.page/page-parent-folder/shared-media/document.pdf"');
+      // Should update assets that are in the assetUrls set (with hash suffix)
+      expect(result).to.match(/src="https:\/\/content\.da\.live\/org\/site\/page-parent-folder\/\.board-paper-templates-and-submission-information\/image-[a-f0-9]{8}\.jpg"/);
+      expect(result).to.match(/href="https:\/\/main--site--org\.aem\.page\/page-parent-folder\/shared-media\/document-[a-f0-9]{8}\.pdf"/);
       
       // Should NOT update assets that are not in the assetUrls set
       expect(result).to.include('src="https://example.com/not-in-list.png"'); // Unchanged
@@ -153,7 +153,7 @@ describe('html-processor.js', () => {
         deps,
       );
       
-      expect(result).to.include('src="https://content.da.live/org/site/test-folder/.test-page/photo.png"');
+      expect(result).to.match(/src="https:\/\/content\.da\.live\/org\/site\/test-folder\/\.test-page\/photo-[a-f0-9]{8}\.png"/);
     });
 
     it('should handle non-image assets correctly', () => {
@@ -173,7 +173,7 @@ describe('html-processor.js', () => {
         deps,
       );
       
-      expect(result).to.include('href="https://main--site--org.aem.page/shared-media/document.pdf"');
+      expect(result).to.match(/href="https:\/\/main--site--org\.aem\.page\/shared-media\/document-[a-f0-9]{8}\.pdf"/);
     });
   });
 
@@ -257,8 +257,8 @@ describe('html-processor.js', () => {
         dependencies,
       );
 
-      expect(result).to.include(
-        'src="https://content.da.live/test-org/test-site/about-uws/leadership/.executive/bg-person.png"',
+      expect(result).to.match(
+        /src="https:\/\/content\.da\.live\/test-org\/test-site\/about-uws\/leadership\/\.executive\/bg-person-[a-f0-9]{8}\.png"/,
       );
     });
 
@@ -286,7 +286,7 @@ describe('html-processor.js', () => {
         dependencies,
       );
 
-      expect(result).to.include('src="https://content.da.live/test-org/test-site/.index/logo.png"');
+      expect(result).to.match(/src="https:\/\/content\.da\.live\/test-org\/test-site\/\.index\/logo-[a-f0-9]{8}\.png"/);
     });
 
   });
