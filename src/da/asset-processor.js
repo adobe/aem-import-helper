@@ -140,6 +140,14 @@ export async function copyLocalPageAssets(
       // Asset references are expected to be relative to the --local-assets folder
       localPath = localPath.replace(/^\.\/+/, '').replace(/^\/+/, '');
       
+      // Check if the path starts with a directory that matches the last segment of localAssetsPath
+      // e.g., if localAssetsPath is "/data/images" and localPath is "images/home/icon.png"
+      // we should strip the redundant "images/" to get "home/icon.png"
+      const localAssetsDirName = pathDep.basename(localAssetsPath);
+      if (localPath.startsWith(localAssetsDirName + '/') || localPath.startsWith(localAssetsDirName + pathDep.sep)) {
+        localPath = localPath.substring(localAssetsDirName.length + 1);
+      }
+      
       // Construct the full local asset path
       const fullLocalPath = pathDep.join(localAssetsPath, localPath);
       

@@ -261,6 +261,39 @@ describe('asset-processor.js', () => {
       expect(copiedFiles[0].dest).to.match(/\/output\/\.homepage\/logo-[a-f0-9]{8}\.png$/);
       expect(copiedFiles[1].dest).to.match(/\/output\/shared-media\/video-[a-f0-9]{8}\.mp4$/);
     });
+
+    it('should strip redundant directory prefix when it matches local assets folder name', async () => {
+      const copiedFiles = [];
+      
+      const deps = createMockDependencies({
+        fs: {
+          existsSync: () => true,
+          mkdirSync: () => {},
+          copyFileSync: (src, dest) => {
+            copiedFiles.push({ src, dest });
+          },
+        },
+      });
+
+      const urls = [
+        './images/home/icon-social.png',
+        './images/logos/brand.svg',
+      ];
+      
+      await copyLocalPageAssets(
+        urls, 
+        '.index', 
+        '/output',
+        '/data/images',  // local assets folder ends with "images"
+        deps,
+      );
+      
+      expect(copiedFiles).to.have.length(2);
+      
+      // Verify the "images/" prefix was stripped to avoid /data/images/images/...
+      expect(copiedFiles[0].src).to.equal('/data/images/home/icon-social.png');
+      expect(copiedFiles[1].src).to.equal('/data/images/logos/brand.svg');
+    });
   });
 
   describe('uploadPageAssets', () => {
