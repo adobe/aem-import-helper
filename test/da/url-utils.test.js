@@ -202,5 +202,15 @@ describe('url-utils.js', () => {
       const result = getFullyQualifiedAssetUrls(assetUrls, null);
       expect(result).to.equal(assetUrls);
     });
+
+    it('should strip leading ./ from relative URLs', () => {
+      const assetUrls = ['./logos/amazon.svg', './team/john-smith.png', './hero/banner.jpg'];
+      const result = getFullyQualifiedAssetUrls(assetUrls, 'https://www.adobe.com');
+      expect(result).to.deep.equal([
+        'https://www.adobe.com/logos/amazon.svg',
+        'https://www.adobe.com/team/john-smith.png',
+        'https://www.adobe.com/hero/banner.jpg',
+      ]);
+    });
   });
 });

@@ -213,9 +213,56 @@ npm run da-upload -- \
 * _output_ [default='da-content']: Absolute path to the output folder where the DA content (pages, assets, etc.) will be stored.
 * _keep_ [default=false]: Keep the downloaded assets and updated HTML locally after upload instead of cleaning up.
 * _images-to-png_ [default=true]: When true, converts downloaded image assets to PNG (except for JPEG, PNG, GIF, ICO, SVG, MP4) before upload.
+* _local-assets_: Absolute path to a local assets folder containing pre-downloaded assets. When provided, the tool will first attempt to copy assets from this local folder. If assets aren't found locally, it falls back to downloading from `siteOrigin`. This is useful when:
+  - HTML pages have local (relative) asset references
+  - Assets are already available locally
+  - You want to avoid re-downloading assets that you already have
 
 When false, preserves original image formats and updates references with the original extension. 
 Only use this option if you know your images are supported by DA.
+
+**Using Local Assets:**
+
+When using the `--local-assets` flag with a path to a local folder:
+
+```
+npm run da-upload -- \
+  --org myDaOrg \
+  --site myDaSite \
+  --asset-list /path/to/asset-list.json \
+  --da-folder /path/to/da/folder \
+  --local-assets /path/to/local/assets/folder
+```
+
+The tool will:
+1. Attempt to copy assets from the local folder first
+2. Fall back to downloading from `siteOrigin` if assets aren't found locally
+3. Upload all resolved assets to DA
+4. Update HTML references as usual
+5. Upload the updated HTML pages
+
+Your `asset-list.json` in this case should reference assets **relative to the `--local-assets` folder**:
+```json
+{
+  "assets": [
+    "./hero/banner.jpg",
+    "./team/john-smith.png",
+    "/documents/brochure.pdf"
+  ],
+  "siteOrigin": "http://localhost:3000"
+}
+```
+
+**Example folder structure:**
+```
+/path/to/local/assets/          <- This is your --local-assets folder
+├── hero/
+│   └── banner.jpg
+├── team/
+│   └── john-smith.png
+└── documents/
+    └── brochure.pdf
+```
 
 Once the command is executed, the HTML pages and associated assets are uploaded to Author Bus.
 

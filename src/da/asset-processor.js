@@ -11,6 +11,7 @@
  */
 
 import path from 'path';
+import fs from 'fs';
 import { downloadAssets, IMAGE_EXTENSIONS } from '../utils/download-assets.js';
 import { uploadFolder } from './upload.js';
 import { getSanitizedFilenameFromUrl, extractPageParentPath } from './url-utils.js';
@@ -95,6 +96,86 @@ export async function downloadPageAssets(
   }
 
   return { downloadResults, assetMapping: simplifiedAssetMapping };
+}
+
+/**
+ * Copy local assets from a local folder to the download folder structure
+ * @param {Array<string>} matchingHrefs - Array of local asset paths to copy
+ * @param {string} fullShadowPath - The full shadow folder path (format: {relativePath}/.{pageName} or .{pageName})
+ * @param {string} downloadFolder - Base download folder
+ * @param {string} localAssetsPath - Path to the local assets folder
+ * @param {Object} dependencies - Dependencies for testing (optional)
+ * @return {Promise<{copyResults: Array, assetMapping: Map}>} Copy results and asset mapping
+ */
+export async function copyLocalPageAssets(
+  matchingHrefs,
+  fullShadowPath,
+  downloadFolder,
+  localAssetsPath,
+  dependencies = {},
+) {
+  const chalkDep = dependencies.chalk;
+  const fsDep = dependencies.fs || fs;
+  const pathDep = dependencies.path || path;
+  
+  const simplifiedAssetMapping = createAssetMapping(matchingHrefs, fullShadowPath, dependencies);
+  
+  console.log(chalkDep.yellow(`Copying ${simplifiedAssetMapping.size} unique local assets for this page...`));
+
+  const copyResults = [];
+  
+  for (const [assetUrl, targetPath] of simplifiedAssetMapping) {
+    try {
+      // Convert the asset URL to a local file path
+      // Remove leading slash and any protocol/host if present
+      let localPath = assetUrl;
+      
+      // If it's a full URL (http/https), extract the path portion
+      if (assetUrl.startsWith('http://') || assetUrl.startsWith('https://')) {
+        const urlObj = new URL(assetUrl);
+        localPath = urlObj.pathname;
+      }
+      
+      // Remove leading ./ or /
+      // Asset references are expected to be relative to the --local-assets folder
+      localPath = localPath.replace(/^\.\/+/, '').replace(/^\/+/, '');
+      
+      // Construct the full local asset path
+      const fullLocalPath = pathDep.join(localAssetsPath, localPath);
+      
+      // Construct the destination path
+      const destPath = pathDep.join(downloadFolder, targetPath);
+      
+      // Check if the local file exists
+      if (!fsDep.existsSync(fullLocalPath)) {
+        console.warn(chalkDep.yellow(`Warning: Local asset not found: ${fullLocalPath}`));
+        copyResults.push({ status: 'rejected', reason: new Error(`File not found: ${fullLocalPath}`) });
+        continue;
+      }
+      
+      // Create the destination directory
+      fsDep.mkdirSync(pathDep.dirname(destPath), { recursive: true });
+      
+      // Copy the file
+      fsDep.copyFileSync(fullLocalPath, destPath);
+      
+      copyResults.push({ status: 'fulfilled', value: targetPath });
+    } catch (error) {
+      console.error(chalkDep.red(`Error copying local asset ${assetUrl}:`, error.message));
+      copyResults.push({ status: 'rejected', reason: error });
+    }
+  }
+
+  // Count successful copies
+  const successfulCopies = copyResults.filter(result => result.status === 'fulfilled').length;
+  const failedCopies = copyResults.filter(result => result.status === 'rejected').length;
+
+  console.log(chalkDep.green(`Successfully copied ${successfulCopies} local assets`));
+  if (failedCopies > 0) {
+    console.log(chalkDep.red(`Failed to copy ${failedCopies} local assets`));
+  }
+
+  return { copyResults, assetMapping: simplifiedAssetMapping };
 }
 
 /**
