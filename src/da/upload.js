@@ -188,8 +188,14 @@ export async function uploadFile(filePath, uploadUrl, token, options = {}, depen
 
       // Calculate relative path from base folder
       let relativePath = filePath;
-      if (baseFolder && filePath.startsWith(baseFolder)) {
-        relativePath = pathDep.relative(baseFolder, filePath);
+      if (baseFolder) {
+        // Resolve both paths to absolute to ensure proper comparison
+        const absoluteFilePath = pathDep.resolve(filePath);
+        const absoluteBaseFolder = pathDep.resolve(baseFolder);
+        
+        if (absoluteFilePath.startsWith(absoluteBaseFolder)) {
+          relativePath = pathDep.relative(absoluteBaseFolder, absoluteFilePath);
+        }
       }
 
       // Construct the full upload URL with the file path
