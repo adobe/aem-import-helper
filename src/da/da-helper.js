@@ -115,22 +115,23 @@ async function processSinglePage(
     let assetsToDownload = [];
     
     // Check if we're using local assets first
-    if (uploadOptions.localAssetsPath) {
-      console.log(chalkDep.yellow('Attempting to resolve assets from local folder...'));
+    const localAssetsPath = uploadOptions.localAssetsPath;
+    if (localAssetsPath) {
+      console.log(chalkDep.yellow(`Attempting to resolve assets from local folder: ${localAssetsPath}`));
       const result = await copyLocalPageAssets(
         matchingAssetUrls,
         fullShadowPath,
         downloadFolder,
-        uploadOptions.localAssetsPath,
+        localAssetsPath,
         dependencies,
       );
       assetMapping = result.assetMapping;
-      copiedAssets = result.copyResults.filter(r => r.status === 'fulfilled').length;
+      copiedAssets = result.copyResults.filter(r => r.status === 'success').length;
       
       // Identify failed copies that need to be downloaded
       const failedUrls = [];
       result.copyResults.forEach((copyResult, index) => {
-        if (copyResult.status === 'rejected') {
+        if (copyResult.status === 'error') {
           failedUrls.push(matchingAssetUrls[index]);
         }
       });
@@ -155,8 +156,8 @@ async function processSinglePage(
         fullShadowPath, 
         downloadFolder, 
         {
-          maxRetries: uploadOptions.maxRetries || 3,
-          retryDelay: uploadOptions.retryDelay || 1000,
+          maxRetries: uploadOptions.maxRetries,
+          retryDelay: uploadOptions.retryDelay,
         },
         dependencies,
       );
@@ -345,10 +346,18 @@ export async function processPages(
     }).length;
     
     // Calculate detailed asset statistics
-    const totalReferences = htmlResults.reduce((sum, result) => sum + (result.assetStats?.assetReferences || 0), 0);
-    const totalUniqueAssets = htmlResults.reduce((sum, result) => sum + (result.assetStats?.uniqueAssets || 0), 0);
-    const totalCopiedAssets = htmlResults.reduce((sum, result) => sum + (result.assetStats?.copiedAssets || 0), 0);
-    const totalDownloadedAssets = htmlResults.reduce((sum, result) => sum + (result.assetStats?.downloadedAssets || 0), 0);
+    const totals = htmlResults.reduce(
+      (acc, { assetStats = {} }) => {
+        acc.references += assetStats.assetReferences || 0;
+        acc.unique += assetStats.uniqueAssets || 0;
+        acc.copied += assetStats.copiedAssets || 0;
+        acc.downloaded += assetStats.downloadedAssets || 0;
+        return acc;
+      },
+      { references: 0, unique: 0, copied: 0, downloaded: 0 },
+    );
+    
+    const { references: totalReferences, unique: totalUniqueAssets, copied: totalCopiedAssets, downloaded: totalDownloadedAssets } = totals;
     const totalFiles = htmlFiles.length + otherFilesResults.length;
     
     console.log(chalkDep.green('\nProcessing complete!'));

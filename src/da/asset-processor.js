@@ -62,7 +62,7 @@ export function createAssetMapping(matchingHrefs, fullShadowPath, dependencies =
  * Download assets for a page using the asset mapping
  * @param {Array<string>} matchingHrefs - Array of asset URLs to download
  * @param {string} fullShadowPath - The full shadow folder path (format: {relativePath}/.{pageName} or .{pageName})
- * @param {string} downloadFolder - Base download folder
+ * @param {string} downloadFolder - The folder where origin assets are downloaded into
  * @param {Object} options - Download options
  * @param {number} options.maxRetries - Maximum retries for download (default: 3)
  * @param {number} options.retryDelay - Delay between retries (default: 1000)
@@ -100,12 +100,14 @@ export async function downloadPageAssets(
 
 /**
  * Copy local assets from a local folder to the download folder structure
- * @param {Array<string>} matchingHrefs - Array of local asset paths to copy
+ * @param {Array<string>} matchingHrefs - Asset URL references from HTML (e.g., './hero/banner.jpg', '/logo.png')
  * @param {string} fullShadowPath - The full shadow folder path (format: {relativePath}/.{pageName} or .{pageName})
- * @param {string} downloadFolder - Base download folder
- * @param {string} localAssetsPath - Path to the local assets folder
+ * @param {string} downloadFolder - The folder where processed assets will be copied to
+ * @param {string} localAssetsPath - Root directory containing your source assets (the --local-assets folder)
  * @param {Object} dependencies - Dependencies for testing (optional)
- * @return {Promise<{copyResults: Array, assetMapping: Map}>} Copy results and asset mapping
+ * @return {Promise<{copyResults: Array, assetMapping: Map}>} Object containing:
+ *   - copyResults: Array of {status: 'success'|'error', path|error} for each copy operation
+ *   - assetMapping: Map of original URL → target path
  */
 export async function copyLocalPageAssets(
   matchingHrefs,
@@ -149,34 +151,32 @@ export async function copyLocalPageAssets(
       }
       
       // Construct the full local asset path
-      const fullLocalPath = pathDep.join(localAssetsPath, localPath);
-      
-      // Construct the destination path
-      const destPath = pathDep.join(downloadFolder, targetPath);
-      
+      const fullLocalPath = pathDep.join(localAssetsPath, localPath);      
       // Check if the local file exists
       if (!fsDep.existsSync(fullLocalPath)) {
         console.warn(chalkDep.yellow(`Warning: Local asset not found: ${fullLocalPath}`));
-        copyResults.push({ status: 'rejected', reason: new Error(`File not found: ${fullLocalPath}`) });
+        copyResults.push({ status: 'error', error: new Error(`File not found: ${fullLocalPath}`) });
         continue;
       }
       
+      // Construct the destination path
+      const destPath = pathDep.join(downloadFolder, targetPath);
       // Create the destination directory
       fsDep.mkdirSync(pathDep.dirname(destPath), { recursive: true });
       
-      // Copy the file
+      // Copy the file to the destination path
       fsDep.copyFileSync(fullLocalPath, destPath);
       
-      copyResults.push({ status: 'fulfilled', value: targetPath });
+      copyResults.push({ status: 'success', path: destPath });
     } catch (error) {
       console.error(chalkDep.red(`Error copying local asset ${assetUrl}:`, error.message));
-      copyResults.push({ status: 'rejected', reason: error });
+      copyResults.push({ status: 'error', error });
     }
   }
 
   // Count successful copies
-  const successfulCopies = copyResults.filter(result => result.status === 'fulfilled').length;
-  const failedCopies = copyResults.filter(result => result.status === 'rejected').length;
+  const successfulCopies = copyResults.filter(result => result.status === 'success').length;
+  const failedCopies = copyResults.filter(result => result.status === 'error').length;
 
   console.log(chalkDep.green(`Successfully copied ${successfulCopies} local assets`));
   if (failedCopies > 0) {
@@ -192,7 +192,7 @@ export async function copyLocalPageAssets(
  * @param {string} daAdminUrl - The admin.da.live URL
  * @param {string} token - Authentication token
  * @param {Object} uploadOptions - Upload options
- * @param {string} downloadFolder - Base download folder
+ * @param {string} downloadFolder - The folder where origin assets are downloaded into
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Promise<void>}
  */

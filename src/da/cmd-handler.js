@@ -121,7 +121,7 @@ export const daBuilder = (yargs) => {
       default: false,
     })
     .option('local-assets', {
-      describe: 'Path to a local assets folder with pre-downloaded assets (skips asset downloading)',
+      describe: 'Path to a local assets folder (tries local first, falls back to downloading missing assets)',
       type: 'string',
       demandOption: false,
     });
@@ -134,9 +134,12 @@ export const daHandler = async (args) => {
 
   // Validate local-assets path if provided
   if (args['local-assets']) {
-    if (!fs.existsSync(args['local-assets']) || !fs.statSync(args['local-assets']).isDirectory()) {
-      console.error(chalk.red(`Local assets folder not found or not a directory: ${args['local-assets']}`));
+    if (!fs.existsSync(args['local-assets'])) {
+      console.error(chalk.red(`Local assets folder not found: ${args['local-assets']}`));
       process.exit(1);
+    }
+    if (!fs.statSync(args['local-assets']).isDirectory()) {
+      console.error(chalk.red(`Local assets path is not a directory: ${args['local-assets']}`));     process.exit(1);
     }
     console.log(chalk.yellow(`Using local assets from: ${args['local-assets']}`));
   }

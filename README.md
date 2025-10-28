@@ -213,7 +213,7 @@ npm run da-upload -- \
 * _output_ [default='da-content']: Absolute path to the output folder where the DA content (pages, assets, etc.) will be stored.
 * _keep_ [default=false]: Keep the downloaded assets and updated HTML locally after upload instead of cleaning up.
 * _images-to-png_ [default=true]: When true, converts downloaded image assets to PNG (except for JPEG, PNG, GIF, ICO, SVG, MP4) before upload.
-* _local-assets_: Absolute path to a local assets folder containing pre-downloaded assets. When provided, the tool will first attempt to copy assets from this local folder. If assets aren't found locally, it falls back to downloading from `siteOrigin`. This is useful when:
+* _local-assets_: Absolute path to a local assets folder. When provided, the tool will first attempt to copy assets from this local folder. If assets aren't found locally, it falls back to downloading from `siteOrigin`. This is useful when:
   - HTML pages have local (relative) asset references
   - Assets are already available locally
   - You want to avoid re-downloading assets that you already have
@@ -235,7 +235,7 @@ npm run da-upload -- \
 ```
 
 The tool will:
-1. Attempt to copy assets from the local folder first
+1. Attempt to use assets from the local folder first
 2. Fall back to downloading from `siteOrigin` if assets aren't found locally
 3. Upload all resolved assets to DA
 4. Update HTML references as usual
