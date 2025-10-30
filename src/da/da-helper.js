@@ -27,9 +27,10 @@ import {
   downloadPageAssets,
   copyLocalPageAssets,
   uploadPageAssets,
-  DOWNLOAD_STATUS,
   COPY_STATUS,
 } from './asset-processor.js';
+
+import { DOWNLOAD_STATUS } from '../utils/download-assets.js';
 
 import {
   extractUrlsFromHTML,

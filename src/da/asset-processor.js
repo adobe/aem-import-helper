@@ -12,16 +12,11 @@
 
 import path from 'path';
 import fs from 'fs';
-import { downloadAssets, IMAGE_EXTENSIONS } from '../utils/download-assets.js';
+import { downloadAssets, IMAGE_EXTENSIONS, DOWNLOAD_STATUS } from '../utils/download-assets.js';
 import { uploadFolder } from './upload.js';
 import { getSanitizedFilenameFromUrl, extractPageParentPath } from './url-utils.js';
 
-// Status constants for asset operations
-export const DOWNLOAD_STATUS = {
-  FULFILLED: 'fulfilled',
-  REJECTED: 'rejected',
-};
-
+// Status constants for copy operations (custom to this module)
 export const COPY_STATUS = {
   SUCCESS: 'success',
   ERROR: 'error',

@@ -19,10 +19,9 @@ import {
   downloadPageAssets,
   copyLocalPageAssets,
   uploadPageAssets,
-  DOWNLOAD_STATUS,
   COPY_STATUS,
 } from '../../src/da/asset-processor.js';
-import { IMAGE_EXTENSIONS } from '../../src/utils/download-assets.js';
+import { IMAGE_EXTENSIONS, DOWNLOAD_STATUS } from '../../src/utils/download-assets.js';
 
 import { createMockDependencies } from './test-setup.js';
 
