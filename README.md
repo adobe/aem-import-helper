@@ -236,7 +236,7 @@ npm run da-upload -- \
 
 The tool will:
 1. Attempt to use assets from the local folder first
-2. Fall back to downloading from `siteOrigin` if assets aren't found locally
+2. Fall back to downloading from origin website if assets aren't found locally
 3. Upload all resolved assets to DA
 4. Update HTML references as usual
 5. Upload the updated HTML pages
