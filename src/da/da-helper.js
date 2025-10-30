@@ -27,6 +27,8 @@ import {
   downloadPageAssets,
   copyLocalPageAssets,
   uploadPageAssets,
+  DOWNLOAD_STATUS,
+  COPY_STATUS,
 } from './asset-processor.js';
 
 import {
@@ -126,12 +128,12 @@ async function processSinglePage(
         dependencies,
       );
       assetMapping = result.assetMapping;
-      copiedAssets = result.copyResults.filter(r => r.status === 'success').length;
+      copiedAssets = result.copyResults.filter(r => r.status === COPY_STATUS.SUCCESS).length;
       
       // Identify failed copies that need to be downloaded
       const failedUrls = [];
       result.copyResults.forEach((copyResult, index) => {
-        if (copyResult.status === 'error') {
+        if (copyResult.status === COPY_STATUS.ERROR) {
           failedUrls.push(matchingAssetUrls[index]);
         }
       });
@@ -161,7 +163,7 @@ async function processSinglePage(
         },
         dependencies,
       );
-      downloadedAssets = result.downloadResults.filter(r => r.status === 'fulfilled').length;
+      downloadedAssets = result.downloadResults.filter(r => r.status === DOWNLOAD_STATUS.FULFILLED).length;
       
       // If we don't have an assetMapping yet, use the downloaded one
       // Otherwise, merge the mappings

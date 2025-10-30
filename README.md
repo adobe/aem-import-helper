@@ -249,11 +249,11 @@ Your `asset-list.json` in this case should reference assets **relative to the `-
     "./team/john-smith.png",
     "/documents/brochure.pdf"
   ],
-  "siteOrigin": "http://localhost:3000"
+  "siteOrigin": "http://adobe.com"
 }
 ```
 
-**Example folder structure:**
+**Example local assets folder structure:**
 ```
 /path/to/local/assets/          <- This is your --local-assets folder
 ├── hero/

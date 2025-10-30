@@ -16,6 +16,17 @@ import { downloadAssets, IMAGE_EXTENSIONS } from '../utils/download-assets.js';
 import { uploadFolder } from './upload.js';
 import { getSanitizedFilenameFromUrl, extractPageParentPath } from './url-utils.js';
 
+// Status constants for asset operations
+export const DOWNLOAD_STATUS = {
+  FULFILLED: 'fulfilled',
+  REJECTED: 'rejected',
+};
+
+export const COPY_STATUS = {
+  SUCCESS: 'success',
+  ERROR: 'error',
+};
+
 /**
  * Check if a file is an image based on its extension
  * @param {string} filename - The filename to check
@@ -87,8 +98,8 @@ export async function downloadPageAssets(
   const downloadResults = await downloadAssetsFn(simplifiedAssetMapping, downloadFolder, maxRetries, retryDelay);
 
   // Count successful downloads
-  const successfulDownloads = downloadResults.filter(result => result.status === 'fulfilled').length;
-  const failedDownloads = downloadResults.filter(result => result.status === 'rejected').length;
+  const successfulDownloads = downloadResults.filter(result => result.status === DOWNLOAD_STATUS.FULFILLED).length;
+  const failedDownloads = downloadResults.filter(result => result.status === DOWNLOAD_STATUS.REJECTED).length;
 
   console.log(chalkDep.green(`Successfully downloaded ${successfulDownloads} assets`));
   if (failedDownloads > 0) {
@@ -155,7 +166,7 @@ export async function copyLocalPageAssets(
       // Check if the local file exists
       if (!fsDep.existsSync(fullLocalPath)) {
         console.warn(chalkDep.yellow(`Warning: Local asset not found: ${fullLocalPath}`));
-        copyResults.push({ status: 'error', error: new Error(`File not found: ${fullLocalPath}`) });
+        copyResults.push({ status: COPY_STATUS.ERROR, error: new Error(`File not found: ${fullLocalPath}`) });
         continue;
       }
       
@@ -167,16 +178,16 @@ export async function copyLocalPageAssets(
       // Copy the file to the destination path
       fsDep.copyFileSync(fullLocalPath, destPath);
       
-      copyResults.push({ status: 'success', path: destPath });
+      copyResults.push({ status: COPY_STATUS.SUCCESS, path: destPath });
     } catch (error) {
       console.error(chalkDep.red(`Error copying local asset ${assetUrl}:`, error.message));
-      copyResults.push({ status: 'error', error });
+      copyResults.push({ status: COPY_STATUS.ERROR, error });
     }
   }
 
   // Count successful copies
-  const successfulCopies = copyResults.filter(result => result.status === 'success').length;
-  const failedCopies = copyResults.filter(result => result.status === 'error').length;
+  const successfulCopies = copyResults.filter(result => result.status === COPY_STATUS.SUCCESS).length;
+  const failedCopies = copyResults.filter(result => result.status === COPY_STATUS.ERROR).length;
 
   console.log(chalkDep.green(`Successfully copied ${successfulCopies} local assets`));
   if (failedCopies > 0) {

@@ -19,6 +19,8 @@ import {
   downloadPageAssets,
   copyLocalPageAssets,
   uploadPageAssets,
+  DOWNLOAD_STATUS,
+  COPY_STATUS,
 } from '../../src/da/asset-processor.js';
 import { IMAGE_EXTENSIONS } from '../../src/utils/download-assets.js';
 
@@ -85,9 +87,9 @@ describe('asset-processor.js', () => {
     it('should download assets and create correct mapping for images and non-images', async () => {
       const deps = createMockDependencies({
         downloadAssets: async () => [
-          { status: 'fulfilled' },
-          { status: 'fulfilled' },
-          { status: 'rejected' },
+          { status: DOWNLOAD_STATUS.FULFILLED },
+          { status: DOWNLOAD_STATUS.FULFILLED },
+          { status: DOWNLOAD_STATUS.REJECTED },
         ],
       });
 
@@ -116,8 +118,8 @@ describe('asset-processor.js', () => {
       
       // Verify download results are returned
       expect(result.downloadResults).to.have.length(3);
-      expect(result.downloadResults.filter(r => r.status === 'fulfilled')).to.have.length(2);
-      expect(result.downloadResults.filter(r => r.status === 'rejected')).to.have.length(1);
+      expect(result.downloadResults.filter(r => r.status === DOWNLOAD_STATUS.FULFILLED)).to.have.length(2);
+      expect(result.downloadResults.filter(r => r.status === DOWNLOAD_STATUS.REJECTED)).to.have.length(1);
     });
   });
 
@@ -211,8 +213,8 @@ describe('asset-processor.js', () => {
       
       // Should have 2 results: 1 success, 1 failure
       expect(result.copyResults).to.have.length(2);
-      expect(result.copyResults.filter(r => r.status === 'success')).to.have.length(1);
-      expect(result.copyResults.filter(r => r.status === 'error')).to.have.length(1);
+      expect(result.copyResults.filter(r => r.status === COPY_STATUS.SUCCESS)).to.have.length(1);
+      expect(result.copyResults.filter(r => r.status === COPY_STATUS.ERROR)).to.have.length(1);
       
       // Only the existing file should be copied
       expect(copiedFiles).to.have.length(1);
@@ -333,7 +335,7 @@ describe('asset-processor.js', () => {
       );
       
       expect(copiedFiles).to.have.length(3);
-      expect(result.copyResults.filter(r => r.status === 'success')).to.have.length(3);
+      expect(result.copyResults.filter(r => r.status === COPY_STATUS.SUCCESS)).to.have.length(3);
       
       // Find each copied file
       const bannerCopy = copiedFiles.find(f => f.src.includes('banner.jpg'));
