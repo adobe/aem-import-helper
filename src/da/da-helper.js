@@ -25,8 +25,12 @@ import {
 
 import {
   downloadPageAssets,
+  copyLocalPageAssets,
   uploadPageAssets,
+  COPY_STATUS,
 } from './asset-processor.js';
+
+import { DOWNLOAD_STATUS } from '../utils/download-assets.js';
 
 import {
   extractUrlsFromHTML,
@@ -105,21 +109,72 @@ async function processSinglePage(
 
   console.log(chalkDep.yellow(`Found ${matchingAssetUrls.length} asset references in the page.`));
 
-  if (matchingAssetUrls.length > 0) {
-    // Get fully qualified asset URLs to download from the source
-    const fullyQualifiedAssetUrls = getFullyQualifiedAssetUrls(matchingAssetUrls, siteOrigin);
+  let uniqueAssets = 0;
+  let copiedAssets = 0;
+  let downloadedAssets = 0;
 
-    // Download and upload assets for this page
-    const { assetMapping } = await downloadPageAssets(
-      fullyQualifiedAssetUrls, 
-      fullShadowPath, 
-      downloadFolder, 
-      {
-        maxRetries: uploadOptions.maxRetries || 3,
-        retryDelay: uploadOptions.retryDelay || 1000,
-      },
-      dependencies,
-    );
+  if (matchingAssetUrls.length > 0) {
+    let assetMapping;
+    let assetsToDownload = [];
+    
+    // Check if we're using local assets first
+    const localAssetsPath = uploadOptions.localAssetsPath;
+    if (localAssetsPath) {
+      console.log(chalkDep.yellow(`Attempting to resolve assets from local folder: ${localAssetsPath}`));
+      const result = await copyLocalPageAssets(
+        matchingAssetUrls,
+        fullShadowPath,
+        downloadFolder,
+        localAssetsPath,
+        dependencies,
+      );
+      assetMapping = result.assetMapping;
+      copiedAssets = result.copyResults.filter(r => r.status === COPY_STATUS.SUCCESS).length;
+      
+      // Identify failed copies that need to be downloaded
+      const failedUrls = [];
+      result.copyResults.forEach((copyResult, index) => {
+        if (copyResult.status === COPY_STATUS.ERROR) {
+          failedUrls.push(matchingAssetUrls[index]);
+        }
+      });
+      
+      if (failedUrls.length > 0 && siteOrigin) {
+        console.log(chalkDep.yellow(`Falling back to download ${failedUrls.length} asset(s) from remote source...`));
+        assetsToDownload = failedUrls;
+      } else if (failedUrls.length > 0 && !siteOrigin) {
+        console.warn(chalkDep.yellow(`Warning: ${failedUrls.length} asset(s) not found locally and no siteOrigin provided for fallback download.`));
+      }
+    } else {
+      // No local assets path provided, download all from remote
+      assetsToDownload = matchingAssetUrls;
+    }
+    
+    // Download any assets that weren't resolved locally
+    if (assetsToDownload.length > 0) {
+      const fullyQualifiedAssetUrls = getFullyQualifiedAssetUrls(assetsToDownload, siteOrigin);
+      
+      const result = await downloadPageAssets(
+        fullyQualifiedAssetUrls, 
+        fullShadowPath, 
+        downloadFolder, 
+        {
+          maxRetries: uploadOptions.maxRetries,
+          retryDelay: uploadOptions.retryDelay,
+        },
+        dependencies,
+      );
+      downloadedAssets = result.downloadResults.filter(r => r.status === DOWNLOAD_STATUS.FULFILLED).length;
+      
+      // If we don't have an assetMapping yet, use the downloaded one
+      // Otherwise, merge the mappings
+      if (!assetMapping) {
+        assetMapping = result.assetMapping;
+      }
+    }
+
+    // Track unique assets (assetMapping is a Map with unique keys)
+    uniqueAssets = assetMapping ? assetMapping.size : 0;
 
     // Upload assets to DA
     const daAdminUrl = buildDaAdminUrl(org, site);
@@ -160,7 +215,12 @@ async function processSinglePage(
 
   console.log(chalkDep.green(`Completed processing page: ${pagePath}`));
   
-  return matchingAssetUrls;
+  return {
+    assetReferences: matchingAssetUrls.length,
+    uniqueAssets,
+    copiedAssets,
+    downloadedAssets,
+  };
 }
 
 /**
@@ -241,7 +301,7 @@ export async function processPages(
       for (const htmlFile of htmlFiles) {
         try {
           const htmlContent = fsDep.readFileSync(htmlFile, UTF8_ENCODING);
-          const processedAssets = await processSinglePage(
+          const processedStats = await processSinglePage(
             htmlFile, 
             htmlContent, 
             assetUrls, 
@@ -258,7 +318,7 @@ export async function processPages(
           htmlResults.push({
             filePath: htmlFile,
             uploaded: true,
-            downloadedAssets: processedAssets,
+            assetStats: processedStats,
           });
         } catch (error) {
           console.error(chalkDep.red(`Error processing ${htmlFile}: `, error.message));
@@ -267,7 +327,7 @@ export async function processPages(
             filePath: htmlFile,
             error: error.message,
             uploaded: false,
-            downloadedAssets: [],
+            assetStats: { assetReferences: 0, uniqueAssets: 0, copiedAssets: 0, downloadedAssets: 0 },
           });
           throw error;
         }
@@ -287,12 +347,36 @@ export async function processPages(
       // Handle both HTML results (uploaded/error format) and upload results (success format)
       return result.success === true || (result.uploaded === true && !result.error);
     }).length;
-    const totalAssets = htmlResults.reduce((sum, result) => sum + (result.downloadedAssets?.length || 0), 0);
+    
+    // Calculate detailed asset statistics
+    const totals = htmlResults.reduce(
+      (acc, { assetStats = {} }) => {
+        acc.references += assetStats.assetReferences || 0;
+        acc.unique += assetStats.uniqueAssets || 0;
+        acc.copied += assetStats.copiedAssets || 0;
+        acc.downloaded += assetStats.downloadedAssets || 0;
+        return acc;
+      },
+      { references: 0, unique: 0, copied: 0, downloaded: 0 },
+    );
+    
+    const { references: totalReferences, unique: totalUniqueAssets, copied: totalCopiedAssets, downloaded: totalDownloadedAssets } = totals;
     const totalFiles = htmlFiles.length + otherFilesResults.length;
     
     console.log(chalkDep.green('\nProcessing complete!'));
     console.log(chalkDep.green(`- Processed ${successfulPages}/${totalFiles} files successfully`));
-    console.log(chalkDep.green(`- Downloaded and uploaded ${totalAssets} assets`));
+    
+    if (totalUniqueAssets > 0) {
+      console.log(chalkDep.green(`- Processed ${totalUniqueAssets} unique asset(s) from ${totalReferences} reference(s)`));
+      if (totalCopiedAssets > 0 || totalDownloadedAssets > 0) {
+        const details = [];
+        if (totalCopiedAssets > 0) details.push(`${totalCopiedAssets} copied from local`);
+        if (totalDownloadedAssets > 0) details.push(`${totalDownloadedAssets} downloaded from remote`);
+        console.log(chalkDep.green(`  (${details.join(', ')})`));
+      }
+    } else {
+      console.log(chalkDep.green('- No assets to process'));
+    }
     
     return allResults;
 

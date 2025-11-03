@@ -22,6 +22,13 @@ export const IMAGE_EXTENSIONS = new Set([
   '.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.tiff', '.bmp', '.ico', '.heic', '.heif', '.avif', '.apng',
 ]);
 
+// Promise.allSettled() result status constants
+// These match the standard PromiseSettledResult type from Promise.allSettled()
+export const DOWNLOAD_STATUS = {
+  FULFILLED: 'fulfilled',
+  REJECTED: 'rejected',
+};
+
 // Extensions that should NOT be converted to PNG when conversion is enabled
 export const DO_NOT_CONVERT_EXTENSIONS = new Set([
   '.jpg', '.jpeg', '.png', '.gif', '.ico', '.svg', '.mp4', '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
@@ -186,8 +193,8 @@ async function downloadAssetWithRetry(url, maxRetries = 3, retryDelay = 5000, he
  * @param {Object} [headers={}] - Additional headers to include in the request.
  * @param {Object} [options={}] - Options for the function
  * @param {boolean} [options.convertImagesToPng=false] - Whether to convert images to PNG
- * @return {Promise<Array<PromiseSettledResult<string>>>} A promise that resolves when all assets are downloaded.
- * Each promise in the array will resolve with the path of the downloaded asset.
+ * @return {Promise<Array<PromiseSettledResult<string>>>} Array of settled promises with status 'fulfilled' | 'rejected'.
+ * Use DOWNLOAD_STATUS constants to check the status field.
  */
 export async function downloadAssets(assetMapping, downloadFolder, maxRetries = 3, retryDelay = 5000, headers = {}, options = {}) {
   const downloadPromises = Array.from(assetMapping.entries())

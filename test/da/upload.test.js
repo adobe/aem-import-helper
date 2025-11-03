@@ -39,6 +39,7 @@ describe('upload', function () {
       },
       path: {
         relative: sinon.stub(),
+        resolve: sinon.stub().callsFake((p) => p), // Default: return the path as-is (simulating absolute path)
         join: path.join,
         extname: sinon.stub(),
         basename: sinon.stub(),
@@ -313,6 +314,38 @@ describe('upload', function () {
       expect(mockDependencies.path.relative.notCalled).to.be.true;
       const fetchUrl = mockDependencies.fetch.firstCall.args[0];
       expect(fetchUrl).to.equal(`${uploadUrl}/${filePath}`);
+    });
+
+    it('should handle relative baseFolder with absolute filePath', async function () {
+      // Simulate the scenario: baseFolder is relative (./output), filePath is absolute
+      const absoluteFilePath = '/Users/test/project/output/content/.home/logo.svg';
+      const relativeBaseFolder = './output';
+      const expectedRelativePath = 'content/.home/logo.svg';
+      
+      // Mock path.resolve to simulate real behavior
+      mockDependencies.path.resolve = (p) => {
+        if (p === relativeBaseFolder) return '/Users/test/project/output';
+        if (p === absoluteFilePath) return absoluteFilePath;
+        return p;
+      };
+      
+      // Mock path.relative to calculate the correct relative path
+      mockDependencies.path.relative = (base, target) => {
+        if (base === '/Users/test/project/output' && target === absoluteFilePath) {
+          return expectedRelativePath;
+        }
+        return target;
+      };
+      
+      mockDependencies.fs.existsSync.returns(true);
+      mockDependencies.fetch.resolves({ ok: true, status: 200, text: async () => 'success' });
+
+      await uploadFile(absoluteFilePath, uploadUrl, token, { baseFolder: relativeBaseFolder }, mockDependencies);
+
+      // Verify that the upload URL uses the relative path without the 'output' prefix
+      const fetchUrl = mockDependencies.fetch.firstCall.args[0];
+      expect(fetchUrl).to.equal(`${uploadUrl}/${expectedRelativePath}`);
+      expect(fetchUrl).to.not.include('/output/content');
     });
 
     it('should add authorization header when token is provided', async function () {

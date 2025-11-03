@@ -17,9 +17,11 @@ import {
   isImageAsset,
   createAssetMapping,
   downloadPageAssets,
+  copyLocalPageAssets,
   uploadPageAssets,
+  COPY_STATUS,
 } from '../../src/da/asset-processor.js';
-import { IMAGE_EXTENSIONS } from '../../src/utils/download-assets.js';
+import { IMAGE_EXTENSIONS, DOWNLOAD_STATUS } from '../../src/utils/download-assets.js';
 
 import { createMockDependencies } from './test-setup.js';
 
@@ -84,9 +86,9 @@ describe('asset-processor.js', () => {
     it('should download assets and create correct mapping for images and non-images', async () => {
       const deps = createMockDependencies({
         downloadAssets: async () => [
-          { status: 'fulfilled' },
-          { status: 'fulfilled' },
-          { status: 'rejected' },
+          { status: DOWNLOAD_STATUS.FULFILLED },
+          { status: DOWNLOAD_STATUS.FULFILLED },
+          { status: DOWNLOAD_STATUS.REJECTED },
         ],
       });
 
@@ -115,8 +117,251 @@ describe('asset-processor.js', () => {
       
       // Verify download results are returned
       expect(result.downloadResults).to.have.length(3);
-      expect(result.downloadResults.filter(r => r.status === 'fulfilled')).to.have.length(2);
-      expect(result.downloadResults.filter(r => r.status === 'rejected')).to.have.length(1);
+      expect(result.downloadResults.filter(r => r.status === DOWNLOAD_STATUS.FULFILLED)).to.have.length(2);
+      expect(result.downloadResults.filter(r => r.status === DOWNLOAD_STATUS.REJECTED)).to.have.length(1);
+    });
+  });
+
+  describe('copyLocalPageAssets', () => {
+    it('should copy images to shadow folder and PDFs to shared-media with correct paths', async () => {
+      const copiedFiles = [];
+      
+      const deps = createMockDependencies({
+        fs: {
+          existsSync: (path) => path.includes('local-assets'),
+          mkdirSync: () => {},
+          copyFileSync: (src, dest) => {
+            copiedFiles.push({ src, dest });
+          },
+        },
+        chalk: {
+          yellow: (msg) => msg,
+          green: (msg) => msg,
+          red: (msg) => msg,
+        },
+      });
+
+      const urls = [
+        './team/photo.jpg',
+        '/documents/resume.pdf',
+      ];
+      
+      const result = await copyLocalPageAssets(
+        urls, 
+        'about/leadership/.executive', 
+        '/download',
+        '/local-assets',
+        deps,
+      );
+      
+      expect(copiedFiles).to.have.length(2);
+      
+      // Find the image and PDF copies
+      const imageCopy = copiedFiles.find(f => f.src.includes('photo.jpg'));
+      const pdfCopy = copiedFiles.find(f => f.src.includes('resume.pdf'));
+      
+      // Verify source paths are constructed correctly from URLs
+      // Asset references are relative to --local-assets folder
+      expect(imageCopy.src).to.equal('/local-assets/team/photo.jpg');
+      expect(pdfCopy.src).to.equal('/local-assets/documents/resume.pdf');
+      
+      // Verify image goes to shadow folder
+      expect(imageCopy.dest).to.match(/\/download\/about\/leadership\/\.executive\/photo-[a-f0-9]{8}\.jpg$/);
+      
+      // Verify PDF goes to shared-media under parent directory
+      expect(pdfCopy.dest).to.match(/\/download\/about\/leadership\/shared-media\/resume-[a-f0-9]{8}\.pdf$/);
+      
+      // Verify mapping matches the destinations (keys are original URLs)
+      const mappingEntries = Array.from(result.assetMapping.entries());
+      expect(mappingEntries[0][0]).to.equal('./team/photo.jpg');
+      expect(mappingEntries[0][1]).to.match(/^\/about\/leadership\/\.executive\/photo-[a-f0-9]{8}\.jpg$/);
+      expect(mappingEntries[1][0]).to.equal('/documents/resume.pdf');
+      expect(mappingEntries[1][1]).to.match(/^\/about\/leadership\/shared-media\/resume-[a-f0-9]{8}\.pdf$/);
+    });
+
+    it('should handle missing local assets and continue with others', async () => {
+      const copiedFiles = [];
+      
+      const deps = createMockDependencies({
+        fs: {
+          existsSync: (path) => {
+            // Only the image exists, not the PDF
+            return path.includes('photo.jpg');
+          },
+          mkdirSync: () => {},
+          copyFileSync: (src, dest) => {
+            copiedFiles.push({ src, dest });
+          },
+        },
+        chalk: {
+          yellow: (msg) => msg,
+          green: (msg) => msg,
+          red: (msg) => msg,
+        },
+      });
+
+      const urls = ['./team/photo.jpg', '/docs/missing.pdf'];
+      
+      const result = await copyLocalPageAssets(
+        urls, 
+        '.page', 
+        '/download',
+        '/local-assets',
+        deps,
+      );
+      
+      // Should have 2 results: 1 success, 1 failure
+      expect(result.copyResults).to.have.length(2);
+      expect(result.copyResults.filter(r => r.status === COPY_STATUS.SUCCESS)).to.have.length(1);
+      expect(result.copyResults.filter(r => r.status === COPY_STATUS.ERROR)).to.have.length(1);
+      
+      // Only the existing file should be copied
+      expect(copiedFiles).to.have.length(1);
+      // Asset path is relative to --local-assets folder
+      expect(copiedFiles[0].src).to.equal('/local-assets/team/photo.jpg');
+    });
+
+    it('should strip http/https protocols from localhost URLs correctly', async () => {
+      const copiedFiles = [];
+      
+      const deps = createMockDependencies({
+        fs: {
+          existsSync: () => true,
+          mkdirSync: () => {},
+          copyFileSync: (src, dest) => {
+            copiedFiles.push({ src, dest });
+          },
+        },
+        chalk: {
+          yellow: (msg) => msg,
+          green: (msg) => msg,
+          red: (msg) => msg,
+        },
+      });
+
+      const urls = [
+        'http://localhost:3000/assets/logo.png',
+        'https://localhost:8080/media/video.mp4',
+      ];
+      
+      await copyLocalPageAssets(
+        urls, 
+        '.homepage', 
+        '/output',
+        '/my-assets',
+        deps,
+      );
+      
+      expect(copiedFiles).to.have.length(2);
+      
+      // Verify protocols were stripped and paths correctly constructed relative to --local-assets
+      expect(copiedFiles[0].src).to.equal('/my-assets/assets/logo.png');
+      expect(copiedFiles[1].src).to.equal('/my-assets/media/video.mp4');
+      
+      // Verify image goes to shadow folder, video goes to shared-media
+      expect(copiedFiles[0].dest).to.match(/\/output\/\.homepage\/logo-[a-f0-9]{8}\.png$/);
+      expect(copiedFiles[1].dest).to.match(/\/output\/shared-media\/video-[a-f0-9]{8}\.mp4$/);
+    });
+
+    it('should strip redundant directory prefix when it matches local assets folder name', async () => {
+      const copiedFiles = [];
+      
+      const deps = createMockDependencies({
+        fs: {
+          existsSync: () => true,
+          mkdirSync: () => {},
+          copyFileSync: (src, dest) => {
+            copiedFiles.push({ src, dest });
+          },
+        },
+      });
+
+      const urls = [
+        './images/home/icon-social.png',
+        './images/logos/brand.svg',
+      ];
+      
+      await copyLocalPageAssets(
+        urls, 
+        '.index', 
+        '/output',
+        '/data/images',  // local assets folder ends with "images"
+        deps,
+      );
+      
+      expect(copiedFiles).to.have.length(2);
+      
+      // Verify the "images/" prefix was stripped to avoid /data/images/images/...
+      expect(copiedFiles[0].src).to.equal('/data/images/home/icon-social.png');
+      expect(copiedFiles[1].src).to.equal('/data/images/logos/brand.svg');
+    });
+
+    it('should route different file types correctly: images to shadow folder, PDFs to shared-media', async () => {
+      const copiedFiles = [];
+      
+      const deps = createMockDependencies({
+        fs: {
+          existsSync: () => true,
+          mkdirSync: () => {},
+          copyFileSync: (src, dest) => {
+            copiedFiles.push({ src, dest });
+          },
+        },
+        chalk: {
+          yellow: (msg) => msg,
+          green: (msg) => msg,
+          red: (msg) => msg,
+        },
+      });
+
+      // Simulate this folder structure:
+      // /local/assets/
+      // ├── hero/banner.jpg
+      // ├── team/john-smith.png
+      // └── documents/brochure.pdf
+      const urls = [
+        './hero/banner.jpg',           // Image → shadow folder
+        './team/john-smith.png',       // Image → shadow folder
+        './documents/brochure.pdf',    // PDF → shared-media folder
+      ];
+      
+      const result = await copyLocalPageAssets(
+        urls, 
+        'about/team/.leadership',  // Page path: about/team/leadership.html
+        '/output',
+        '/local/assets',
+        deps,
+      );
+      
+      expect(copiedFiles).to.have.length(3);
+      expect(result.copyResults.filter(r => r.status === COPY_STATUS.SUCCESS)).to.have.length(3);
+      
+      // Find each copied file
+      const bannerCopy = copiedFiles.find(f => f.src.includes('banner.jpg'));
+      const teamCopy = copiedFiles.find(f => f.src.includes('john-smith.png'));
+      const pdfCopy = copiedFiles.find(f => f.src.includes('brochure.pdf'));
+      
+      // Verify source paths
+      expect(bannerCopy.src).to.equal('/local/assets/hero/banner.jpg');
+      expect(teamCopy.src).to.equal('/local/assets/team/john-smith.png');
+      expect(pdfCopy.src).to.equal('/local/assets/documents/brochure.pdf');
+      
+      // Verify images go to shadow folder (.leadership)
+      expect(bannerCopy.dest).to.match(/\/output\/about\/team\/\.leadership\/banner-[a-f0-9]{8}\.jpg$/);
+      expect(teamCopy.dest).to.match(/\/output\/about\/team\/\.leadership\/john-smith-[a-f0-9]{8}\.png$/);
+      
+      // Verify PDF goes to shared-media folder under the parent directory (about/team)
+      expect(pdfCopy.dest).to.match(/\/output\/about\/team\/shared-media\/brochure-[a-f0-9]{8}\.pdf$/);
+      
+      // Verify the asset mapping reflects the correct target paths
+      const mappingEntries = Array.from(result.assetMapping.entries());
+      const jpgMapping = mappingEntries.find(e => e[0] === './hero/banner.jpg');
+      const pngMapping = mappingEntries.find(e => e[0] === './team/john-smith.png');
+      const pdfMapping = mappingEntries.find(e => e[0] === './documents/brochure.pdf');
+      
+      expect(jpgMapping[1]).to.match(/^\/about\/team\/\.leadership\/banner-[a-f0-9]{8}\.jpg$/);
+      expect(pngMapping[1]).to.match(/^\/about\/team\/\.leadership\/john-smith-[a-f0-9]{8}\.png$/);
+      expect(pdfMapping[1]).to.match(/^\/about\/team\/shared-media\/brochure-[a-f0-9]{8}\.pdf$/);
     });
   });
 

@@ -189,8 +189,10 @@ function getFullyQualifiedAssetUrl(assetUrl, siteOrigin) {
     return assetUrl; // return as is
   }
 
-  // Case 2: Absolute asset reference (root relative), appending the asset path to the site origin
-  return assetUrl.startsWith('/') ? `${siteOrigin}${assetUrl}` : `${siteOrigin}/${assetUrl}`;
+  // Case 2: Relative asset reference - strip leading ./ or / before appending
+  // Remove leading ./ or / from the asset URL
+  const cleanAssetUrl = assetUrl.replace(/^\.\/+/, '').replace(/^\/+/, '');
+  return `${siteOrigin}/${cleanAssetUrl}`;
 }
 
 /**
