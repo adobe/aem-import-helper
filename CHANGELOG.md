@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/adobe/aem-import-helper/compare/v1.2.3...v1.3.0) (2025-11-03)
+
+
+### Features
+
+* Allow users to provide assets from local filesystem for DA upload ([#70](https://github.com/adobe/aem-import-helper/issues/70)) ([4ec0537](https://github.com/adobe/aem-import-helper/commit/4ec0537ec9ac1659e18c324570c32e82b5e24172))
+
 ## [1.2.3](https://github.com/adobe/aem-import-helper/compare/v1.2.2...v1.2.3) (2025-10-17)
 
 
