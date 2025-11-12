@@ -12,7 +12,9 @@
 
 import path from 'path';
 import fs from 'fs';
-import { downloadAssets, IMAGE_EXTENSIONS, DOWNLOAD_STATUS } from '../utils/download-assets.js';
+import sharp from 'sharp';
+import chalk from 'chalk';
+import { downloadAssets, IMAGE_EXTENSIONS, DOWNLOAD_STATUS, DO_NOT_CONVERT_EXTENSIONS } from '../utils/download-assets.js';
 import { uploadFolder } from './upload.js';
 import { getSanitizedFilenameFromUrl, extractPageParentPath } from './url-utils.js';
 
@@ -72,6 +74,7 @@ export function createAssetMapping(matchingHrefs, fullShadowPath, dependencies =
  * @param {Object} options - Download options
  * @param {number} options.maxRetries - Maximum retries for download (default: 3)
  * @param {number} options.retryDelay - Delay between retries (default: 1000)
+ * @param {boolean} options.convertImagesToPng - Whether to convert images to PNG (default: true)
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Promise<{downloadResults: Array, assetMapping: Map}>} Download results and asset mapping
  */
@@ -82,15 +85,22 @@ export async function downloadPageAssets(
   options = {},
   dependencies = {},
 ) {
-  const { maxRetries = 3, retryDelay = 1000 } = options;
+  const { maxRetries = 3, retryDelay = 1000, convertImagesToPng = true } = options;
   const chalkDep = dependencies.chalk;
   const downloadAssetsFn = dependencies.downloadAssets || downloadAssets;
-  
+
   const simplifiedAssetMapping = createAssetMapping(matchingHrefs, fullShadowPath, dependencies);
-  
+
   console.log(chalkDep.yellow(`Downloading ${simplifiedAssetMapping.size} unique assets for this page...`));
 
-  const downloadResults = await downloadAssetsFn(simplifiedAssetMapping, downloadFolder, maxRetries, retryDelay);
+  const downloadResults = await downloadAssetsFn(
+    simplifiedAssetMapping,
+    downloadFolder,
+    maxRetries,
+    retryDelay,
+    {},  // headers
+    { convertImagesToPng },
+  );
 
   // Count successful downloads
   const successfulDownloads = downloadResults.filter(result => result.status === DOWNLOAD_STATUS.FULFILLED).length;
@@ -110,6 +120,8 @@ export async function downloadPageAssets(
  * @param {string} fullShadowPath - The full shadow folder path (format: {relativePath}/.{pageName} or .{pageName})
  * @param {string} downloadFolder - The folder where processed assets will be copied to
  * @param {string} localAssetsPath - Root directory containing your source assets (the --local-assets folder)
+ * @param {Object} options - Options for the function
+ * @param {boolean} options.imagesToPng - Whether to convert images to PNG (default: true)
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @return {Promise<{copyResults: Array, assetMapping: Map}>} Object containing:
  *   - copyResults: Array of {status: 'success'|'error', path|error} for each copy operation
@@ -120,12 +132,15 @@ export async function copyLocalPageAssets(
   fullShadowPath,
   downloadFolder,
   localAssetsPath,
+  options = {},
   dependencies = {},
 ) {
+  const { imagesToPng = true } = options;
   const chalkDep = dependencies.chalk;
   const fsDep = dependencies.fs || fs;
   const pathDep = dependencies.path || path;
-  
+  const sharpDep = dependencies.sharp || sharp;
+
   const simplifiedAssetMapping = createAssetMapping(matchingHrefs, fullShadowPath, dependencies);
   
   console.log(chalkDep.yellow(`Copying ${simplifiedAssetMapping.size} unique local assets for this page...`));
@@ -166,13 +181,40 @@ export async function copyLocalPageAssets(
       }
       
       // Construct the destination path
-      const destPath = pathDep.join(downloadFolder, targetPath);
+      let destPath = pathDep.join(downloadFolder, targetPath);
+
+      // Determine if this file should be converted to PNG
+      const currentExt = pathDep.extname(fullLocalPath).toLowerCase();
+      const isImage = IMAGE_EXTENSIONS.has(currentExt);
+      const shouldConvert = imagesToPng
+        && isImage
+        && !DO_NOT_CONVERT_EXTENSIONS.has(currentExt);
+
       // Create the destination directory
       fsDep.mkdirSync(pathDep.dirname(destPath), { recursive: true });
-      
-      // Copy the file to the destination path
-      fsDep.copyFileSync(fullLocalPath, destPath);
-      
+
+      if (shouldConvert) {
+        // Convert to PNG and update destination path
+        try {
+          const sourceBuffer = fsDep.readFileSync(fullLocalPath);
+          const pngBuffer = await sharpDep(sourceBuffer).png().toBuffer();
+
+          // Force .png extension
+          const parsed = pathDep.parse(destPath);
+          destPath = pathDep.join(parsed.dir, `${parsed.name}.png`);
+
+          fsDep.writeFileSync(destPath, pngBuffer);
+          console.log(chalkDep.green(`Converted ${currentExt} to PNG: ${pathDep.basename(destPath)}`));
+        } catch (conversionError) {
+          // If conversion fails, fall back to copying original
+          console.warn(chalkDep.yellow(`Warning: Failed to convert ${fullLocalPath} to PNG. Copying original. ${conversionError.message}`));
+          fsDep.copyFileSync(fullLocalPath, destPath);
+        }
+      } else {
+        // Copy the file as-is
+        fsDep.copyFileSync(fullLocalPath, destPath);
+      }
+
       copyResults.push({ status: COPY_STATUS.SUCCESS, path: destPath });
     } catch (error) {
       console.error(chalkDep.red(`Error copying local asset ${assetUrl}:`, error.message));
