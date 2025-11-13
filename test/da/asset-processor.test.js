@@ -374,6 +374,7 @@ describe('asset-processor.js', () => {
       const convertedFiles = [];
 
       // Mock Sharp conversion
+      // eslint-disable-next-line no-unused-vars
       const mockSharp = (buffer) => ({
         png: () => ({
           toBuffer: async () => {
@@ -387,6 +388,7 @@ describe('asset-processor.js', () => {
         fs: {
           existsSync: () => true,
           mkdirSync: () => {},
+          // eslint-disable-next-line no-unused-vars
           readFileSync: (path) => Buffer.from('fake-webp-data'),
           writeFileSync: (dest, buffer) => {
             copiedFiles.push({ dest, buffer });

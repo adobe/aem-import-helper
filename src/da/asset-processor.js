@@ -13,7 +13,6 @@
 import path from 'path';
 import fs from 'fs';
 import sharp from 'sharp';
-import chalk from 'chalk';
 import { downloadAssets, IMAGE_EXTENSIONS, DOWNLOAD_STATUS, DO_NOT_CONVERT_EXTENSIONS } from '../utils/download-assets.js';
 import { uploadFolder } from './upload.js';
 import { getSanitizedFilenameFromUrl, extractPageParentPath } from './url-utils.js';
