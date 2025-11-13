@@ -147,10 +147,11 @@ describe('asset-processor.js', () => {
       ];
       
       const result = await copyLocalPageAssets(
-        urls, 
-        'about/leadership/.executive', 
+        urls,
+        'about/leadership/.executive',
         '/download',
         '/local-assets',
+        {},  // options
         deps,
       );
       
@@ -203,10 +204,11 @@ describe('asset-processor.js', () => {
       const urls = ['./team/photo.jpg', '/docs/missing.pdf'];
       
       const result = await copyLocalPageAssets(
-        urls, 
-        '.page', 
+        urls,
+        '.page',
         '/download',
         '/local-assets',
+        {},  // options
         deps,
       );
       
@@ -245,10 +247,11 @@ describe('asset-processor.js', () => {
       ];
       
       await copyLocalPageAssets(
-        urls, 
-        '.homepage', 
+        urls,
+        '.homepage',
         '/output',
         '/my-assets',
+        {},  // options
         deps,
       );
       
@@ -282,10 +285,11 @@ describe('asset-processor.js', () => {
       ];
       
       await copyLocalPageAssets(
-        urls, 
-        '.index', 
+        urls,
+        '.index',
         '/output',
         '/data/images',  // local assets folder ends with "images"
+        {},  // options
         deps,
       );
       
@@ -326,10 +330,11 @@ describe('asset-processor.js', () => {
       ];
       
       const result = await copyLocalPageAssets(
-        urls, 
+        urls,
         'about/team/.leadership',  // Page path: about/team/leadership.html
         '/output',
         '/local/assets',
+        {},  // options
         deps,
       );
       
@@ -362,6 +367,204 @@ describe('asset-processor.js', () => {
       expect(jpgMapping[1]).to.match(/^\/about\/team\/\.leadership\/banner-[a-f0-9]{8}\.jpg$/);
       expect(pngMapping[1]).to.match(/^\/about\/team\/\.leadership\/john-smith-[a-f0-9]{8}\.png$/);
       expect(pdfMapping[1]).to.match(/^\/about\/team\/shared-media\/brochure-[a-f0-9]{8}\.pdf$/);
+    });
+
+    it('should convert webp images to PNG when imagesToPng is enabled', async () => {
+      const copiedFiles = [];
+      const convertedFiles = [];
+
+      // Mock Sharp conversion
+      // eslint-disable-next-line no-unused-vars
+      const mockSharp = (buffer) => ({
+        png: () => ({
+          toBuffer: async () => {
+            convertedFiles.push('converted');
+            return Buffer.from('fake-png-data');
+          },
+        }),
+      });
+
+      const deps = createMockDependencies({
+        fs: {
+          existsSync: () => true,
+          mkdirSync: () => {},
+          // eslint-disable-next-line no-unused-vars
+          readFileSync: (path) => Buffer.from('fake-webp-data'),
+          writeFileSync: (dest, buffer) => {
+            copiedFiles.push({ dest, buffer });
+          },
+          copyFileSync: (src, dest) => {
+            copiedFiles.push({ src, dest });
+          },
+        },
+        chalk: {
+          yellow: (msg) => msg,
+          green: (msg) => msg,
+          red: (msg) => msg,
+        },
+        sharp: mockSharp,
+      });
+
+      const urls = [
+        './images/hero.webp',
+        './images/banner.avif',
+      ];
+
+      const result = await copyLocalPageAssets(
+        urls,
+        '.index',
+        '/output',
+        '/local-assets',
+        { imagesToPng: true },
+        deps,
+      );
+
+      expect(result.copyResults).to.have.length(2);
+      expect(result.copyResults.filter(r => r.status === COPY_STATUS.SUCCESS)).to.have.length(2);
+
+      // Verify files were converted (writeFileSync called, not copyFileSync)
+      expect(copiedFiles).to.have.length(2);
+
+      // Verify the destinations have .png extensions
+      expect(copiedFiles[0].dest).to.match(/\/output\/\.index\/hero-[a-f0-9]{8}\.png$/);
+      expect(copiedFiles[1].dest).to.match(/\/output\/\.index\/banner-[a-f0-9]{8}\.png$/);
+
+      // Verify conversion actually happened
+      expect(convertedFiles).to.have.length(2);
+    });
+
+    it('should NOT convert images when imagesToPng is false', async () => {
+      const copiedFiles = [];
+
+      const deps = createMockDependencies({
+        fs: {
+          existsSync: () => true,
+          mkdirSync: () => {},
+          copyFileSync: (src, dest) => {
+            copiedFiles.push({ src, dest });
+          },
+        },
+        chalk: {
+          yellow: (msg) => msg,
+          green: (msg) => msg,
+          red: (msg) => msg,
+        },
+      });
+
+      const urls = ['./images/hero.webp'];
+
+      await copyLocalPageAssets(
+        urls,
+        '.index',
+        '/output',
+        '/local-assets',
+        { imagesToPng: false },
+        deps,
+      );
+
+      expect(copiedFiles).to.have.length(1);
+
+      // Verify file was copied as-is with original extension
+      expect(copiedFiles[0].dest).to.match(/\/output\/\.index\/hero-[a-f0-9]{8}\.webp$/);
+    });
+
+    it('should NOT convert jpg/png/gif/svg images even when imagesToPng is true', async () => {
+      const copiedFiles = [];
+
+      const deps = createMockDependencies({
+        fs: {
+          existsSync: () => true,
+          mkdirSync: () => {},
+          copyFileSync: (src, dest) => {
+            copiedFiles.push({ src, dest });
+          },
+        },
+        chalk: {
+          yellow: (msg) => msg,
+          green: (msg) => msg,
+          red: (msg) => msg,
+        },
+      });
+
+      const urls = [
+        './images/photo.jpg',
+        './images/logo.png',
+        './images/animation.gif',
+        './images/icon.svg',
+      ];
+
+      await copyLocalPageAssets(
+        urls,
+        '.index',
+        '/output',
+        '/local-assets',
+        { imagesToPng: true },
+        deps,
+      );
+
+      expect(copiedFiles).to.have.length(4);
+
+      // Verify files keep their original extensions
+      expect(copiedFiles[0].dest).to.match(/\/output\/\.index\/photo-[a-f0-9]{8}\.jpg$/);
+      expect(copiedFiles[1].dest).to.match(/\/output\/\.index\/logo-[a-f0-9]{8}\.png$/);
+      expect(copiedFiles[2].dest).to.match(/\/output\/\.index\/animation-[a-f0-9]{8}\.gif$/);
+      expect(copiedFiles[3].dest).to.match(/\/output\/\.index\/icon-[a-f0-9]{8}\.svg$/);
+    });
+
+    it('should fall back to copying original file when conversion fails', async () => {
+      const copiedFiles = [];
+      const logs = [];
+
+      // Mock Sharp that fails
+      const mockSharp = () => ({
+        png: () => ({
+          toBuffer: async () => {
+            throw new Error('Conversion failed');
+          },
+        }),
+      });
+
+      const deps = createMockDependencies({
+        fs: {
+          existsSync: () => true,
+          mkdirSync: () => {},
+          readFileSync: () => Buffer.from('fake-webp-data'),
+          copyFileSync: (src, dest) => {
+            copiedFiles.push({ src, dest, method: 'copy' });
+          },
+          writeFileSync: (dest, buffer) => {
+            copiedFiles.push({ dest, buffer, method: 'write' });
+          },
+        },
+        chalk: {
+          yellow: (msg) => { logs.push(`YELLOW: ${msg}`); return msg; },
+          green: (msg) => { logs.push(`GREEN: ${msg}`); return msg; },
+          red: (msg) => { logs.push(`RED: ${msg}`); return msg; },
+        },
+        sharp: mockSharp,
+      });
+
+      const urls = ['./images/hero.webp'];
+
+      const result = await copyLocalPageAssets(
+        urls,
+        '.index',
+        '/output',
+        '/local-assets',
+        { imagesToPng: true },
+        deps,
+      );
+
+      // Should still succeed, but with original file
+      expect(result.copyResults).to.have.length(1);
+      expect(result.copyResults[0].status).to.equal(COPY_STATUS.SUCCESS);
+
+      // Verify fallback to copy
+      expect(copiedFiles).to.have.length(1);
+      expect(copiedFiles[0].method).to.equal('copy');
+
+      // Verify warning was logged
+      expect(logs.some(log => log.includes('Failed to convert'))).to.be.true;
     });
   });
 

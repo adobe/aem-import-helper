@@ -126,6 +126,9 @@ async function processSinglePage(
         fullShadowPath,
         downloadFolder,
         localAssetsPath,
+        {
+          imagesToPng: uploadOptions.imagesToPng,
+        },
         dependencies,
       );
       assetMapping = result.assetMapping;
@@ -155,12 +158,13 @@ async function processSinglePage(
       const fullyQualifiedAssetUrls = getFullyQualifiedAssetUrls(assetsToDownload, siteOrigin);
       
       const result = await downloadPageAssets(
-        fullyQualifiedAssetUrls, 
-        fullShadowPath, 
-        downloadFolder, 
+        fullyQualifiedAssetUrls,
+        fullShadowPath,
+        downloadFolder,
         {
           maxRetries: uploadOptions.maxRetries,
           retryDelay: uploadOptions.retryDelay,
+          convertImagesToPng: uploadOptions.imagesToPng,
         },
         dependencies,
       );
