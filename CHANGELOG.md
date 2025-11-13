@@ -1,3 +1,10 @@
+## [1.3.1](https://github.com/adobe/aem-import-helper/compare/v1.3.0...v1.3.1) (2025-11-13)
+
+
+### Bug Fixes
+
+* Add image conversion option to png in local asset processing ([#73](https://github.com/adobe/aem-import-helper/issues/73)) ([c8acb36](https://github.com/adobe/aem-import-helper/commit/c8acb36ff112359a6bcd29788a1ba13449796c49))
+
 # [1.3.0](https://github.com/adobe/aem-import-helper/compare/v1.2.3...v1.3.0) (2025-11-03)
 
 
