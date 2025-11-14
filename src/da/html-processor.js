@@ -78,7 +78,7 @@ export function extractUrlsFromHTML(htmlContent, dependencies = defaultDependenc
  * @param {string} site - The site name
  * @param {Object} dependencies - Dependencies for testing (optional)
  * @param {Object} options - Options for the function
- * @param {boolean} options.convertImagesToPng - Whether to convert images to PNG
+ * @param {boolean} options.imagesToPng - Whether to convert images to PNG
  * @return {string} Updated HTML content with modified hrefs and srcs
  */
 export function updateAssetReferencesInHTML(
@@ -105,6 +105,7 @@ export function updateAssetReferencesInHTML(
   let updatedAssetCount = 0;
 
   console.log(chalkDep.cyan('Updating asset references in page:'));
+  const shouldConvertImages = options.imagesToPng ?? true;
 
   selectorAttrMap.forEach((attribute, selector) => {
     document.querySelectorAll(selector).forEach(element => {
@@ -114,7 +115,7 @@ export function updateAssetReferencesInHTML(
         const ext = pathDep.extname(sanitizedFilename).toLowerCase();
         const base = pathDep.basename(sanitizedFilename, ext);
         
-        if (options.convertImagesToPng && !DO_NOT_CONVERT_EXTENSIONS.has(ext)) {
+        if (shouldConvertImages && !DO_NOT_CONVERT_EXTENSIONS.has(ext)) {
           sanitizedFilename = `${base}.png`;
         }
 
