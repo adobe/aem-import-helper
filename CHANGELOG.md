@@ -1,3 +1,10 @@
+## [1.3.2](https://github.com/adobe/aem-import-helper/compare/v1.3.1...v1.3.2) (2025-11-14)
+
+
+### Bug Fixes
+
+* DA upload should rewrite asset references to PNG when images-to-png is enabled ([#75](https://github.com/adobe/aem-import-helper/issues/75)) ([30dc18e](https://github.com/adobe/aem-import-helper/commit/30dc18e5ed81474b1762b71cb9f371023b02669b))
+
 ## [1.3.1](https://github.com/adobe/aem-import-helper/compare/v1.3.0...v1.3.1) (2025-11-13)
 
 
