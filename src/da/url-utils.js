@@ -201,11 +201,45 @@ function getFullyQualifiedAssetUrl(assetUrl, siteOrigin) {
  * @return {string} Sanitized filename with preserved extension
  */
 export function getSanitizedFilenameFromUrl(url) {
-  const filename = getFilename(url);
+  // Try to find a filename with extension in the URL path
+  const u = url.startsWith('http') ? new URL(url) : new URL(url, LOCALHOST_URL);
+  const pathSegments = u.pathname.split('/').filter(Boolean);
+  
+  // Look for a segment with an extension (e.g., "diabetologie.svg" in path)
+  let filename = null;
+  for (let i = pathSegments.length - 1; i >= 0; i--) {
+    const segment = pathSegments[i];
+    if (segment.includes('.')) {
+      filename = segment;
+      break;
+    }
+  }
+  
+  // If no segment with extension found, use the last segment
+  if (!filename) {
+    filename = pathSegments[pathSegments.length - 1] || 'asset';
+  }
+  
   const parts = filename.split('.');
-  const ext = parts.length > 1 ? `.${parts.pop().toLowerCase()}` : '';
+  let ext = parts.length > 1 ? `.${parts.pop().toLowerCase()}` : '';
   const base = parts.join('.');
   const sanitizedBase = sanitizeFilename(base);
+
+  // If no extension detected, try to infer from URL pattern
+  if (!ext) {
+    const urlLower = url.toLowerCase();
+    if (urlLower.includes('-svg') || urlLower.includes('/svg')) {
+      ext = '.svg';
+    } else if (urlLower.includes('-jpg') || urlLower.includes('-jpeg')) {
+      ext = '.jpg';
+    } else if (urlLower.includes('-png')) {
+      ext = '.png';
+    } else if (urlLower.includes('-gif')) {
+      ext = '.gif';
+    } else if (urlLower.includes('-webp')) {
+      ext = '.webp';
+    }
+  }
 
   // Always add hash suffix to ensure uniqueness
   const hash = crypto.createHash('md5').update(url).digest('hex').substring(0, 8);

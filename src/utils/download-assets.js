@@ -98,6 +98,14 @@ async function saveBlobToFile(blob, downloadPath, downloadFolder, contentType, o
     && !DO_NOT_CONVERT_EXTENSIONS.has(currentExt)
     && !(mainType && DO_NOT_CONVERT_CONTENT_TYPES.has(mainType));
 
+  // Add extension to files without extensions based on content-type
+  if (!currentExt && mainType) {
+    const extension = MIME_TO_EXTENSION[mainType] || '';
+    if (extension) {
+      assetPath += extension;
+    }
+  }
+
   fs.mkdirSync(path.dirname(assetPath), { recursive: true });
 
   const sourceBuffer = Buffer.from(await blob.arrayBuffer());
