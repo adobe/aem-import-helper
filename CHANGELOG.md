@@ -1,3 +1,10 @@
+## [1.3.3](https://github.com/adobe/aem-import-helper/compare/v1.3.2...v1.3.3) (2026-01-13)
+
+
+### Bug Fixes
+
+* widen Node.js and npm engine requirements ([#76](https://github.com/adobe/aem-import-helper/issues/76)) ([f581475](https://github.com/adobe/aem-import-helper/commit/f581475f2cfff1c5aab70a9463204ac2278060f8))
+
 ## [1.3.2](https://github.com/adobe/aem-import-helper/compare/v1.3.1...v1.3.2) (2025-11-14)
 
 
