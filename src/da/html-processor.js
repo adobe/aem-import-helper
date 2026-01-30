@@ -239,6 +239,25 @@ export function saveHtmlToDownloadFolder(htmlContent, updatedHtmlPath, dependenc
 }
 
 /**
+ * Wrap HTML content with body/main tags if they don't exist
+ * @param {string} htmlContent - The HTML content to wrap
+ * @return {string} Wrapped HTML content
+ */
+function wrapHtmlContent(htmlContent) {
+  const trimmed = htmlContent.trim();
+  const lowerContent = trimmed.toLowerCase();
+  
+  // Check if content already starts with <body><main>
+  const hasBody = lowerContent.startsWith('<body><main>');
+  
+  if (hasBody) {
+    return htmlContent;
+  }
+  
+  return `<body><main>${htmlContent}</main></body>`;
+}
+
+/**
  * Upload an HTML page to DA
  * @param {string} pagePath - Path to the HTML page file
  * @param {string} daAdminUrl - The admin.da.live URL
@@ -254,7 +273,7 @@ export async function uploadHTMLPage(
   uploadOptions,
   dependencies = defaultDependencies,
 ) {
-  const { chalk: chalkDep, uploadFile: uploadFileDep = uploadFile, path: pathDep = path } = dependencies;
+  const { chalk: chalkDep, uploadFile: uploadFileDep = uploadFile, path: pathDep = path, fs: fsDep = fs } = dependencies;
 
   // Calculate baseFolder - should be the download folder + 'html' part
   // For path like 'da-content/html/about-us/leadership/executive.html'
@@ -265,6 +284,15 @@ export async function uploadHTMLPage(
 
   console.log(chalkDep.yellow(`Uploading updated HTML page: ${pagePath}...`));
   try {
+    // Patch HTML for valid DA page structure
+    const originalContent = fsDep.readFileSync(pagePath, UTF8_ENCODING);
+    const wrappedContent = wrapHtmlContent(originalContent);
+    
+    // Only rewrite if content changed
+    if (wrappedContent !== originalContent) {
+      fsDep.writeFileSync(pagePath, wrappedContent, UTF8_ENCODING);
+    }
+
     await uploadFileDep(pagePath, daAdminUrl, token, {
       ...uploadOptions,
       baseFolder,
