@@ -493,5 +493,61 @@ describe('html-processor.js', () => {
       
       expect(capturedOptions.baseFolder).to.equal('da-content/html');
     });
+
+    it('should wrap HTML content with body/main tags if missing', async () => {
+      const unwrappedContent = '<div>Some content</div>';
+      let writtenContent = null;
+      
+      const deps = {
+        ...createMockDependencies(),
+        fs: {
+          readFileSync: () => unwrappedContent,
+          writeFileSync: (path, content) => {
+            writtenContent = content;
+          },
+          mkdirSync: () => {},
+        },
+        uploadFile: async () => Promise.resolve(),
+        chalk: mockChalk,
+      };
+      
+      await uploadHTMLPage(
+        'da-content/html/page.html',
+        'https://admin.da.live/source/org/site',
+        'token',
+        {},
+        deps,
+      );
+      
+      expect(writtenContent).to.equal('<body><main><div>Some content</div></main></body>');
+    });
+
+    it('should not wrap HTML that already has body and main tags', async () => {
+      const wrappedContent = '<body><main><div>Some content</div></main></body>';
+      let writeCalled = false;
+      
+      const deps = {
+        ...createMockDependencies(),
+        fs: {
+          readFileSync: () => wrappedContent,
+          writeFileSync: () => {
+            writeCalled = true;
+          },
+          mkdirSync: () => {},
+        },
+        uploadFile: async () => Promise.resolve(),
+        chalk: mockChalk,
+      };
+      
+      await uploadHTMLPage(
+        'da-content/html/page.html',
+        'https://admin.da.live/source/org/site',
+        'token',
+        {},
+        deps,
+      );
+      
+      expect(writeCalled).to.be.false;
+    });
   });
 });

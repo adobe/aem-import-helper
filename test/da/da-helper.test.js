@@ -93,7 +93,7 @@ describe('da-helper.js - Integration Tests', () => {
       const mockDeps = createMockDependencies();
       
       // HTML content with no asset references
-      mockDeps.fs.readFileSync.returns('<html><body><p>Just text content, no images or links</p></body></html>');
+      mockDeps.fs.readFileSync.returns('<body><main><p>Just text content, no images or links</p></main></body>');
       
       await processPages(
         testOrg,
