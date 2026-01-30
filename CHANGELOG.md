@@ -1,3 +1,10 @@
+## [1.3.4](https://github.com/adobe/aem-import-helper/compare/v1.3.3...v1.3.4) (2026-01-30)
+
+
+### Bug Fixes
+
+* wrap da html if not valid html for da ([#81](https://github.com/adobe/aem-import-helper/issues/81)) ([84fb746](https://github.com/adobe/aem-import-helper/commit/84fb74618e20a3f8b0f1310b40d6a3bb8a252348)), closes [#80](https://github.com/adobe/aem-import-helper/issues/80)
+
 ## [1.3.3](https://github.com/adobe/aem-import-helper/compare/v1.3.2...v1.3.3) (2026-01-13)
 
 
