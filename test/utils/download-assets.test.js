@@ -202,4 +202,38 @@ describe('download assets', function () {
     await scope.done();
   });
 
+  it('should process downloads in batches with controlled concurrency', async () => {
+    // Create 15 assets to test batching with concurrency limit of 5
+    const assets = Array.from({ length: 15 }, (_, i) => ({
+      url: `http://www.aem.com/asset${i + 1}.jpg`,
+      path: `/content/dam/xwalk/image${i + 1}.jpg`,
+    }));
+
+    const scope = nock('http://www.aem.com');
+    assets.forEach((asset) => {
+      scope
+        .get(new URL(asset.url).pathname)
+        .replyWithFile(200, path.resolve(__dirname, '../aem/fixtures/image1.jpeg'));
+    });
+
+    const mapping = new Map(assets.map(a => [a.url, a.path]));
+
+    const results = await downloadAssets(mapping, downloadFolder, 3, 5000, {}, {
+      convertImagesToPng: true,
+      maxConcurrentDownloads: 5,
+    });
+
+    // All downloads should succeed
+    expect(results.filter((result) => result.status === 'fulfilled').length).to.equal(15);
+    expect(results.filter((result) => result.status === 'rejected').length).to.equal(0);
+
+    // Verify all files were downloaded
+    assets.forEach((asset) => {
+      const filePath = path.join(downloadFolder, asset.path.replace('/content/dam/', ''));
+      expect(fs.existsSync(filePath)).to.be.true;
+    });
+
+    await scope.done();
+  });
+
 });
