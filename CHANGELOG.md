@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/adobe/aem-import-helper/compare/v1.3.4...v1.4.0) (2026-02-04)
+
+
+### Features
+
+* provide more robust uploading for aem with deeply nested folders ([#82](https://github.com/adobe/aem-import-helper/issues/82)) ([42099b8](https://github.com/adobe/aem-import-helper/commit/42099b82d4c677ff1edef00be63182e9f4e32d46))
+
 ## [1.3.4](https://github.com/adobe/aem-import-helper/compare/v1.3.3...v1.3.4) (2026-01-30)
 
 
