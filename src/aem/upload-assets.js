@@ -1,16 +1,6 @@
-/*
- * Copyright 2025 Adobe. All rights reserved.
- * This file is licensed to you under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License. You may obtain a copy
- * of the License at http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software distributed under
- * the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR REPRESENTATIONS
- * OF ANY KIND, either express or implied. See the License for the specific language
- * governing permissions and limitations under the License.
- */
 import { FileSystemUploadOptions, FileSystemUpload } from '@adobe/aem-upload';
 import chalk from 'chalk';
+import { uploadDirWithSplitAndFallback } from './aem-upload-orchestrator.js';
 
 /**
  * Build the AEM Assets URL to which the assets need to be uploaded.
@@ -32,30 +22,31 @@ function buildAEMUrl(targetUrl) {
   return new URL('/content/dam', aemUrl).toString();
 }
 
-
 /**
  * Build the FileSystemUploadOptions for uploading assets to AEM.
  * @param {string} target - The URL of the AEM Assets instance
  * @param {string} token - The bearer token for authentication
- * @returns {DirectBinaryUploadOptions}
+ * @returns {FileSystemUploadOptions}
  */
 function buildFileSystemUploadOptions(target, token) {
+  const maxUploadFiles = process.env.MAX_UPLOAD_FILES
+    ? parseInt(process.env.MAX_UPLOAD_FILES, 10)
+    : 10000;
+
   return new FileSystemUploadOptions()
     .withUrl(buildAEMUrl(target))
     .withConcurrent(true)
-    .withMaxConcurrent(10)
-    .withHttpRetryDelay(5000) // retry delay in milliseconds; default retry count = 3
-    .withDeepUpload(true) // include all descendent folders and files
+    .withMaxConcurrent(5)       // recommend 5 for stability; adjust as needed
+    .withHttpRetryDelay(5000)   // default retry count = 3
+    .withDeepUpload(true)       // include all descendent folders and files
+    .withMaxUploadFiles(maxUploadFiles)  // key: bound per run; avoids failing on "few thousand" cases
     .withHttpOptions({
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
+      headers: { Authorization: `Bearer ${token}` },
     })
     // If 'true', and an asset with the given name already exists, the process will delete the existing
     // asset and create a new one with the same name and the new binary.
     .withUploadFileOptions({ replace: true });
 }
-
 
 /**
  * Create a file uploader to upload assets. Attach event listeners to handle file upload events.
@@ -66,16 +57,41 @@ function buildFileSystemUploadOptions(target, token) {
 function createFileUploader() {
   const fileUpload = new FileSystemUpload();
 
-  // specific handling that should occur when a file finishes uploading successfully
-  fileUpload.on('fileend', (data) => {
-    const { fileName } = data;
-    console.info(chalk.yellow(`Uploaded asset: ${fileName}`));
+  fileUpload.on('filestart', (data) => {
+    const { targetFile } = data;
+    console.info(chalk.yellow(`⏳ Uploading: ${targetFile}`));
   });
 
-  // specific handling that should occur when a file upload fails
+  fileUpload.on('fileend', (data) => {
+    const { targetFile } = data;
+    console.info(chalk.green(`✓ Uploaded: ${targetFile}`));
+  });
+
   fileUpload.on('fileerror', (data) => {
     const { fileName, errors } = data;
-    console.error(chalk.red(`Failed to upload asset: ${fileName}. ${errors.toString()}`));
+    // errors is an array of error objects with code, message, and innerStack
+    const errorMessages = Array.isArray(errors) 
+      ? errors.map(err => `${err.code ? `[${err.code}] ` : ''}${err.message || 'Unknown error'}`).join(', ')
+      : String(errors);
+    console.error(chalk.red(`✗ Failed: ${fileName} - ${errorMessages}`));
+  });
+
+  fileUpload.on('fileuploadstart', (data) => {
+    const { fileCount, directoryCount } = data;
+    console.info(chalk.yellow(`Uploading: ${fileCount} file${fileCount > 1 ? 's' : ''} from ${directoryCount} directories. ${directoryCount > 0 ? 'Preparing remote folder structure, this may take some time.' : ''}`));
+  });
+
+  fileUpload.on('fileuploadend', (data) => {
+    const { totalCompleted, totalFiles, totalTime } = data?.result || {};
+    if (totalCompleted && totalFiles && totalTime) {
+      const seconds = totalTime ? (totalTime / 1000).toFixed(2) : 'unknown';
+      console.info(chalk.green(`\n🏁 Upload complete: ${totalCompleted}/${totalFiles} files in ${seconds}s`));
+    }
+  });
+
+  fileUpload.on('foldercreated', (data) => {
+    const { targetFolder } = data;
+    console.info(chalk.green(`Created: ${targetFolder}`));
   });
 
   return fileUpload;
@@ -93,5 +109,16 @@ function createFileUploader() {
 export async function uploadAssets(target, token, assetFolder, fileUploader = null) {
   const fileUpload = fileUploader || createFileUploader();
   const options = buildFileSystemUploadOptions(target, token);
-  return await fileUpload.upload(options, [assetFolder]);
+
+  const urlPrefix = buildAEMUrl(target);
+  const headers = { Authorization: `Bearer ${token}` };
+
+  return await uploadDirWithSplitAndFallback({
+    fileUpload,
+    options,
+    urlPrefix,
+    headers,
+    assetRootDir: assetFolder,
+    dir: assetFolder,
+  });
 }
