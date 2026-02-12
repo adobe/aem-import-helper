@@ -159,9 +159,7 @@ export function updateAssetReferencesInHTML(
  */
 function serializeToContent(dom) {
   const body = dom.window.document.body;
-  const result = body ? body.innerHTML : dom.serialize();
-  console.log(result);
-  return result;
+  return body ? body.innerHTML : dom.serialize();
 }
 
 /**
