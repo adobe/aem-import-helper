@@ -41,7 +41,7 @@ describe('da-helper.js - Integration Tests', () => {
 
       const mockDeps = createMockDependencies({
         fs: {
-          readFileSync: () => '<html><body><img src="https://example.com/image.jpg"></body></html>',
+          readFileSync: () => '<div><img src="https://example.com/image.jpg"></div>',
           writeFileSync: () => {},
           mkdirSync: () => {},
           existsSync: () => true,
@@ -120,7 +120,7 @@ describe('da-helper.js - Integration Tests', () => {
       // Verify file operations use correct paths
       const writeCall = mockDeps.fs.writeFileSync.getCall(0);
       expect(writeCall.args[0]).to.include('/html/'); // Should save to HTML folder
-      expect(writeCall.args[1]).to.include('<html>'); // Should save HTML content
+      expect(writeCall.args[1]).to.include('<main>'); // Should save HTML content (fragment preserved, no document wrapper)
       
       // Verify upload was called with correct parameters  
       const uploadCall = mockDeps.uploadFile.getCall(0);
@@ -164,7 +164,7 @@ describe('da-helper.js - Integration Tests', () => {
     it('should handle upload errors gracefully', async () => {
       const mockDeps = createMockDependencies({
         fs: {
-          readFileSync: () => '<html><body><img src="https://example.com/image.jpg"></body></html>',
+          readFileSync: () => '<div><img src="https://example.com/image.jpg"></div>',
           writeFileSync: () => {},
           mkdirSync: () => {},
           existsSync: () => true,
@@ -200,7 +200,7 @@ describe('da-helper.js - Integration Tests', () => {
 
       const mockDeps = createMockDependencies({
         fs: {
-          readFileSync: () => '<html><body>Test</body></html>',
+          readFileSync: () => '<div>Test</div>',
           writeFileSync: () => {},
           mkdirSync: () => {},
           existsSync: () => true,
@@ -231,7 +231,7 @@ describe('da-helper.js - Integration Tests', () => {
 
       const mockDeps = createMockDependencies({
         fs: {
-          readFileSync: () => '<html><body>Test</body></html>',
+          readFileSync: () => '<div>Test</div>',
           writeFileSync: () => {},
           mkdirSync: () => {},
           existsSync: () => true,
@@ -281,7 +281,7 @@ describe('da-helper.js - Integration Tests', () => {
 
     it('should handle missing siteOrigin gracefully', async () => {
       const mockDeps = createMockDependencies();
-      mockDeps.fs.readFileSync.returns('<html><body><a href="/page">Link</a></body></html>');
+      mockDeps.fs.readFileSync.returns('<div><a href="/page">Link</a></div>');
 
       await processPages(
         testOrg,
