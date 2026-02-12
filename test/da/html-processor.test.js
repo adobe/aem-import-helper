@@ -330,6 +330,33 @@ describe('html-processor.js', () => {
       const deps = { path };
       expect(getSaveLocation('/html/page.html', '/html', '/download', deps)).to.equal('/download/html/page.html');
     });
+
+    // run through a number of file name characters and ensure the path is correct
+    it('should handle file name characters correctly', () => {
+      const deps = { path };
+      
+      const fileNames = [
+        'page.html',
+        'page-1.html',
+        'page_1.html',
+        'page_1.foo.html',
+        'page-1.foo.bar.html',
+        'page-1.foo.bar.baz.html',
+      ];
+      
+      const expectedNames = [
+        'page.html',
+        'page-1.html',
+        'page_1.html',
+        'page_1.html',
+        'page-1.html',
+        'page-1.html',
+      ];
+      
+      fileNames.forEach((fileName, index) => {
+        expect(getSaveLocation(`/html/${fileName}`, '/html', '/download', deps)).to.equal(`/download/html/${expectedNames[index]}`);
+      });
+    });
   });
 
   describe('saveHtmlToDownloadFolder', () => {
