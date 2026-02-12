@@ -1,3 +1,10 @@
+## [1.4.1](https://github.com/adobe/aem-import-helper/compare/v1.4.0...v1.4.1) (2026-02-12)
+
+
+### Bug Fixes
+
+* da - handle multiple dot file names and jsdom unwrapping ([#83](https://github.com/adobe/aem-import-helper/issues/83)) ([a81db96](https://github.com/adobe/aem-import-helper/commit/a81db96de3d70657b5a50cbedf9af11a7b46ed09))
+
 # [1.4.0](https://github.com/adobe/aem-import-helper/compare/v1.3.4...v1.4.0) (2026-02-04)
 
 
