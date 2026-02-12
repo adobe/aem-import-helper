@@ -28,7 +28,7 @@ export const mockChalk = {
 export const createMockDependencies = (overrides = {}) => {
   const dependencies = {
     fs: {
-      readFileSync: sinon.stub().returns('<html><body></body></html>'),
+      readFileSync: sinon.stub().returns('<div></div>'),
       writeFileSync: sinon.stub(),
       mkdirSync: sinon.stub(),
       existsSync: sinon.stub().returns(true),
@@ -75,12 +75,9 @@ export const testSite = 'site';
 
 // Helper functions for test setup
 export const createHtmlContent = (content) => `
-<html>
-<head></head>
-<body>
+<div>
   ${content}
-</body>
-</html>
+</div>
 `;
 
 export const createMockElement = (tag, attributes = {}) => {

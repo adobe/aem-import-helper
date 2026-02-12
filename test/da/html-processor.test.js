@@ -305,6 +305,58 @@ describe('html-processor.js', () => {
       
       expect(htmlPath).to.equal('/download/html/subfolder/page.html');
     });
+
+    it('should normalize double-dot names (e.g. index.plain.html → index.html)', () => {
+      const deps = { path };
+      const htmlPath = getSaveLocation('/html/index.plain.html', '/html', '/download', deps);
+
+      expect(htmlPath).to.equal('/download/html/index.html');
+    });
+
+    it('should normalize .plain.html in nested paths', () => {
+      const deps = { path };
+      const htmlPath = getSaveLocation('/html/about-us/leadership/index.plain.html', '/html', '/download', deps);
+
+      expect(htmlPath).to.equal('/download/html/about-us/leadership/index.html');
+    });
+
+    it('should normalize any multi-dot .html name (e.g. foo.bar.html → foo.html)', () => {
+      const deps = { path };
+      expect(getSaveLocation('/html/foo.bar.html', '/html', '/download', deps)).to.equal('/download/html/foo.html');
+      expect(getSaveLocation('/html/name.suffix.html', '/html', '/download', deps)).to.equal('/download/html/name.html');
+    });
+
+    it('should leave single-dot page.html unchanged', () => {
+      const deps = { path };
+      expect(getSaveLocation('/html/page.html', '/html', '/download', deps)).to.equal('/download/html/page.html');
+    });
+
+    // run through a number of file name characters and ensure the path is correct
+    it('should handle file name characters correctly', () => {
+      const deps = { path };
+      
+      const fileNames = [
+        'page.html',
+        'page-1.html',
+        'page_1.html',
+        'page_1.foo.html',
+        'page-1.foo.bar.html',
+        'page-1.foo.bar.baz.html',
+      ];
+      
+      const expectedNames = [
+        'page.html',
+        'page-1.html',
+        'page_1.html',
+        'page_1.html',
+        'page-1.html',
+        'page-1.html',
+      ];
+      
+      fileNames.forEach((fileName, index) => {
+        expect(getSaveLocation(`/html/${fileName}`, '/html', '/download', deps)).to.equal(`/download/html/${expectedNames[index]}`);
+      });
+    });
   });
 
   describe('saveHtmlToDownloadFolder', () => {

@@ -147,7 +147,19 @@ export function updateAssetReferencesInHTML(
     console.log(chalkDep.green(`Updated ${updatedAssetCount} asset references`));
   }
 
-  return dom.serialize();
+  return serializeToContent(dom);
+}
+
+/**
+ * Serialize JSDOM document to body content only (no document wrapper).
+ * JSDOM always parses into a full document; serialize() would output <html><head></head><body>...</body></html>.
+ * We return body.innerHTML so output is just the content, without adding that wrapper.
+ * @param {JSDOM} dom - The JSDOM instance
+ * @return {string} Body inner HTML
+ */
+function serializeToContent(dom) {
+  const body = dom.window.document.body;
+  return body ? body.innerHTML : dom.serialize();
 }
 
 /**
@@ -201,11 +213,21 @@ export function updatePageReferencesInHTML(
     console.log(chalkDep.cyan(`Updated ${updatedCount} page references to point to DA location`));
   }
 
-  return dom.serialize();
+  return serializeToContent(dom);
 }
 
 /**
- * Get save location for HTML file operations
+ * Normalize HTML filename: multi-dot names like index.plain.html or foo.bar.html become index.html / foo.html.
+ * Only renames when there are at least two dots (e.g. name.suffix.html); single-dot page.html is unchanged.
+ * @param {string} basename - File basename (e.g. index.plain.html, foo.bar.html)
+ * @return {string} Normalized basename (e.g. index.html, foo.html)
+ */
+function normalizeHtmlBasename(basename) {
+  return basename.replace(/^([^.]+)\..+\.html$/i, '$1.html');
+}
+
+/**
+ * Get save location for HTML file operations, fixing the file name to be compatible with DA (single-dot extensions names are required)
  * @param {string} pagePath - Original path to the HTML page
  * @param {string} htmlFolder - Base HTML folder
  * @param {string} downloadFolder - Base download folder
@@ -215,10 +237,18 @@ export function updatePageReferencesInHTML(
 export function getSaveLocation(pagePath, htmlFolder, downloadFolder, dependencies = defaultDependencies) {
   const { path: pathDep = path } = dependencies;
 
-  const htmlRelativePath = pathDep.relative(htmlFolder, pagePath);
-  const htmlPath = pathDep.join(downloadFolder, 'html', htmlRelativePath);
+  let htmlRelativePath = pathDep.relative(htmlFolder, pagePath);
+  const dir = pathDep.dirname(htmlRelativePath);
+  const basename = pathDep.basename(htmlRelativePath);
 
-  return htmlPath;
+  // fix the file name to be compatible with DA (single-dot extensions names are required)
+  const normalizedBasename = normalizeHtmlBasename(basename);
+  
+  if (normalizedBasename !== basename) {
+    htmlRelativePath = pathDep.join(dir, normalizedBasename);
+  }
+
+  return pathDep.join(downloadFolder, 'html', htmlRelativePath);
 }
 
 /**
