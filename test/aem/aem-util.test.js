@@ -18,6 +18,8 @@ describe('aem-utils', function () {
    * in the asset mapping object.
    */
   it('test getDamRootFolder', async () => {
+    expect(getDamRootFolder(new Map())).to.equal(null);
+
     let assetMapping = new Map([
       ['http://www.example.com/image.png', '/content/dam/xwalk/image.png'],
     ]);
@@ -26,7 +28,7 @@ describe('aem-utils', function () {
     assetMapping.clear();
 
     assetMapping.set('http://www.example.com/image.png', '/content/dam/image.png');
-    expect(() => getDamRootFolder(assetMapping)).to.throw(Error, 'Unable to locate the DAM root folder');
+    expect(getDamRootFolder(assetMapping)).to.equal(null);
 
     assetMapping.clear();
     assetMapping.set('http://www.example.com/image.png', '/content/dam/image.png');
