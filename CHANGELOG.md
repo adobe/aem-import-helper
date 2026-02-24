@@ -1,3 +1,10 @@
+## [1.4.2](https://github.com/adobe/aem-import-helper/compare/v1.4.1...v1.4.2) (2026-02-24)
+
+
+### Bug Fixes
+
+* dam root folder throws error with no assets in mapping ([#85](https://github.com/adobe/aem-import-helper/issues/85)) ([55109a9](https://github.com/adobe/aem-import-helper/commit/55109a98d669b61668d7dfebc20df32e72e9a0fe))
+
 ## [1.4.1](https://github.com/adobe/aem-import-helper/compare/v1.4.0...v1.4.1) (2026-02-12)
 
 
