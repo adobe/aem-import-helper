@@ -152,22 +152,27 @@ export const aemHandler = async (args) => {
     const assetMapping = new Map(Object.entries(assetMappingJson));
 
     if (!args['skip-assets']) {
-      const downloadFolder = args.output === 'aem-assets'
-        ? path.join(process.cwd(), args.output)
-        : args.output;
+      const damRootFolder = getDamRootFolder(assetMapping);
+      if (damRootFolder === null) {
+        console.log(chalk.yellow('No DAM root folder in asset mapping (empty or no paths under /content/dam/...), skipping asset download/upload.'));
+      } else {
+        const downloadFolder = args.output === 'aem-assets'
+          ? path.join(process.cwd(), args.output)
+          : args.output;
 
-      console.log(chalk.yellow(`Downloading origin assets to ${downloadFolder}...`));
-      await downloadAssets(assetMapping, downloadFolder, undefined, undefined, {}, { convertImagesToPng: imagesToPng });
+        console.log(chalk.yellow(`Downloading origin assets to ${downloadFolder}...`));
+        await downloadAssets(assetMapping, downloadFolder, undefined, undefined, {}, { convertImagesToPng: imagesToPng });
 
-      const assetFolder = path.join(downloadFolder, getDamRootFolder(assetMapping));
+        const assetFolder = path.join(downloadFolder, damRootFolder);
 
-      console.log(chalk.yellow(`Uploading downloaded assets to ${args.target}...`));
-      const uploadResult = await uploadAssets(args.target, token, assetFolder);
-      
-      printUploadSummary(uploadResult);
+        console.log(chalk.yellow(`Uploading downloaded assets to ${args.target}...`));
+        const uploadResult = await uploadAssets(args.target, token, assetFolder);
 
-      if (!args.keep) {
-        await cleanup(downloadFolder);
+        printUploadSummary(uploadResult);
+
+        if (!args.keep) {
+          await cleanup(downloadFolder);
+        }
       }
     }
 

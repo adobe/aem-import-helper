@@ -11,6 +11,11 @@
  */
 import path from 'path';
 
+/**
+ * Derive the DAM root folder name (first segment under /content/dam) from asset mappings.
+ * @param {Map<string, string>} assetMappings - Map of source URL to JCR asset path
+ * @returns {string|null} First segment under /content/dam (e.g. 'site') or null if none found
+ */
 export function getDamRootFolder(assetMappings) {
   for (const jcrAssetPath of assetMappings.values()) {
     // make sure that the asset path is not the root DAM folder, skip it if is
@@ -24,5 +29,5 @@ export function getDamRootFolder(assetMappings) {
       return match[1];
     }
   }
-  throw new Error('Unable to locate the DAM root folder');
+  return null;
 }
