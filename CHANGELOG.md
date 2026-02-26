@@ -1,3 +1,10 @@
+## [1.4.3](https://github.com/adobe/aem-import-helper/compare/v1.4.2...v1.4.3) (2026-02-26)
+
+
+### Bug Fixes
+
+* Avoid stripping <body> tag in serializeToContent ([#86](https://github.com/adobe/aem-import-helper/issues/86)) ([3493055](https://github.com/adobe/aem-import-helper/commit/3493055141fd49f7ca0bd07cea22c63c408f1fb7))
+
 ## [1.4.2](https://github.com/adobe/aem-import-helper/compare/v1.4.1...v1.4.2) (2026-02-24)
 
 
