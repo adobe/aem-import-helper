@@ -153,13 +153,13 @@ export function updateAssetReferencesInHTML(
 /**
  * Serialize JSDOM document to body content only (no document wrapper).
  * JSDOM always parses into a full document; serialize() would output <html><head></head><body>...</body></html>.
- * We return body.innerHTML so output is just the content, without adding that wrapper.
+ * We return body.outerHTML so output is the full HTML, with the body and main tags.
  * @param {JSDOM} dom - The JSDOM instance
  * @return {string} Body inner HTML
  */
-function serializeToContent(dom) {
+export function serializeToContent(dom) {
   const body = dom.window.document.body;
-  return body ? body.innerHTML : dom.serialize();
+  return body ? body.outerHTML : dom.serialize();
 }
 
 /**
