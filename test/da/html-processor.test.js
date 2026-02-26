@@ -23,6 +23,7 @@ import {
   getSaveLocation,
   saveHtmlToDownloadFolder,
   uploadHTMLPage,
+  serializeToContent,
 } from '../../src/da/html-processor.js';
 
 import { createMockDependencies, mockChalk, createHtmlContent } from './test-setup.js';
@@ -600,6 +601,44 @@ describe('html-processor.js', () => {
       );
       
       expect(writeCalled).to.be.false;
+    });
+  });
+
+  describe('serializeToContent', () => {
+    it('should return body outerHTML for simple content', () => {
+      const dom = new JSDOM('<body><div>Hello</div></body>');
+      const result = serializeToContent(dom);
+
+      expect(result).to.equal('<body><div>Hello</div></body>');
+    });
+
+    it('should preserve body and main tags when content already has them', () => {
+      const input = '<body><main><div>Some content</div></main></body>';
+      const dom = new JSDOM(input);
+      const result = serializeToContent(dom);
+
+      expect(result).to.equal('<body><main><div>Some content</div></main></body>');
+    });
+
+    it('should not strip body/main when input already contains them', () => {
+      const input = '<body><main><div class="hero"><h1>Title</h1></div></main></body>';
+      const dom = new JSDOM(input);
+      const result = serializeToContent(dom);
+
+      // Verify the output still starts with <body><main> so downstream
+      // wrapHtmlContent() will not double-wrap
+      expect(result).to.match(/^<body><main>/);
+      expect(result).to.match(/<\/main><\/body>$/);
+    });
+
+    it('should fall back to dom.serialize() when body is absent', () => {
+      const dom = new JSDOM('');
+      // Remove the body element to trigger the fallback
+      dom.window.document.body.remove();
+      const result = serializeToContent(dom);
+
+      // serialize() returns a full document string
+      expect(result).to.include('<html>');
     });
   });
 });
