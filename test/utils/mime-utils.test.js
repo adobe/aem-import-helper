@@ -33,28 +33,7 @@ describe('mime-utils', function () {
   });
 
   describe('detectMimeType', function () {
-    it('should detect JPEG from magic bytes', async function () {
-      const filePath = path.join(tmpDir, 'image');
-      // JPEG magic bytes: FF D8 FF E0
-      fs.writeFileSync(filePath, Buffer.from([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10]));
-
-      const result = await detectMimeType(filePath);
-      expect(result).to.not.be.null;
-      expect(result.mime).to.equal('image/jpeg');
-      expect(result.ext).to.equal('.jpg');
-    });
-
-    it('should detect PNG from magic bytes', async function () {
-      const filePath = path.join(tmpDir, 'image');
-      // PNG magic bytes
-      fs.writeFileSync(filePath, Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00]));
-
-      const result = await detectMimeType(filePath);
-      expect(result).to.not.be.null;
-      expect(result.mime).to.equal('image/png');
-      expect(result.ext).to.equal('.png');
-    });
-
+    // Formats not covered by fixture files (no real file available)
     it('should detect GIF87a from magic bytes', async function () {
       const filePath = path.join(tmpDir, 'image');
       fs.writeFileSync(filePath, Buffer.from('GIF87a\x00\x00\x00\x00'));
@@ -63,46 +42,6 @@ describe('mime-utils', function () {
       expect(result).to.not.be.null;
       expect(result.mime).to.equal('image/gif');
       expect(result.ext).to.equal('.gif');
-    });
-
-    it('should detect GIF89a from magic bytes', async function () {
-      const filePath = path.join(tmpDir, 'image');
-      fs.writeFileSync(filePath, Buffer.from('GIF89a\x00\x00\x00\x00'));
-
-      const result = await detectMimeType(filePath);
-      expect(result).to.not.be.null;
-      expect(result.mime).to.equal('image/gif');
-      expect(result.ext).to.equal('.gif');
-    });
-
-    it('should detect BMP from magic bytes', async function () {
-      const filePath = path.join(tmpDir, 'image');
-      fs.writeFileSync(filePath, Buffer.from([0x42, 0x4D, 0x00, 0x00, 0x00, 0x00]));
-
-      const result = await detectMimeType(filePath);
-      expect(result).to.not.be.null;
-      expect(result.mime).to.equal('image/bmp');
-      expect(result.ext).to.equal('.bmp');
-    });
-
-    it('should detect ICO from magic bytes', async function () {
-      const filePath = path.join(tmpDir, 'icon');
-      fs.writeFileSync(filePath, Buffer.from([0x00, 0x00, 0x01, 0x00, 0x01, 0x00]));
-
-      const result = await detectMimeType(filePath);
-      expect(result).to.not.be.null;
-      expect(result.mime).to.equal('image/x-icon');
-      expect(result.ext).to.equal('.ico');
-    });
-
-    it('should detect TIFF (little-endian) from magic bytes', async function () {
-      const filePath = path.join(tmpDir, 'image');
-      fs.writeFileSync(filePath, Buffer.from([0x49, 0x49, 0x2A, 0x00, 0x08, 0x00]));
-
-      const result = await detectMimeType(filePath);
-      expect(result).to.not.be.null;
-      expect(result.mime).to.equal('image/tiff');
-      expect(result.ext).to.equal('.tiff');
     });
 
     it('should detect TIFF (big-endian) from magic bytes', async function () {
@@ -125,70 +64,7 @@ describe('mime-utils', function () {
       expect(result.ext).to.equal('.pdf');
     });
 
-    it('should detect WebP from RIFF magic bytes', async function () {
-      const filePath = path.join(tmpDir, 'image');
-      // RIFF....WEBP
-      const buf = Buffer.alloc(16);
-      buf.write('RIFF', 0);
-      buf.writeUInt32LE(100, 4);
-      buf.write('WEBP', 8);
-      fs.writeFileSync(filePath, buf);
-
-      const result = await detectMimeType(filePath);
-      expect(result).to.not.be.null;
-      expect(result.mime).to.equal('image/webp');
-      expect(result.ext).to.equal('.webp');
-    });
-
-    it('should detect AVIF from ftyp magic bytes', async function () {
-      const filePath = path.join(tmpDir, 'image');
-      // ftyp box: size (4 bytes) + "ftyp" + brand
-      const buf = Buffer.alloc(16);
-      buf.writeUInt32BE(16, 0);
-      buf.write('ftyp', 4);
-      buf.write('avif', 8);
-      fs.writeFileSync(filePath, buf);
-
-      const result = await detectMimeType(filePath);
-      expect(result).to.not.be.null;
-      expect(result.mime).to.equal('image/avif');
-      expect(result.ext).to.equal('.avif');
-    });
-
-    it('should detect HEIC from ftyp magic bytes', async function () {
-      const filePath = path.join(tmpDir, 'image');
-      const buf = Buffer.alloc(16);
-      buf.writeUInt32BE(16, 0);
-      buf.write('ftyp', 4);
-      buf.write('heic', 8);
-      fs.writeFileSync(filePath, buf);
-
-      const result = await detectMimeType(filePath);
-      expect(result).to.not.be.null;
-      expect(result.mime).to.equal('image/heic');
-      expect(result.ext).to.equal('.heic');
-    });
-
-    it('should detect SVG from XML content', async function () {
-      const filePath = path.join(tmpDir, 'image');
-      fs.writeFileSync(filePath, '<?xml version="1.0"?>\n<svg xmlns="http://www.w3.org/2000/svg"></svg>');
-
-      const result = await detectMimeType(filePath);
-      expect(result).to.not.be.null;
-      expect(result.mime).to.equal('image/svg+xml');
-      expect(result.ext).to.equal('.svg');
-    });
-
-    it('should detect SVG starting with <svg tag', async function () {
-      const filePath = path.join(tmpDir, 'image');
-      fs.writeFileSync(filePath, '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"></svg>');
-
-      const result = await detectMimeType(filePath);
-      expect(result).to.not.be.null;
-      expect(result.mime).to.equal('image/svg+xml');
-      expect(result.ext).to.equal('.svg');
-    });
-
+    // Edge cases
     it('should return null for empty file', async function () {
       const filePath = path.join(tmpDir, 'empty');
       fs.writeFileSync(filePath, '');

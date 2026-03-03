@@ -103,7 +103,7 @@ describe('Mixed directory scenario (files + subdirectories)', function () {
         return { ok: true, uploadedFiles: totalFileCount };
       });
 
-      const result = await uploadAssets('http://www.aem.com', 'abcd123', testDir, fsUpload);
+      const { uploadResult: result } = await uploadAssets('http://www.aem.com', 'abcd123', testDir, fsUpload);
 
       console.log('\n      Upload Result:');
       console.log('      → Total files in test: 28 (3 root + 15 + 10)');

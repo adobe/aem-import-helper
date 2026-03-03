@@ -104,7 +104,7 @@ describe('download assets', function () {
     await scope.done();
   });
 
-  it('should add extension based on content-type when file has no extension (no conversion)', async () => {
+  it('should save extensionless file without adding extension (extension added later before upload)', async () => {
     const scope = nock('http://www.aem.com')
       .get('/asset1')
       .reply(200, 'image data', {
@@ -116,7 +116,8 @@ describe('download assets', function () {
     ]);
 
     await downloadAssets(mapping, downloadFolder);
-    expect(fs.existsSync(path.join(downloadFolder, 'xwalk/image1.jpg'))).to.be.true;
+    // File should be saved without extension; addExtensionsToFiles handles renaming before upload
+    expect(fs.existsSync(path.join(downloadFolder, 'xwalk/image1'))).to.be.true;
 
     await scope.done();
   });
@@ -156,7 +157,7 @@ describe('download assets', function () {
     await scope.done();
   });
 
-  it('should handle content-type with parameters (no conversion)', async () => {
+  it('should save extensionless file without extension even with content-type parameters (no conversion)', async () => {
     const scope = nock('http://www.aem.com')
       .get('/asset1')
       .reply(200, 'image data', {
@@ -168,7 +169,8 @@ describe('download assets', function () {
     ]);
 
     await downloadAssets(mapping, downloadFolder);
-    expect(fs.existsSync(path.join(downloadFolder, 'xwalk/image1.jpg'))).to.be.true;
+    // File should be saved without extension; addExtensionsToFiles handles renaming before upload
+    expect(fs.existsSync(path.join(downloadFolder, 'xwalk/image1'))).to.be.true;
 
     await scope.done();
   });
