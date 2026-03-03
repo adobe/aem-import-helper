@@ -197,7 +197,7 @@ describe('upload assets', function () {
         return { ok: true, uploadedFiles: totalFileCount };
       });
 
-      const result = await uploadAssets('http://www.aem.com', 'abcd123', testDir, fsUpload);
+      const { uploadResult: result } = await uploadAssets('http://www.aem.com', 'abcd123', testDir, fsUpload);
 
       // Verify the upload was called multiple times (due to splitting)
       // Root directory has 195 files total, which exceeds 20, so it will split into subdirs
@@ -247,7 +247,7 @@ describe('upload assets', function () {
         return { ok: true, uploadedFiles: fileCount };
       });
 
-      const result = await uploadAssets('http://www.aem.com', 'abcd123', testDir, fsUpload);
+      const { uploadResult: result } = await uploadAssets('http://www.aem.com', 'abcd123', testDir, fsUpload);
 
       // With limit of 50, all folders should upload successfully without splitting
       expect(result.ok).to.be.true;
@@ -289,7 +289,7 @@ describe('upload assets', function () {
         return { ok: true, uploadedFiles: fileCount };
       });
 
-      const result = await uploadAssets('http://www.aem.com', 'abcd123', testDir, fsUpload);
+      const { uploadResult: result } = await uploadAssets('http://www.aem.com', 'abcd123', testDir, fsUpload);
 
       // The flat directory should trigger fallback mechanism
       expect(result).to.have.property('fallbackRuns');
@@ -354,7 +354,7 @@ describe('upload assets', function () {
         return { ok: true, uploadedFiles: totalFileCount };
       });
 
-      const result = await uploadAssets('http://www.aem.com', 'abcd123', testDir, fsUpload);
+      const { uploadResult: result } = await uploadAssets('http://www.aem.com', 'abcd123', testDir, fsUpload);
 
       // Verify root was attempted first and failed
       expect(filesystemUploadedDirs[0]).to.equal('<root>');

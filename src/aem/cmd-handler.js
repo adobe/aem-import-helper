@@ -15,7 +15,7 @@ import path from 'path';
 import { cleanup, downloadAssets } from '../utils/download-assets.js';
 import { uploadAssets } from './upload-assets.js';
 import { installPackage } from './package-helper.js';
-import { prepareModifiedPackage } from './package-modifier.js';
+import { prepareModifiedPackage, buildExtensionReplacementMap } from './package-modifier.js';
 import fetch from 'node-fetch';
 import { getDamRootFolder } from './aem-util.js';
 import { printUploadSummary } from './upload-summary.js';
@@ -151,6 +151,10 @@ export const aemHandler = async (args) => {
       : {};
     const assetMapping = new Map(Object.entries(assetMappingJson));
 
+    // Collect extension replacements from files that were renamed during upload pre-processing.
+    // These are converted to JCR paths and used to update .content.xml references in the package.
+    let extensionReplacements = new Map();
+
     if (!args['skip-assets']) {
       const damRootFolder = getDamRootFolder(assetMapping);
       if (damRootFolder === null) {
@@ -166,7 +170,12 @@ export const aemHandler = async (args) => {
         const assetFolder = path.join(downloadFolder, damRootFolder);
 
         console.log(chalk.yellow(`Uploading downloaded assets to ${args.target}...`));
-        const uploadResult = await uploadAssets(args.target, token, assetFolder);
+        const { uploadResult, renamedFiles } = await uploadAssets(args.target, token, assetFolder);
+
+        // Build JCR-level replacement map from renamed files so .content.xml paths are updated
+        if (renamedFiles && renamedFiles.size > 0) {
+          extensionReplacements = buildExtensionReplacementMap(renamedFiles, assetFolder);
+        }
 
         printUploadSummary(uploadResult);
 
@@ -177,7 +186,7 @@ export const aemHandler = async (args) => {
     }
 
     console.log(chalk.yellow('Preparing content package for upload...'));
-    const { modifiedZipPath } = await prepareModifiedPackage(args['zip'], assetMapping, imagesToPng);
+    const { modifiedZipPath } = await prepareModifiedPackage(args['zip'], assetMapping, imagesToPng, extensionReplacements);
 
     console.log(chalk.yellow(`Uploading content package ${args.target}...`));
     await installPackage(args.target, token, modifiedZipPath);

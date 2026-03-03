@@ -3,7 +3,8 @@
 
 import { expect } from 'chai';
 import fs from 'fs';
-import { prepareModifiedPackage } from '../../src/aem/package-modifier.js';
+import path from 'path';
+import { prepareModifiedPackage, buildExtensionReplacementMap } from '../../src/aem/package-modifier.js';
 import unzipper from 'unzipper';
 
 describe('package-modifier', () => {
@@ -19,7 +20,9 @@ describe('package-modifier', () => {
   });
 
   afterEach(() => {
-    fs.rmSync('tmp', { recursive: true });
+    if (fs.existsSync('tmp')) {
+      fs.rmSync('tmp', { recursive: true });
+    }
   });
 
 
@@ -69,5 +72,61 @@ describe('package-modifier', () => {
     const modifiedFilesArray = fs.readdirSync(modifiedDestDir, { recursive: true });
 
     expect(originalFilesArray).to.deep.equal(modifiedFilesArray);
+  });
+
+  describe('buildExtensionReplacementMap', () => {
+    it('should convert renamed file paths to JCR path replacements', () => {
+      // assetRootDir maps to /content/dam/test-package in JCR
+      const assetRootDir = '/tmp/downloads/test-package';
+      const renamedFiles = new Map([
+        [
+          '/tmp/downloads/test-package/is/image/testcorp/our-people-hero-hero-v2jpg',
+          '/tmp/downloads/test-package/is/image/testcorp/our-people-hero-hero-v2jpg.jpg',
+        ],
+      ]);
+
+      const result = buildExtensionReplacementMap(renamedFiles, assetRootDir);
+
+      expect(result.size).to.equal(1);
+      expect(result.get('/content/dam/test-package/is/image/testcorp/our-people-hero-hero-v2jpg'))
+        .to.equal('/content/dam/test-package/is/image/testcorp/our-people-hero-hero-v2jpg.jpg');
+    });
+
+    it('should handle nested paths under asset root', () => {
+      const assetRootDir = '/tmp/downloads/site';
+      const renamedFiles = new Map([
+        [
+          '/tmp/downloads/site/images/deep/photo',
+          '/tmp/downloads/site/images/deep/photo.png',
+        ],
+      ]);
+
+      const result = buildExtensionReplacementMap(renamedFiles, assetRootDir);
+
+      expect(result.size).to.equal(1);
+      expect(result.get('/content/dam/site/images/deep/photo'))
+        .to.equal('/content/dam/site/images/deep/photo.png');
+    });
+
+    it('should return empty map for null or empty input', () => {
+      expect(buildExtensionReplacementMap(null, '/tmp').size).to.equal(0);
+      expect(buildExtensionReplacementMap(new Map(), '/tmp').size).to.equal(0);
+    });
+
+    it('should handle multiple renamed files', () => {
+      const assetRootDir = '/tmp/downloads/mysite';
+      const renamedFiles = new Map([
+        ['/tmp/downloads/mysite/img1', '/tmp/downloads/mysite/img1.jpg'],
+        ['/tmp/downloads/mysite/img2', '/tmp/downloads/mysite/img2.png'],
+        ['/tmp/downloads/mysite/doc1', '/tmp/downloads/mysite/doc1.pdf'],
+      ]);
+
+      const result = buildExtensionReplacementMap(renamedFiles, assetRootDir);
+
+      expect(result.size).to.equal(3);
+      expect(result.get('/content/dam/mysite/img1')).to.equal('/content/dam/mysite/img1.jpg');
+      expect(result.get('/content/dam/mysite/img2')).to.equal('/content/dam/mysite/img2.png');
+      expect(result.get('/content/dam/mysite/doc1')).to.equal('/content/dam/mysite/doc1.pdf');
+    });
   });
 });

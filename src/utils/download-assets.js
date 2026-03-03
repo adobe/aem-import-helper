@@ -129,16 +129,7 @@ async function saveBlobToFile(blob, downloadPath, downloadFolder, contentType, o
     } catch (e) {
       // If conversion fails, fall back to saving the original buffer
       console.warn(chalk.yellow(`Warning: Failed to convert image to PNG for ${assetPath}. Saving original. ${e.message}`));
-      // Ensure we still use a sensible extension if possible
-      let extension = '';
-      if (mainType) {
-        extension = MIME_TO_EXTENSION[mainType] || '';
-      }
-      if (extension && !path.extname(assetPath)) {
-        assetPath += extension;
-      }
-      
-      // Check cache again with the updated extension
+      // Check cache again with the updated path
       if (options.useCache && fs.existsSync(assetPath)) {
         return { cached: true };
       }
@@ -148,15 +139,6 @@ async function saveBlobToFile(blob, downloadPath, downloadFolder, contentType, o
     }
   }
 
-  // Non-image or conversion disabled: retain original logic to add extension if missing
-  let extension = '';
-  if (mainType) {
-    extension = MIME_TO_EXTENSION[mainType] || '';
-  }
-  if (extension && !path.extname(assetPath)) {
-    assetPath += extension;
-  }
-  
   // Check cache one more time with final path
   if (options.useCache && fs.existsSync(assetPath)) {
     return { cached: true };
