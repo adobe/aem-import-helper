@@ -50,33 +50,6 @@ export const DO_NOT_CONVERT_CONTENT_TYPES = new Set([
   'video/mp4',
 ]);
 
-// Common MIME type to extension mapping
-const MIME_TO_EXTENSION = {
-  // Images
-  'image/jpeg': '.jpg',
-  'image/jpg': '.jpg',
-  'image/png': '.png',
-  'image/gif': '.gif',
-  'image/webp': '.webp',
-  'image/svg+xml': '.svg',
-  'image/tiff': '.tiff',
-  'image/bmp': '.bmp',
-  'image/x-icon': '.ico',
-  'image/vnd.microsoft.icon': '.ico',
-  'image/heic': '.heic',
-  'image/heif': '.heif',
-  'image/avif': '.avif',
-  'image/apng': '.apng',
-  // Documents
-  'application/pdf': '.pdf',
-  'application/msword': '.doc',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
-  'application/vnd.ms-excel': '.xls',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
-  'application/vnd.ms-powerpoint': '.ppt',
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation': '.pptx',
-};
-
 /**
  * Save the given blob to a file in the download folder.
  * For image blobs, convert to PNG and force a .png extension.

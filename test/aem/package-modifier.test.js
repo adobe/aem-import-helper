@@ -3,7 +3,6 @@
 
 import { expect } from 'chai';
 import fs from 'fs';
-import path from 'path';
 import { prepareModifiedPackage, buildExtensionReplacementMap } from '../../src/aem/package-modifier.js';
 import unzipper from 'unzipper';
 
