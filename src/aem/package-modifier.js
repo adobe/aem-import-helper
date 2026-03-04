@@ -140,17 +140,53 @@ function walkAndUpdateXml(rootDir, replacements) {
 }
 
 /**
+ * Build a replacement map for extensionless asset paths that were renamed on disk.
+ * Converts absolute filesystem paths to JCR paths (/content/dam/...).
+ *
+ * @param {Map<string,string>} renamedFiles - Map of old absolute path -> new absolute path from addExtensionsToFiles.
+ * @param {string} assetRootDir - The root directory of the assets on disk that corresponds to /content/dam/.
+ * @return {Map<string,string>} Map of old JCR path -> new JCR path.
+ */
+export function buildExtensionReplacementMap(renamedFiles, assetRootDir) {
+  const replacements = new Map();
+  if (!renamedFiles || renamedFiles.size === 0) {
+    return replacements;
+  }
+
+  // assetRootDir is e.g. /downloads/my-site  which maps to /content/dam/my-site.
+  // The directory basename itself becomes the DAM root segment.
+  const damRootSegment = path.basename(assetRootDir);
+
+  for (const [oldPath, newPath] of renamedFiles.entries()) {
+    // Convert absolute filesystem paths to JCR-relative paths.
+    const oldRel = path.relative(assetRootDir, oldPath).replace(/\\/g, '/');
+    const newRel = path.relative(assetRootDir, newPath).replace(/\\/g, '/');
+
+    // Build the full JCR path: /content/dam/<damRoot>/<relative-path>
+    const oldJcr = `/content/dam/${damRootSegment}/${oldRel}`;
+    const newJcr = `/content/dam/${damRootSegment}/${newRel}`;
+
+    replacements.set(oldJcr, newJcr);
+  }
+
+  return replacements;
+}
+
+/**
  * Prepare a modified copy of the AEM content package.
  * - Copies the original zip into a temp folder
  * - Unzips it, updates XML asset references when images are converted to PNG
+ *   and/or when extensionless files have been renamed with proper extensions
  * - Re-zips into a modified zip that can be installed
  *
  * @param {string} zipPath - Path to the original content package zip.
  * @param {Map<string,string>} assetMapping - Map of source URL -> JCR path, used to infer replacements.
  * @param {boolean} imagesToPng - Whether PNG conversion is enabled; determines if replacements are generated.
+ * @param {Map<string,string>} [extensionReplacements] - Optional map of old JCR path -> new JCR path for
+ *   extensionless files that were renamed with proper file extensions.
  * @returns {Promise<{originalZipPath: string, modifiedZipPath: string}>} Paths to the copied original and the modified zip.
  */
-export async function prepareModifiedPackage(zipPath, assetMapping, imagesToPng) {
+export async function prepareModifiedPackage(zipPath, assetMapping, imagesToPng, extensionReplacements) {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aem-pkg-'));
   const originalZipPath = path.join(tempDir, 'original.zip');
   const unzipDir = path.join(tempDir, 'unzipped');
@@ -159,6 +195,14 @@ export async function prepareModifiedPackage(zipPath, assetMapping, imagesToPng)
   fs.copyFileSync(zipPath, originalZipPath);
 
   const replacements = buildReplacementMap(assetMapping, imagesToPng);
+
+  // Merge in extension-based replacements (extensionless -> with-extension)
+  if (extensionReplacements && extensionReplacements.size > 0) {
+    for (const [from, to] of extensionReplacements.entries()) {
+      replacements.set(from, to);
+    }
+  }
+
   if (replacements.size === 0) {
     // nothing to change, return copy of original
     console.info(chalk.yellow('No XML updates required for asset references.'));

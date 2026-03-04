@@ -50,33 +50,6 @@ export const DO_NOT_CONVERT_CONTENT_TYPES = new Set([
   'video/mp4',
 ]);
 
-// Common MIME type to extension mapping
-const MIME_TO_EXTENSION = {
-  // Images
-  'image/jpeg': '.jpg',
-  'image/jpg': '.jpg',
-  'image/png': '.png',
-  'image/gif': '.gif',
-  'image/webp': '.webp',
-  'image/svg+xml': '.svg',
-  'image/tiff': '.tiff',
-  'image/bmp': '.bmp',
-  'image/x-icon': '.ico',
-  'image/vnd.microsoft.icon': '.ico',
-  'image/heic': '.heic',
-  'image/heif': '.heif',
-  'image/avif': '.avif',
-  'image/apng': '.apng',
-  // Documents
-  'application/pdf': '.pdf',
-  'application/msword': '.doc',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
-  'application/vnd.ms-excel': '.xls',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
-  'application/vnd.ms-powerpoint': '.ppt',
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation': '.pptx',
-};
-
 /**
  * Save the given blob to a file in the download folder.
  * For image blobs, convert to PNG and force a .png extension.
@@ -129,16 +102,7 @@ async function saveBlobToFile(blob, downloadPath, downloadFolder, contentType, o
     } catch (e) {
       // If conversion fails, fall back to saving the original buffer
       console.warn(chalk.yellow(`Warning: Failed to convert image to PNG for ${assetPath}. Saving original. ${e.message}`));
-      // Ensure we still use a sensible extension if possible
-      let extension = '';
-      if (mainType) {
-        extension = MIME_TO_EXTENSION[mainType] || '';
-      }
-      if (extension && !path.extname(assetPath)) {
-        assetPath += extension;
-      }
-      
-      // Check cache again with the updated extension
+      // Check cache again with the updated path
       if (options.useCache && fs.existsSync(assetPath)) {
         return { cached: true };
       }
@@ -148,15 +112,6 @@ async function saveBlobToFile(blob, downloadPath, downloadFolder, contentType, o
     }
   }
 
-  // Non-image or conversion disabled: retain original logic to add extension if missing
-  let extension = '';
-  if (mainType) {
-    extension = MIME_TO_EXTENSION[mainType] || '';
-  }
-  if (extension && !path.extname(assetPath)) {
-    assetPath += extension;
-  }
-  
   // Check cache one more time with final path
   if (options.useCache && fs.existsSync(assetPath)) {
     return { cached: true };

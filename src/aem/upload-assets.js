@@ -1,6 +1,7 @@
 import { FileSystemUploadOptions, FileSystemUpload } from '@adobe/aem-upload';
 import chalk from 'chalk';
 import { uploadDirWithSplitAndFallback } from './aem-upload-orchestrator.js';
+import { addExtensionsToFiles } from '../utils/mime-utils.js';
 
 /**
  * Build the AEM Assets URL to which the assets need to be uploaded.
@@ -104,16 +105,31 @@ function createFileUploader() {
  * @param {string} token - The bearer token for authentication
  * @param {string} assetFolder - The path to the asset folder to upload the assets from
  * @param fileUploader - The file uploader to use for uploading assets (optional)
- * @return {Promise<UploadResult>} - The result of the upload operation as JSON.
+ * @return {Promise<{uploadResult: object, renamedFiles: Map<string,string>}>}
+ *   uploadResult – result from the upload orchestrator.
+ *   renamedFiles – Map of old absolute path → new absolute path for files that were
+ *                  renamed to add a file extension.
  */
 export async function uploadAssets(target, token, assetFolder, fileUploader = null) {
   const fileUpload = fileUploader || createFileUploader();
   const options = buildFileSystemUploadOptions(target, token);
 
+  // Pre-process: detect MIME types for extensionless files and rename them
+  // with the correct extension so AEM Assets can identify them properly.
+  let renamedFiles = new Map();
+  try {
+    renamedFiles = await addExtensionsToFiles(assetFolder);
+    if (renamedFiles.size > 0) {
+      console.log(chalk.cyan(`Added file extensions to ${renamedFiles.size} file(s) based on content detection.\n`));
+    }
+  } catch (e) {
+    console.warn(chalk.yellow(`Warning: Failed to pre-process extensionless files: ${e.message}`));
+  }
+
   const urlPrefix = buildAEMUrl(target);
   const headers = { Authorization: `Bearer ${token}` };
 
-  return await uploadDirWithSplitAndFallback({
+  const uploadResult = await uploadDirWithSplitAndFallback({
     fileUpload,
     options,
     urlPrefix,
@@ -121,4 +137,6 @@ export async function uploadAssets(target, token, assetFolder, fileUploader = nu
     assetRootDir: assetFolder,
     dir: assetFolder,
   });
+
+  return { uploadResult, renamedFiles };
 }
