@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/adobe/aem-import-helper/compare/v1.4.3...v1.5.0) (2026-03-04)
+
+
+### Features
+
+* Update README.md ([#89](https://github.com/adobe/aem-import-helper/issues/89)) ([3aa7aa9](https://github.com/adobe/aem-import-helper/commit/3aa7aa9735f209e36bd957d1602fe350e4a54e7a))
+
 ## [1.4.3](https://github.com/adobe/aem-import-helper/compare/v1.4.2...v1.4.3) (2026-02-26)
 
 
