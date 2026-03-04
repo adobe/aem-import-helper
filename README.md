@@ -304,5 +304,3 @@ Run the script:
 ```
 npm run bundle -- --importjs tools/importer/import.js
 ```
-
-
