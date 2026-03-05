@@ -15,7 +15,11 @@ import path from 'path';
 import { cleanup, downloadAssets } from '../utils/download-assets.js';
 import { uploadAssets } from './upload-assets.js';
 import { installPackage } from './package-helper.js';
-import { prepareModifiedPackage, buildExtensionReplacementMap } from './package-modifier.js';
+import {
+  prepareModifiedPackage,
+  buildExtensionReplacementMap,
+  buildDetectedExtensionReplacementMap,
+} from './package-modifier.js';
 import fetch from 'node-fetch';
 import { getDamRootFolder } from './aem-util.js';
 import { printUploadSummary } from './upload-summary.js';
@@ -172,9 +176,16 @@ export const aemHandler = async (args) => {
         console.log(chalk.yellow(`Uploading downloaded assets to ${args.target}...`));
         const { uploadResult, renamedFiles } = await uploadAssets(args.target, token, assetFolder);
 
-        // Build JCR-level replacement map from renamed files so .content.xml paths are updated
+        // Build JCR-level replacement map for extensionless references based on files present
+        // on disk after download/conversion.
+        extensionReplacements = buildDetectedExtensionReplacementMap(assetMapping, assetFolder);
+
+        // Merge in explicit rename-based replacements from addExtensionsToFiles.
         if (renamedFiles && renamedFiles.size > 0) {
-          extensionReplacements = buildExtensionReplacementMap(renamedFiles, assetFolder);
+          const renameBasedReplacements = buildExtensionReplacementMap(renamedFiles, assetFolder);
+          for (const [from, to] of renameBasedReplacements.entries()) {
+            extensionReplacements.set(from, to);
+          }
         }
 
         printUploadSummary(uploadResult);

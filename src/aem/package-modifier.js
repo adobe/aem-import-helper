@@ -173,6 +173,57 @@ export function buildExtensionReplacementMap(renamedFiles, assetRootDir) {
 }
 
 /**
+ * Build extension replacements for extensionless JCR paths by checking the downloaded
+ * asset folder for actual files present on disk.
+ *
+ * @param {Map<string,string>} assetMapping - Map of source URL -> JCR path.
+ * @param {string} assetRootDir - Root folder on disk corresponding to /content/dam/<site>.
+ * @return {Map<string,string>} Map of extensionless JCR path -> JCR path with detected extension.
+ */
+export function buildDetectedExtensionReplacementMap(assetMapping, assetRootDir) {
+  const replacements = new Map();
+  if (!assetMapping || assetMapping.size === 0 || !assetRootDir) {
+    return replacements;
+  }
+
+  const damRootSegment = path.basename(assetRootDir);
+  const damRootPrefix = `/content/dam/${damRootSegment}/`;
+
+  for (const jcrPath of assetMapping.values()) {
+    if (path.extname(jcrPath)) {
+      continue;
+    }
+    if (!jcrPath.startsWith(damRootPrefix)) {
+      continue;
+    }
+
+    const relPath = jcrPath.slice(damRootPrefix.length);
+    const relDir = path.dirname(relPath);
+    const baseName = path.basename(relPath);
+    const absDir = relDir === '.' ? assetRootDir : path.join(assetRootDir, relDir);
+
+    if (!fs.existsSync(absDir) || !fs.statSync(absDir).isDirectory()) {
+      continue;
+    }
+
+    const candidates = fs.readdirSync(absDir)
+      .filter((name) => name.startsWith(`${baseName}.`) && name.length > baseName.length + 1)
+      .sort();
+
+    if (candidates.length === 0) {
+      continue;
+    }
+
+    // Prefer .png when present; otherwise choose the first deterministic match.
+    const chosen = candidates.find((name) => name === `${baseName}.png`) || candidates[0];
+    const detectedExt = chosen.slice(baseName.length);
+    replacements.set(jcrPath, `${jcrPath}${detectedExt}`);
+  }
+
+  return replacements;
+}
+
+/**
  * Prepare a modified copy of the AEM content package.
  * - Copies the original zip into a temp folder
  * - Unzips it, updates XML asset references when images are converted to PNG
@@ -215,5 +266,3 @@ export async function prepareModifiedPackage(zipPath, assetMapping, imagesToPng,
   console.info(chalk.yellow('Prepared modified content package with updated asset references.'));
   return { originalZipPath, modifiedZipPath };
 }
-
-
