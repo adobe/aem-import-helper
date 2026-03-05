@@ -1,3 +1,10 @@
+## [1.5.1](https://github.com/adobe/aem-import-helper/compare/v1.5.0...v1.5.1) (2026-03-05)
+
+
+### Bug Fixes
+
+* handle extensionless DAM asset reference rewriting in .content.xml using detected file extensions ([#90](https://github.com/adobe/aem-import-helper/issues/90)) ([86bf8cf](https://github.com/adobe/aem-import-helper/commit/86bf8cf3111aef31dc9cabc0fb8d01944c6aa787))
+
 # [1.5.0](https://github.com/adobe/aem-import-helper/compare/v1.4.3...v1.5.0) (2026-03-04)
 
 
