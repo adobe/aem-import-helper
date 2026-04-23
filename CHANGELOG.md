@@ -1,3 +1,10 @@
+## [1.5.2](https://github.com/adobe/aem-import-helper/compare/v1.5.1...v1.5.2) (2026-04-23)
+
+
+### Bug Fixes
+
+* Add eslint disable to the bundled import script file ([2e62ea7](https://github.com/adobe/aem-import-helper/commit/2e62ea7ccf9c1e4ebc6d1c7e14165492c2212a98))
+
 ## [1.5.1](https://github.com/adobe/aem-import-helper/compare/v1.5.0...v1.5.1) (2026-03-05)
 
 
