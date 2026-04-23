@@ -26,6 +26,7 @@ function prepareImportScript(importJsPath) {
       format: 'iife',
       platform: 'browser',
       target: ['es2015'],
+      banner: { js: '/* eslint-disable */' },
     });
 
     return bundle.outputFiles[0].text;
