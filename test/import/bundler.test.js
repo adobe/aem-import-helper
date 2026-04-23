@@ -44,6 +44,7 @@ describe('prepareImportScript tests', () => {
       format: 'iife',
       platform: 'browser',
       target: ['es2015'],
+      banner: { js: '/* eslint-disable */' },
     })).to.be.true;
 
     expect(result).to.equal(bundledCode);
