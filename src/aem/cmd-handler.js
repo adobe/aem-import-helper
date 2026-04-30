@@ -124,12 +124,29 @@ export const aemBuilder = (yargs) => {
       describe: 'Convert downloaded images to PNG and update references to .png (default: true)',
       type: 'boolean',
       default: true,
+    })
+    .option('local-assets', {
+      describe: 'Path to a local assets folder (tries local first, falls back to downloading missing assets)',
+      type: 'string',
+      demandOption: false,
     });
 }
 
 export const aemHandler = async (args) => {
   if (!validateFiles(args['asset-mapping'], args['zip'], args['skip-assets'])) {
     process.exit(1);
+  }
+
+  if (args['local-assets']) {
+    if (!fs.existsSync(args['local-assets'])) {
+      console.error(chalk.red(`Local assets folder not found: ${args['local-assets']}`));
+      process.exit(1);
+    }
+    if (!fs.statSync(args['local-assets']).isDirectory()) {
+      console.error(chalk.red(`Local assets path is not a directory: ${args['local-assets']}`));
+      process.exit(1);
+    }
+    console.log(chalk.yellow(`Using local assets from: ${args['local-assets']}`));
   }
 
   if (!fs.existsSync(args.output)) {
@@ -169,7 +186,7 @@ export const aemHandler = async (args) => {
           : args.output;
 
         console.log(chalk.yellow(`Downloading origin assets to ${downloadFolder}...`));
-        await downloadAssets(assetMapping, downloadFolder, undefined, undefined, {}, { convertImagesToPng: imagesToPng });
+        await downloadAssets(assetMapping, downloadFolder, undefined, undefined, {}, { convertImagesToPng: imagesToPng, localAssetsPath: args['local-assets'] });
 
         const assetFolder = path.join(downloadFolder, damRootFolder);
 
