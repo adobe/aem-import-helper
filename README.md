@@ -152,6 +152,7 @@ to the asset mapping file (`asset-mapping.json`), which contains mappings for as
 * _skip-assets_ [default=false]: Skip uploading assets to AEM..
 * _asset-mapping_: Only optional if --skip-assets is true.
 * _images-to-png_ [default=true]: When true, converts downloaded image assets to PNG (except for JPEG, PNG, GIF, ICO, SVG, MP4) before upload.
+* _local-assets_: Path to a local assets folder. When provided, assets are resolved locally by full DAM path before falling back to remote download for any missing files. The folder structure must mirror the DAM path (e.g., `<local-assets>/content/dam/site/image.jpg`).
 
 Once the command is executed, the content package and associated assets are uploaded to your AEM author environment. The content package is installed and the assets are uploaded to the DAM.
 
