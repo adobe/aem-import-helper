@@ -260,15 +260,27 @@ export async function downloadAssets(assetMapping, downloadFolder, maxRetries = 
       if (localAssetsPath) {
         const localFile = path.join(localAssetsPath, downloadPath);
         if (fs.existsSync(localFile)) {
-          console.log(chalk.cyan(`[${assetIndex}/${totalAssets}] local: ${downloadPath}`));
           const destPath = path.join(downloadFolder, downloadPath.replace(CONTENT_DAM_PREFIX, ''));
-          fs.mkdirSync(path.dirname(destPath), { recursive: true });
 
           const currentExt = path.extname(localFile).toLowerCase();
           const isImage = IMAGE_EXTENSIONS.has(currentExt);
           const shouldConvert = options.convertImagesToPng
             && isImage
             && !DO_NOT_CONVERT_EXTENSIONS.has(currentExt);
+
+          // Check if the destination already exists (cache check)
+          if (options.useCache) {
+            const finalDest = shouldConvert
+              ? path.join(path.dirname(destPath), `${path.parse(destPath).name}.png`)
+              : destPath;
+            if (fs.existsSync(finalDest)) {
+              console.log(chalk.gray(`[${assetIndex}/${totalAssets}] cached: ${path.basename(finalDest)}`));
+              return { downloadPath, cached: true };
+            }
+          }
+
+          console.log(chalk.cyan(`[${assetIndex}/${totalAssets}] local: ${downloadPath}`));
+          fs.mkdirSync(path.dirname(destPath), { recursive: true });
 
           if (shouldConvert) {
             try {
@@ -318,7 +330,7 @@ export async function downloadAssets(assetMapping, downloadFolder, maxRetries = 
   console.log(chalk.green('='.repeat(50)));
   console.log(chalk.green('Download Summary:'));
   console.log(chalk.green(`  Total assets: ${totalAssets}`));
-  console.log(chalk.green(`  Successfully downloaded: ${successful}`));
+  console.log(chalk.green(`  Successfully downloaded: ${successful - local - cached}`));
   if (local > 0) {
     console.log(chalk.cyan(`  Copied from local: ${local}`));
   }

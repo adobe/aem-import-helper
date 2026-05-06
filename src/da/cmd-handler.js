@@ -14,6 +14,7 @@ import chalk from 'chalk';
 import fetch from 'node-fetch';
 import { processPages } from './da-helper.js';
 import { buildDaListUrl } from './url-utils.js';
+import { validateLocalAssetsPath } from '../utils/fileUtils.js';
 
 /**
  * Validate the existence of the asset-list.json and HTML folder.
@@ -134,12 +135,10 @@ export const daHandler = async (args) => {
 
   // Validate local-assets path if provided
   if (args['local-assets']) {
-    if (!fs.existsSync(args['local-assets'])) {
-      console.error(chalk.red(`Local assets folder not found: ${args['local-assets']}`));
+    const validation = validateLocalAssetsPath(args['local-assets']);
+    if (!validation.valid) {
+      console.error(chalk.red(validation.message));
       process.exit(1);
-    }
-    if (!fs.statSync(args['local-assets']).isDirectory()) {
-      console.error(chalk.red(`Local assets path is not a directory: ${args['local-assets']}`));     process.exit(1);
     }
     console.log(chalk.yellow(`Using local assets from: ${args['local-assets']}`));
   }

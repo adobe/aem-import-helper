@@ -23,6 +23,7 @@ import {
 import fetch from 'node-fetch';
 import { getDamRootFolder } from './aem-util.js';
 import { printUploadSummary } from './upload-summary.js';
+import { validateLocalAssetsPath } from '../utils/fileUtils.js';
 
 /**
  * Validate the existence of the asset-mapping.json and content package files.
@@ -138,12 +139,9 @@ export const aemHandler = async (args) => {
   }
 
   if (args['local-assets']) {
-    if (!fs.existsSync(args['local-assets'])) {
-      console.error(chalk.red(`Local assets folder not found: ${args['local-assets']}`));
-      process.exit(1);
-    }
-    if (!fs.statSync(args['local-assets']).isDirectory()) {
-      console.error(chalk.red(`Local assets path is not a directory: ${args['local-assets']}`));
+    const validation = validateLocalAssetsPath(args['local-assets']);
+    if (!validation.valid) {
+      console.error(chalk.red(validation.message));
       process.exit(1);
     }
     console.log(chalk.yellow(`Using local assets from: ${args['local-assets']}`));
