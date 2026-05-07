@@ -199,6 +199,7 @@ async function downloadAssetWithRetry(url, maxRetries = 3, retryDelay = 5000, he
  * @param {Object} [options={}] - Options for the function
  * @param {boolean} [options.convertImagesToPng=false] - Whether to convert images to PNG
  * @param {number} [options.maxConcurrentDownloads=10] - Maximum number of concurrent downloads
+ * @param {string} [options.localAssetsPath] - Path to local assets folder; tries local first, falls back to remote download
  * @return {Promise<Array<PromiseSettledResult<string>>>} Array of settled promises with status 'fulfilled' | 'rejected'.
  * Use DOWNLOAD_STATUS constants to check the status field.
  */
@@ -212,12 +213,17 @@ export async function downloadAssets(assetMapping, downloadFolder, maxRetries = 
     options.useCache = true;
   }
   
+  const { localAssetsPath } = options;
+
   // Log download start summary
   console.log(chalk.cyan(`\nStarting download of ${totalAssets} asset(s)...`));
   console.log(chalk.cyan(`Download folder: ${downloadFolder}`));
   console.log(chalk.cyan(`Concurrency limit: ${maxConcurrentDownloads} simultaneous downloads`));
   if (options.convertImagesToPng) {
     console.log(chalk.cyan('Image conversion to PNG: enabled'));
+  }
+  if (localAssetsPath) {
+    console.log(chalk.cyan(`Local assets folder: ${localAssetsPath} (fallback to remote for missing files)`));
   }
   if (useCache) {
     console.log(chalk.gray('Cache: enabled (skipping existing files)'));
@@ -240,7 +246,7 @@ export async function downloadAssets(assetMapping, downloadFolder, maxRetries = 
     // Download assets in current batch concurrently
     const batchPromises = batch.map(async ([assetUrl, downloadPath], batchIndex) => {
       const assetIndex = i + batchIndex + 1;
-      
+
       // Check cache before downloading
       if (options.useCache) {
         const tempPath = path.join(downloadFolder, downloadPath.replace(CONTENT_DAM_PREFIX, ''));
@@ -249,7 +255,50 @@ export async function downloadAssets(assetMapping, downloadFolder, maxRetries = 
           return { downloadPath, cached: true };
         }
       }
-      
+
+      // Try local assets folder first (full path match)
+      if (localAssetsPath) {
+        const localFile = path.join(localAssetsPath, downloadPath);
+        if (fs.existsSync(localFile)) {
+          const destPath = path.join(downloadFolder, downloadPath.replace(CONTENT_DAM_PREFIX, ''));
+
+          const currentExt = path.extname(localFile).toLowerCase();
+          const isImage = IMAGE_EXTENSIONS.has(currentExt);
+          const shouldConvert = options.convertImagesToPng
+            && isImage
+            && !DO_NOT_CONVERT_EXTENSIONS.has(currentExt);
+
+          // Check if the destination already exists (cache check)
+          if (options.useCache) {
+            const finalDest = shouldConvert
+              ? path.join(path.dirname(destPath), `${path.parse(destPath).name}.png`)
+              : destPath;
+            if (fs.existsSync(finalDest)) {
+              console.log(chalk.gray(`[${assetIndex}/${totalAssets}] cached: ${path.basename(finalDest)}`));
+              return { downloadPath, cached: true };
+            }
+          }
+
+          console.log(chalk.cyan(`[${assetIndex}/${totalAssets}] local: ${downloadPath}`));
+          fs.mkdirSync(path.dirname(destPath), { recursive: true });
+
+          if (shouldConvert) {
+            try {
+              const pngBuffer = await sharp(fs.readFileSync(localFile)).png().toBuffer();
+              const parsed = path.parse(destPath);
+              const pngDest = path.join(parsed.dir, `${parsed.name}.png`);
+              fs.writeFileSync(pngDest, pngBuffer);
+            } catch (e) {
+              console.warn(chalk.yellow(`Warning: Failed to convert local image to PNG: ${localFile}. Copying original. ${e.message}`));
+              fs.copyFileSync(localFile, destPath);
+            }
+          } else {
+            fs.copyFileSync(localFile, destPath);
+          }
+          return { downloadPath, cached: false, local: true };
+        }
+      }
+
       const { blob, contentType } = await downloadAssetWithRetry(assetUrl, maxRetries, retryDelay, headers, assetIndex, totalAssets);
       const result = await saveBlobToFile(blob, downloadPath, downloadFolder, contentType, options);
       return { downloadPath, cached: result?.cached || false };
@@ -276,11 +325,15 @@ export async function downloadAssets(assetMapping, downloadFolder, maxRetries = 
   const successful = allResults.filter(r => r.status === DOWNLOAD_STATUS.FULFILLED).length;
   const failed = allResults.filter(r => r.status === DOWNLOAD_STATUS.REJECTED).length;
   const cached = allResults.filter(r => r.status === DOWNLOAD_STATUS.FULFILLED && r.value?.cached).length;
-  
+  const local = allResults.filter(r => r.status === DOWNLOAD_STATUS.FULFILLED && r.value?.local).length;
+
   console.log(chalk.green('='.repeat(50)));
   console.log(chalk.green('Download Summary:'));
   console.log(chalk.green(`  Total assets: ${totalAssets}`));
-  console.log(chalk.green(`  Successfully downloaded: ${successful}`));
+  console.log(chalk.green(`  Successfully downloaded: ${successful - local - cached}`));
+  if (local > 0) {
+    console.log(chalk.cyan(`  Copied from local: ${local}`));
+  }
   if (cached > 0 && options.useCache) {
     console.log(chalk.gray(`  Cached (skipped): ${cached}`));
   }

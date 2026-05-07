@@ -204,6 +204,133 @@ describe('download assets', function () {
     await scope.done();
   });
 
+  describe('local assets (--local-assets)', () => {
+    let localAssetsFolder;
+
+    beforeEach(() => {
+      localAssetsFolder = path.join(__dirname, 'local-assets-fixture');
+      fs.mkdirSync(path.join(localAssetsFolder, 'content/dam/xwalk'), { recursive: true });
+    });
+
+    afterEach(() => {
+      fs.rmSync(localAssetsFolder, { recursive: true, force: true });
+      fs.rmSync(downloadFolder, { recursive: true, force: true });
+    });
+
+    it('should copy local file when found (plain copy, no conversion)', async () => {
+      // Place a JPEG in the local assets folder matching the DAM path
+      fs.copyFileSync(
+        path.resolve(__dirname, '../aem/fixtures/image1.jpeg'),
+        path.join(localAssetsFolder, 'content/dam/xwalk/image1.jpg'),
+      );
+
+      const mapping = new Map([
+        ['http://www.aem.com/asset1.jpg', '/content/dam/xwalk/image1.jpg'],
+      ]);
+
+      const results = await downloadAssets(mapping, downloadFolder, 3, 5000, {}, {
+        convertImagesToPng: false,
+        localAssetsPath: localAssetsFolder,
+      });
+
+      expect(results.filter(r => r.status === 'fulfilled').length).to.equal(1);
+      expect(results[0].value.local).to.be.true;
+      expect(fs.existsSync(path.join(downloadFolder, 'xwalk/image1.jpg'))).to.be.true;
+    });
+
+    it('should convert local file to PNG when conversion is enabled and extension qualifies', async () => {
+      // .webp is not in DO_NOT_CONVERT_EXTENSIONS, so it should be converted to PNG
+      fs.copyFileSync(
+        path.resolve(__dirname, '../aem/fixtures/image-local.webp'),
+        path.join(localAssetsFolder, 'content/dam/xwalk/hero.webp'),
+      );
+
+      const mapping = new Map([
+        ['http://www.aem.com/hero.webp', '/content/dam/xwalk/hero.webp'],
+      ]);
+
+      const results = await downloadAssets(mapping, downloadFolder, 3, 5000, {}, {
+        convertImagesToPng: true,
+        localAssetsPath: localAssetsFolder,
+      });
+
+      expect(results[0].value.local).to.be.true;
+      // Should be converted to .png
+      expect(fs.existsSync(path.join(downloadFolder, 'xwalk/hero.png'))).to.be.true;
+      // Original .webp should NOT exist at destination
+      expect(fs.existsSync(path.join(downloadFolder, 'xwalk/hero.webp'))).to.be.false;
+    });
+
+    it('should fall back to copying original when PNG conversion fails', async () => {
+      // Create an invalid "webp" file that sharp cannot convert
+      fs.writeFileSync(
+        path.join(localAssetsFolder, 'content/dam/xwalk/bad.webp'),
+        'not a real image',
+      );
+
+      const mapping = new Map([
+        ['http://www.aem.com/bad.webp', '/content/dam/xwalk/bad.webp'],
+      ]);
+
+      const results = await downloadAssets(mapping, downloadFolder, 3, 5000, {}, {
+        convertImagesToPng: true,
+        localAssetsPath: localAssetsFolder,
+      });
+
+      expect(results[0].value.local).to.be.true;
+      // Falls back to copying the original file
+      expect(fs.existsSync(path.join(downloadFolder, 'xwalk/bad.webp'))).to.be.true;
+    });
+
+    it('should fall back to remote download when local file is not found', async () => {
+      // No local file exists, so it should download from the remote URL
+      const scope = nock('http://www.aem.com')
+        .get('/asset1.jpg')
+        .replyWithFile(200, path.resolve(__dirname, '../aem/fixtures/image1.jpeg'));
+
+      const mapping = new Map([
+        ['http://www.aem.com/asset1.jpg', '/content/dam/xwalk/image1.jpg'],
+      ]);
+
+      const results = await downloadAssets(mapping, downloadFolder, 3, 5000, {}, {
+        convertImagesToPng: false,
+        localAssetsPath: localAssetsFolder,
+      });
+
+      expect(results[0].value.local).to.be.undefined;
+      expect(fs.existsSync(path.join(downloadFolder, 'xwalk/image1.jpg'))).to.be.true;
+
+      await scope.done();
+    });
+
+    it('should respect useCache and not overwrite existing destination', async () => {
+      // Pre-create the destination file
+      fs.mkdirSync(path.join(downloadFolder, 'xwalk'), { recursive: true });
+      fs.writeFileSync(path.join(downloadFolder, 'xwalk/image1.jpg'), 'existing content');
+
+      // Place a different file in local assets
+      fs.copyFileSync(
+        path.resolve(__dirname, '../aem/fixtures/image1.jpeg'),
+        path.join(localAssetsFolder, 'content/dam/xwalk/image1.jpg'),
+      );
+
+      const mapping = new Map([
+        ['http://www.aem.com/asset1.jpg', '/content/dam/xwalk/image1.jpg'],
+      ]);
+
+      const results = await downloadAssets(mapping, downloadFolder, 3, 5000, {}, {
+        convertImagesToPng: false,
+        localAssetsPath: localAssetsFolder,
+        useCache: true,
+      });
+
+      expect(results[0].value.cached).to.be.true;
+      // File should still contain the original content (not overwritten)
+      const content = fs.readFileSync(path.join(downloadFolder, 'xwalk/image1.jpg'), 'utf-8');
+      expect(content).to.equal('existing content');
+    });
+  });
+
   it('should process downloads in batches with controlled concurrency', async () => {
     // Create 15 assets to test batching with concurrency limit of 5
     const assets = Array.from({ length: 15 }, (_, i) => ({

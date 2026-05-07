@@ -27,6 +27,16 @@ export async function writeToFile(filePath, fileData) {
   await writeFile(filePath, fileData, 'utf8');
 }
 
+export function validateLocalAssetsPath(localAssetsPath) {
+  if (!fs.existsSync(localAssetsPath)) {
+    return { valid: false, message: `Local assets folder not found: ${localAssetsPath}` };
+  }
+  if (!fs.statSync(localAssetsPath).isDirectory()) {
+    return { valid: false, message: `Local assets path is not a directory: ${localAssetsPath}` };
+  }
+  return { valid: true };
+}
+
 export function copyFiles(srcDir, destDir) {
   if (!fs.existsSync(destDir)) {
     fs.mkdirSync(destDir, { recursive: true });
