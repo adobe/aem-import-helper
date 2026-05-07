@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/adobe/aem-import-helper/compare/v1.5.2...v1.6.0) (2026-05-07)
+
+
+### Features
+
+* add local-assets support to aem upload command ([#93](https://github.com/adobe/aem-import-helper/issues/93)) ([b8ce4a3](https://github.com/adobe/aem-import-helper/commit/b8ce4a3c7732a77bd9c464aca974a049209aeaf4))
+
 ## [1.5.2](https://github.com/adobe/aem-import-helper/compare/v1.5.1...v1.5.2) (2026-04-23)
 
 
