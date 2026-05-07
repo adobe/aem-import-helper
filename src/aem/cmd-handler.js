@@ -129,7 +129,6 @@ export const aemBuilder = (yargs) => {
     .option('local-assets', {
       describe: 'Path to a local assets folder (tries local first, falls back to downloading missing assets)',
       type: 'string',
-      demandOption: false,
     });
 }
 

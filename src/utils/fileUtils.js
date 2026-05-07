@@ -28,7 +28,6 @@ export async function writeToFile(filePath, fileData) {
 }
 
 export function validateLocalAssetsPath(localAssetsPath) {
-  if (!localAssetsPath) return { valid: true };
   if (!fs.existsSync(localAssetsPath)) {
     return { valid: false, message: `Local assets folder not found: ${localAssetsPath}` };
   }
