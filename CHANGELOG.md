@@ -1,3 +1,11 @@
+## [1.6.1](https://github.com/adobe/aem-import-helper/compare/v1.6.0...v1.6.1) (2026-10-21)
+
+
+### Bug Fixes
+
+* download the right assets when a page references a local asset more than once ([#95](https://github.com/adobe/aem-import-helper/issues/95)) ([14a3189](https://github.com/adobe/aem-import-helper/commit/14a3189ec65edfba6ea3c6036a7a72cf8680d6ba))
+* update esbuild vulnerability ([bdc0740](https://github.com/adobe/aem-import-helper/commit/bdc074067677391ae2d8d8fd73587c4fbc2af693))
+
 # [1.6.0](https://github.com/adobe/aem-import-helper/compare/v1.5.2...v1.6.0) (2026-05-07)
 
 
