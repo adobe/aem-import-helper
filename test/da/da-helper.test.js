@@ -372,5 +372,64 @@ describe('da-helper.js - Integration Tests', () => {
       ]);
     });
 
+    describe('with localAssetsPath', () => {
+      // An asset referenced more than once on a page (a repeated <img>, or an <a href> to the
+      // image) is copied once, so the assets that weren't found locally must be looked up by
+      // asset, not by position in the page's list of references.
+      [
+        {
+          title: 'a link to a local image',
+          html: '<a href="/images/logo.svg"><img src="/images/logo.svg"></a><img src="https://example.com/hero.png">',
+          expected: ['https://example.com/hero.png'],
+        },
+        {
+          title: 'a local image used twice',
+          html: '<img src="/images/logo.svg"><img src="/images/logo.svg"><img src="https://example.com/hero.png">',
+          expected: ['https://example.com/hero.png'],
+        },
+        {
+          title: 'a local image used twice between remote images',
+          html: '<img src="/images/logo.svg"><img src="https://example.com/a.png"><img src="/images/logo.svg"><img src="https://example.com/b.png">',
+          expected: ['https://example.com/a.png', 'https://example.com/b.png'],
+        },
+      ].forEach(({ title, html, expected }) => {
+        it(`should download only the assets not found locally, for ${title}`, async () => {
+          const downloadAssetsSpy = sandbox.stub().callsFake(async (mapping) =>
+            Array.from(mapping.keys()).map(() => ({ status: 'fulfilled' })),
+          );
+          const copyFileSyncSpy = sandbox.stub();
+          const mockDeps = createMockDependencies({
+            fs: {
+              readFileSync: () => `<body><main>${html}</main></body>`,
+              writeFileSync: () => {},
+              mkdirSync: () => {},
+              rmSync: () => {},
+              existsSync: (p) => p.startsWith('/local-assets/images/'),
+              copyFileSync: copyFileSyncSpy,
+            },
+            downloadAssets: downloadAssetsSpy,
+            getAllFiles: () => ['/da/folder/page.html'],
+          });
+
+          await processPages(
+            testOrg,
+            testSite,
+            ['/images/logo.svg', 'https://example.com/hero.png', 'https://example.com/a.png', 'https://example.com/b.png'],
+            testSiteOrigin,
+            '/da/folder',
+            '/download',
+            'token123',
+            false,
+            { localAssetsPath: '/local-assets' },
+            mockDeps,
+          );
+
+          expect(copyFileSyncSpy.calledOnceWith('/local-assets/images/logo.svg')).to.be.true;
+          expect(downloadAssetsSpy.calledOnce).to.be.true;
+          expect(Array.from(downloadAssetsSpy.getCall(0).args[0].keys())).to.deep.equal(expected);
+        });
+      });
+    });
+
   });
 });
