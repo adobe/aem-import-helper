@@ -134,11 +134,14 @@ async function processSinglePage(
       assetMapping = result.assetMapping;
       copiedAssets = result.copyResults.filter(r => r.status === COPY_STATUS.SUCCESS).length;
       
-      // Identify failed copies that need to be downloaded
+      // Identify failed copies that need to be downloaded. copyResults has one entry per
+      // unique asset, in assetMapping order; matchingAssetUrls repeats an asset that the page
+      // references more than once, so its indexes don't line up with copyResults.
+      const mappedUrls = Array.from(assetMapping.keys());
       const failedUrls = [];
       result.copyResults.forEach((copyResult, index) => {
         if (copyResult.status === COPY_STATUS.ERROR) {
-          failedUrls.push(matchingAssetUrls[index]);
+          failedUrls.push(mappedUrls[index]);
         }
       });
       
