@@ -20,6 +20,8 @@ const BASE_DELAY = 5000; // base delay in milliseconds
 const PARSED_MAX_RETRIES = parseInt(process.env.MAX_RETRIES, 10);
 const MAX_RETRIES = Number.isNaN(PARSED_MAX_RETRIES) ? 3 : Math.max(1, PARSED_MAX_RETRIES);
 const XML_CONTENT_TYPES = new Set(['text/xml', 'application/xml']);
+// Package manager XML, recognised even if a proxy dropped or rewrote the Content-Type header.
+const CRX_XML_START = /^\uFEFF?\s*<(\?xml[\s?]|crx[\s>])/i;
 const BODY_SNIPPET_LENGTH = 200;
 
 /**
@@ -139,7 +141,7 @@ export async function installPackage(target, token, packagePath) {
 
       // A hibernated environment answers with a 200 and an HTML status page, so only parse XML responses.
       const contentType = (fetchResponse.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
-      if (!XML_CONTENT_TYPES.has(contentType)) {
+      if (!XML_CONTENT_TYPES.has(contentType) && !CRX_XML_START.test(body)) {
         throw unexpectedResponseError(
           'response is not a package manager XML response, the environment may be hibernated or behind a login page',
           fetchResponse,

@@ -98,6 +98,23 @@ describe('installPackage', function () {
     await expect(installPackage(TARGET, 'token', packagePath)).to.be.fulfilled;
   });
 
+  it('accepts package manager XML whose Content-Type was rewritten', async () => {
+    nock(TARGET)
+      .post(ENDPOINT)
+      .reply(200, `\n${SUCCESS_XML}`, { 'Content-Type': 'application/octet-stream' });
+
+    await expect(installPackage(TARGET, 'token', packagePath)).to.be.fulfilled;
+  });
+
+  it('reports package manager failures whose Content-Type was rewritten', async () => {
+    nock(TARGET)
+      .post(ENDPOINT)
+      .reply(200, FAILURE_XML.replace('<?xml version="1.0" encoding="utf-8"?>\n', ''), { 'Content-Type': 'text/plain' });
+
+    await expect(installPackage(TARGET, 'token', packagePath))
+      .to.be.rejectedWith('Failed to install package: Package is invalid');
+  });
+
   it('rejects with the package manager status message on failure', async () => {
     nock(TARGET)
       .post(ENDPOINT)
