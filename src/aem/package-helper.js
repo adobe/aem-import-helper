@@ -16,7 +16,34 @@ import chalk from 'chalk';
 import { parseStringPromise } from 'xml2js';
 
 const BASE_DELAY = 5000; // base delay in milliseconds
-const MAX_RETRIES = process.env.MAX_RETRIES || 3; // maximum number of retries
+const MAX_RETRIES = parseInt(process.env.MAX_RETRIES, 10) || 3; // maximum number of retries
+const XML_CONTENT_TYPES = new Set(['text/xml', 'application/xml']);
+const BODY_SNIPPET_LENGTH = 200;
+
+/**
+ * Build a short, single-line snippet of a response body for error messages.
+ * @param {string} body - The response body.
+ * @return {string} The first BODY_SNIPPET_LENGTH characters of the whitespace-collapsed body.
+ */
+function bodySnippet(body) {
+  const collapsed = (body || '').replace(/\s+/g, ' ').trim();
+  return collapsed.length > BODY_SNIPPET_LENGTH
+    ? `${collapsed.substring(0, BODY_SNIPPET_LENGTH)}...`
+    : collapsed;
+}
+
+/**
+ * Build an error describing an unexpected response from the CRX package manager.
+ * @param {string} reason - Why the response was rejected.
+ * @param {Response} response - The fetch response.
+ * @param {string} body - The response body.
+ * @return {Error}
+ */
+function unexpectedResponseError(reason, response, body) {
+  const contentType = response.headers.get('content-type') || 'none';
+  return new Error(`Failed to install package: ${reason} `
+    + `(status: ${response.status} ${response.statusText}, content-type: ${contentType}, body: "${bodySnippet(body)}")`);
+}
 
 /**
  * Parse the XML response from the CRX package manager. If the response is successful, return true.
@@ -57,17 +84,35 @@ export async function installPackage(target, token, packagePath) {
           authorization: `Bearer ${token}`,
         },
         body: formData,
+        // A redirect (e.g. to a login or traffic-filter page) means the package was not installed.
+        redirect: 'manual',
       });
+
+      const body = await fetchResponse.text().catch(() => '');
+
+      if (fetchResponse.status >= 300 && fetchResponse.status < 400) {
+        const location = fetchResponse.headers.get('location');
+        throw unexpectedResponseError(`unexpected redirect${location ? ` to ${location}` : ''}`, fetchResponse, body);
+      }
 
       // AEM returns a 200 status code even if the package installation fails, but if the response was not ok,
       // throw an error.
       if (!fetchResponse.ok) {
-        throw new Error(`Failed to install package: ${fetchResponse.status} - ${fetchResponse.statusText}`);
+        throw unexpectedResponseError('unexpected status', fetchResponse, body);
       }
 
-      // now we need to parse the XML response from the CRX package manager
-      const xmlResponse = await fetchResponse.text();
-      const response = await parseCrxResponse(xmlResponse);
+      // A hibernated environment answers with a 200 and an HTML status page, so only parse XML responses.
+      const contentType = (fetchResponse.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+      if (!XML_CONTENT_TYPES.has(contentType)) {
+        throw unexpectedResponseError('response is not a package manager XML response', fetchResponse, body);
+      }
+
+      let response;
+      try {
+        response = await parseCrxResponse(body);
+      } catch (parseError) {
+        throw unexpectedResponseError(`invalid XML response: ${bodySnippet(parseError.message)}`, fetchResponse, body);
+      }
 
       if (response !== true) {
         throw new Error(`Failed to install package: ${response}`);
