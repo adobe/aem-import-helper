@@ -31,10 +31,11 @@ describe('uploadDirWithSplitAndFallback', function () {
       '../../src/aem/aem-upload-fallback.js': { uploadFlatDirInBatches: uploadFlatDirInBatchesStub },
     }));
     sinon.stub(console, 'log');
+    sinon.stub(console, 'error');
 
     testDir = await fs.mkdtemp(path.join(os.tmpdir(), 'aem-orchestrator-test-'));
     rootDir = path.join(testDir, 'xwalk');
-    await fs.mkdir(path.join(rootDir, 'my images', 'nested'), { recursive: true });
+    await fs.mkdir(path.join(rootDir, 'images', 'nested'), { recursive: true });
   });
 
   afterEach(async () => {
@@ -48,7 +49,7 @@ describe('uploadDirWithSplitAndFallback', function () {
     const fileUpload = {
       upload: async (opts, [dir]) => {
         uploads.push({ dir: path.relative(testDir, dir), url: opts.getUrl(), maxConcurrent: opts.getMaxConcurrent() });
-        if (dir !== path.join(rootDir, 'my images', 'nested')) {
+        if (dir !== path.join(rootDir, 'images', 'nested')) {
           throw Object.assign(new Error('too many files'), { code: 'TOO_LARGE' });
         }
         return {};
@@ -60,14 +61,61 @@ describe('uploadDirWithSplitAndFallback', function () {
     });
 
     expect(result.ok).to.be.true;
+    // Parent folder names are used as-is. FileSystemUpload would normalize them (lowercase, invalid
+    // characters replaced), a known difference for names that need it.
     expect(uploads).to.deep.equal([
       { dir: 'xwalk', url: URL_PREFIX, maxConcurrent: 3 },
-      { dir: path.join('xwalk', 'my images'), url: `${URL_PREFIX}/xwalk`, maxConcurrent: 3 },
-      { dir: path.join('xwalk', 'my images', 'nested'), url: `${URL_PREFIX}/xwalk/my%20images`, maxConcurrent: 3 },
+      { dir: path.join('xwalk', 'images'), url: `${URL_PREFIX}/xwalk`, maxConcurrent: 3 },
+      { dir: path.join('xwalk', 'images', 'nested'), url: `${URL_PREFIX}/xwalk/images`, maxConcurrent: 3 },
     ]);
     expect(options.getUrl()).to.equal(URL_PREFIX);
     expect(uploadFlatDirInBatchesStub.getCalls().map((call) => path.relative(testDir, call.args[0].localDir)))
-      .to.deep.equal(['xwalk', path.join('xwalk', 'my images')]);
+      .to.deep.equal(['xwalk', path.join('xwalk', 'images')]);
     expect(uploadFlatDirInBatchesStub.getCalls().every((call) => call.args[0].rootDir === rootDir)).to.be.true;
+  });
+
+  it('reports files that FileSystemUpload failed to upload', async () => {
+    const fileUpload = {
+      upload: async () => ({ totalFiles: 4, totalCompleted: 1, errors: [{ message: 'folder creation failed' }] }),
+    };
+
+    const result = await uploadDirWithSplitAndFallback({
+      fileUpload, options: new FileSystemUploadOptions().withUrl(URL_PREFIX), urlPrefix: URL_PREFIX, headers: {},
+      assetRootDir: rootDir, dir: rootDir,
+    });
+
+    expect(result.ok).to.be.false;
+    expect(result.errors).to.deep.equal([{
+      type: 'filesystem-upload',
+      path: rootDir,
+      message: '3 of 4 file(s) failed to upload; folder creation failed',
+    }]);
+    expect(result.filesystemRuns[0]).to.include({ filesUploaded: 1, filesFailed: 3 });
+  });
+
+  it('reports failed fallback batches', async () => {
+    const fileUpload = {
+      upload: async () => {
+        throw Object.assign(new Error('too many files'), { code: 'TOO_LARGE' });
+      },
+    };
+    await fs.rm(path.join(rootDir, 'images'), { recursive: true });
+    uploadFlatDirInBatchesStub.resolves([
+      { batchNumber: 1, filesInBatch: 2, filesUploaded: 2, filesFailed: 0, errors: [] },
+      { batchNumber: 2, filesInBatch: 2, filesUploaded: 0, filesFailed: 2, errors: ['network down'] },
+    ]);
+
+    const result = await uploadDirWithSplitAndFallback({
+      fileUpload, options: new FileSystemUploadOptions().withUrl(URL_PREFIX), urlPrefix: URL_PREFIX, headers: {},
+      assetRootDir: rootDir, dir: rootDir,
+    });
+
+    expect(result.ok).to.be.false;
+    expect(result.fallbackRuns).to.have.lengthOf(2);
+    expect(result.errors).to.deep.equal([{
+      type: 'fallback-flatdir',
+      path: rootDir,
+      message: 'batch 2: 2 of 2 file(s) failed to upload; network down',
+    }]);
   });
 });

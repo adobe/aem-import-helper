@@ -43,6 +43,42 @@ function isTooLargeError(e) {
 }
 
 /**
+ * Normalize a FileSystemUpload result: FileSystemUpload does not throw when files fail, it reports
+ * totalFiles, totalCompleted (successful files only) and upload-level errors.
+ * @return {{run: object, error: ({type: string, path: string, message: string}|null)}}
+ */
+function checkFilesystemRun(res, dirPath) {
+  const totalFiles = Number.isFinite(res?.totalFiles) ? res.totalFiles : null;
+  const filesUploaded = Number.isFinite(res?.totalCompleted) ? res.totalCompleted : null;
+  const filesFailed = totalFiles !== null && filesUploaded !== null ? Math.max(totalFiles - filesUploaded, 0) : 0;
+  const uploadErrors = (Array.isArray(res?.errors) ? res.errors : []).map((e) => e?.message || String(e));
+
+  const run = filesUploaded === null ? res : { ...res, filesUploaded, filesFailed };
+  if (filesFailed === 0 && uploadErrors.length === 0) {
+    return { run, error: null };
+  }
+
+  const parts = [];
+  if (filesFailed > 0) parts.push(`${filesFailed} of ${totalFiles} file(s) failed to upload`);
+  parts.push(...uploadErrors);
+  return { run, error: { type: 'filesystem-upload', path: dirPath, message: parts.join('; ') } };
+}
+
+/**
+ * Collect the failed batches of uploadFlatDirInBatches as orchestrator errors.
+ */
+function fallbackBatchErrors(batches, dirPath, type) {
+  return (batches || [])
+    .filter((b) => b.filesFailed > 0 || b.errors?.length > 0)
+    .map((b) => ({
+      type,
+      path: dirPath,
+      message: `batch ${b.batchNumber}: ${b.filesFailed} of ${b.filesInBatch} file(s) failed to upload`
+        + `${b.errors?.length ? `; ${b.errors.join('; ')}` : ''}`,
+    }));
+}
+
+/**
  * @returns {Promise<{
  *   ok: boolean,
  *   filesystemRuns: any[],
@@ -78,7 +114,12 @@ export async function uploadDirWithSplitAndFallback({
 
     try {
       const res = await fileUpload.upload(uploadOptionsForDir(options, urlPrefix, assetRootDir, current), [current]);
-      filesystemRuns.push(res);
+      const { run, error } = checkFilesystemRun(res, current);
+      filesystemRuns.push(run);
+      if (error) {
+        console.error(chalk.red(`✗ Some files failed to upload from: ${displayPath} - ${error.message}`));
+        errors.push(error);
+      }
       continue;
     } catch (e) {
       if (isTooLargeError(e)) {
@@ -114,6 +155,7 @@ export async function uploadDirWithSplitAndFallback({
             // and returns undefined if no files, so check before pushing
             if (fallbackResult && fallbackResult.length > 0) {
               fallbackRuns.push(...fallbackResult);
+              errors.push(...fallbackBatchErrors(fallbackResult, current, 'fallback-parent-files'));
             }
           } catch (fallbackErr) {
             errors.push({ type: 'fallback-parent-files', path: current, message: String(fallbackErr?.message || fallbackErr) });
@@ -142,6 +184,7 @@ export async function uploadDirWithSplitAndFallback({
 
           // uploadFlatDirInBatches will return an array of per-batch results (see updated file below)
           fallbackRuns.push(...(fallbackResult || []));
+          errors.push(...fallbackBatchErrors(fallbackResult, current, 'fallback-flatdir'));
         } catch (fallbackErr) {
           errors.push({ type: 'fallback-flatdir', path: current, message: String(fallbackErr?.message || fallbackErr) });
           onError(fallbackErr, { path: current, type: 'fallback-flatdir' });

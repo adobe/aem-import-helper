@@ -25,6 +25,7 @@ describe('aemHandler', function () {
   let downloadAssetsStub;
   let prepareModifiedPackageStub;
   let installPackageStub;
+  let uploadAssetsStub;
   let exitStub;
   let testDir;
   let outputDir;
@@ -51,15 +52,14 @@ describe('aemHandler', function () {
       return { modifiedZipPath: zip };
     });
     installPackageStub = sinon.stub().resolves({});
+    uploadAssetsStub = sinon.stub().resolves({ uploadResult: { ok: true, errors: [] }, renamedFiles: new Map() });
     exitStub = sinon.stub(process, 'exit');
     sinon.stub(console, 'log');
     sinon.stub(console, 'error');
 
     ({ aemHandler } = await esmock('../../src/aem/cmd-handler.js', {
       '../../src/utils/download-assets.js': { downloadAssets: downloadAssetsStub },
-      '../../src/aem/upload-assets.js': {
-        uploadAssets: sinon.stub().resolves({ uploadResult: {}, renamedFiles: new Map() }),
-      },
+      '../../src/aem/upload-assets.js': { uploadAssets: uploadAssetsStub },
       '../../src/aem/upload-summary.js': { printUploadSummary: sinon.stub() },
       '../../src/aem/package-modifier.js': {
         prepareModifiedPackage: prepareModifiedPackageStub,
@@ -137,5 +137,19 @@ describe('aemHandler', function () {
 
     expect(exitStub.firstCall.args[0]).to.equal(0);
     expect(fs.existsSync(path.join(outputDir, 'xwalk', 'image1.jpg'))).to.be.true;
+  });
+
+  it('installs the package but keeps assets and fails when some assets failed to upload', async () => {
+    uploadAssetsStub.resolves({
+      uploadResult: { ok: false, errors: [{ type: 'filesystem-upload', path: 'xwalk', message: '1 of 1 file(s) failed' }] },
+      renamedFiles: new Map(),
+    });
+
+    await aemHandler(args());
+
+    expect(installPackageStub.calledOnce).to.be.true;
+    expect(exitStub.firstCall.args[0]).to.equal(1);
+    expect(fs.existsSync(path.join(outputDir, 'xwalk', 'image1.jpg'))).to.be.true;
+    expect(console.error.calledWithMatch(/Content package installed, but some assets failed to upload/)).to.be.true;
   });
 });

@@ -166,6 +166,9 @@ export const aemHandler = async (args) => {
   // Cleanup runs last because --zip may live inside --output.
   let cleanupPaths = [];
   let exitCode = 0;
+  // Set when some assets failed to upload: the package is still installed, but the run fails
+  // and the local assets are kept so the upload can be retried.
+  let assetUploadFailure = null;
 
   try {
     const imagesToPng = args['images-to-png'] !== false;
@@ -209,11 +212,14 @@ export const aemHandler = async (args) => {
 
         printUploadSummary(uploadResult);
 
-        if (!args.keep) {
+        if (!uploadResult?.ok) {
+          const errorCount = uploadResult?.errors?.length || 0;
+          assetUploadFailure = `${errorCount} asset upload error(s) occurred. Local assets were kept in ${assetFolder} so the upload can be retried.`;
+        } else if (!args.keep) {
           // Only delete what this command created: never the caller's --output folder or other files in it.
           cleanupPaths = outputCreated
             ? [downloadFolder]
-            : getDownloadedPaths(assetMapping, downloadFolder);
+            : getDownloadedPaths(assetMapping, downloadFolder, { convertImagesToPng: imagesToPng });
         }
       }
     }
@@ -234,6 +240,10 @@ export const aemHandler = async (args) => {
 
   if (exitCode !== 0) {
     process.exit(exitCode);
+  }
+  if (assetUploadFailure) {
+    console.error(chalk.red(`Content package installed, but some assets failed to upload: ${assetUploadFailure}`));
+    process.exit(1);
   }
   console.log(chalk.green('Content uploaded successfully.'));
   process.exit(0)

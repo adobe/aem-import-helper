@@ -11,7 +11,7 @@
  */
 import { expect } from 'chai';
 import { uploadAssets } from '../../src/aem/upload-assets.js';
-import { FileSystemUpload } from '@adobe/aem-upload';
+import { DirectBinaryUpload, FileSystemUpload } from '@adobe/aem-upload';
 import sinon from 'sinon';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -26,6 +26,10 @@ describe('Mixed directory scenario (files + subdirectories)', function () {
       ok: true,
       status: 200,
       text: async () => '',
+    });
+    sinon.stub(DirectBinaryUpload.prototype, 'uploadFiles').callsFake(async (opts) => {
+      const count = opts.getUploadFiles().length;
+      return { totalFiles: count, totalCompleted: count, errors: [] };
     });
   });
 
@@ -124,15 +128,10 @@ describe('Mixed directory scenario (files + subdirectories)', function () {
       // 3. Both subdirectories should succeed (under 20 files each)
       expect(result.filesystemRuns.length, 'Both subdirectories should succeed').to.equal(2);
       
-      // 4. Root files should have triggered fallback attempt  
-      // Even if the actual DirectBinaryUpload isn't mocked and causes an error,
-      // the important thing is that fallback was ATTEMPTED
-      const hasParentFilesError = result.errors && result.errors.some(e => e.type === 'fallback-parent-files');
-      const hasFallbackRuns = result.fallbackRuns && result.fallbackRuns.length > 0;
-      
-      // Either fallback succeeded or it was at least attempted (which would cause an error without mocking)
-      expect(hasFallbackRuns || hasParentFilesError, 
-        'Root files should trigger fallback upload attempt').to.be.true;
+      // 4. Root files should have been uploaded through the fallback
+      expect(result.ok, 'Upload should succeed').to.be.true;
+      expect(result.fallbackRuns, 'Root files should use the fallback').to.have.lengthOf(1);
+      expect(result.fallbackRuns[0].filesUploaded).to.equal(3);
       
       console.log('\n      ✓ Root directory attempted: TOO_LARGE');
       console.log('      ✓ Root files fallback attempted');

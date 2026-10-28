@@ -11,7 +11,7 @@
  */
 import { expect } from 'chai';
 import { uploadAssets } from '../../src/aem/upload-assets.js';
-import { FileSystemUpload } from '@adobe/aem-upload';
+import { DirectBinaryUpload, FileSystemUpload } from '@adobe/aem-upload';
 import sinon from 'sinon';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -106,6 +106,12 @@ describe('upload assets', function () {
 
     beforeEach(() => {
       originalMaxUploadFiles = process.env.MAX_UPLOAD_FILES;
+      // Keep the fallback upload off the network: folder creation and direct binary upload.
+      sinon.stub(global, 'fetch').resolves({ ok: true, status: 201, text: async () => '' });
+      sinon.stub(DirectBinaryUpload.prototype, 'uploadFiles').callsFake(async (opts) => {
+        const count = opts.getUploadFiles().length;
+        return { totalFiles: count, totalCompleted: count, errors: [] };
+      });
     });
 
     afterEach(async () => {
@@ -291,14 +297,11 @@ describe('upload assets', function () {
 
       const { uploadResult: result } = await uploadAssets('http://www.aem.com', 'abcd123', testDir, fsUpload);
 
-      // The flat directory should trigger fallback mechanism
-      expect(result).to.have.property('fallbackRuns');
-      
-      // Either fallback was triggered or error was logged
-      const hasFallback = result.fallbackRuns && result.fallbackRuns.length > 0;
-      const hasError = result.errors && result.errors.length > 0;
-      
-      expect(hasFallback || hasError).to.be.true;
+      // The flat directory should be uploaded through the fallback
+      expect(result.ok).to.be.true;
+      expect(result.errors).to.deep.equal([]);
+      expect(result.fallbackRuns).to.have.lengthOf(1);
+      expect(result.fallbackRuns[0].filesUploaded).to.equal(50);
       
       console.log(`      → Filesystem runs: ${result.filesystemRuns.length}`);
       console.log(`      → Fallback runs: ${result.fallbackRuns ? result.fallbackRuns.length : 0}`);
@@ -362,15 +365,10 @@ describe('upload assets', function () {
       // Verify subdirectories were uploaded successfully
       expect(result.filesystemRuns.length).to.equal(2);
       
-      // Verify fallback was attempted for parent files
-      // (Will show as error without DirectBinaryUpload mock, but that proves it was attempted)
-      const hasParentFilesError = result.errors && result.errors.some(e => e.type === 'fallback-parent-files');
-      const hasFallbackRuns = result.fallbackRuns && result.fallbackRuns.length > 0;
-      
-      expect(hasFallbackRuns || hasParentFilesError, 
-        'Parent-level files should trigger fallback upload').to.be.true;
-      
-      console.log(`      → Root files handled via fallback: ${hasParentFilesError || hasFallbackRuns ? 'Yes' : 'No'}`);
+      // Verify the parent-level files were uploaded through the fallback
+      expect(result.ok).to.be.true;
+      expect(result.fallbackRuns).to.have.lengthOf(1);
+      expect(result.fallbackRuns[0].filesUploaded).to.equal(3);
     });
   });
 });
