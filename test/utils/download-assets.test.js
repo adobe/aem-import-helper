@@ -10,7 +10,7 @@
  * governing permissions and limitations under the License.
  */
 import { expect } from 'chai';
-import { cleanup, downloadAssets } from '../../src/utils/download-assets.js';
+import { cleanup, downloadAssets, getDownloadedPaths } from '../../src/utils/download-assets.js';
 import nock from 'nock';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -25,8 +25,8 @@ describe('download assets', function () {
     downloadFolder = path.join(__dirname, 'assets');
   });
 
-  afterEach(() => {
-    cleanup(downloadFolder);
+  afterEach(async () => {
+    await cleanup(downloadFolder);
   });
 
   it('expect download to be successful', async () => {
@@ -365,4 +365,70 @@ describe('download assets', function () {
     await scope.done();
   });
 
+  describe('cleanup', () => {
+    it('deletes the folder before resolving', async () => {
+      fs.mkdirSync(path.join(downloadFolder, 'xwalk'), { recursive: true });
+      fs.writeFileSync(path.join(downloadFolder, 'xwalk', 'image1.jpg'), 'data');
+
+      await cleanup(downloadFolder);
+
+      expect(fs.existsSync(downloadFolder)).to.be.false;
+    });
+
+    it('resolves when the folder does not exist', async () => {
+      await cleanup(path.join(downloadFolder, 'missing'));
+    });
+  });
+
+  describe('getDownloadedPaths', () => {
+    it('returns the top-level folders written for the asset mapping', () => {
+      const mapping = new Map([
+        ['http://www.aem.com/asset1.jpg', '/content/dam/xwalk/image1.jpg'],
+        ['http://www.aem.com/asset2.jpg', '/content/dam/xwalk/sub/image2.jpg'],
+        ['http://www.aem.com/asset3.jpg', '/content/dam/other/image3.jpg'],
+      ]);
+
+      expect(getDownloadedPaths(mapping, downloadFolder)).to.deep.equal([
+        path.join(downloadFolder, 'xwalk'),
+        path.join(downloadFolder, 'other'),
+      ]);
+    });
+
+    it('returns files under the DAM root and their PNG variant', () => {
+      const mapping = new Map([
+        ['http://www.aem.com/hero.webp', '/content/dam/hero.webp'],
+      ]);
+
+      expect(getDownloadedPaths(mapping, downloadFolder)).to.deep.equal([
+        path.join(downloadFolder, 'hero.webp'),
+        path.join(downloadFolder, 'hero.png'),
+      ]);
+    });
+
+    it('ignores paths that would escape the download folder', () => {
+      const mapping = new Map([
+        ['http://www.aem.com/a.jpg', '/content/dam/../a.jpg'],
+        ['http://www.aem.com/b.jpg', '/content/dam'],
+      ]);
+
+      expect(getDownloadedPaths(mapping, downloadFolder)).to.deep.equal([]);
+    });
+
+    it('does not include other files of the download folder', async () => {
+      const zipPath = path.join(downloadFolder, 'package.zip');
+      fs.mkdirSync(path.join(downloadFolder, 'xwalk'), { recursive: true });
+      fs.writeFileSync(path.join(downloadFolder, 'xwalk', 'image1.jpg'), 'data');
+      fs.writeFileSync(zipPath, 'zip');
+      const mapping = new Map([
+        ['http://www.aem.com/asset1.jpg', '/content/dam/xwalk/image1.jpg'],
+      ]);
+
+      for (const downloadedPath of getDownloadedPaths(mapping, downloadFolder)) {
+        await cleanup(downloadedPath);
+      }
+
+      expect(fs.existsSync(path.join(downloadFolder, 'xwalk'))).to.be.false;
+      expect(fs.existsSync(zipPath)).to.be.true;
+    });
+  });
 });

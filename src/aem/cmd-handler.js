@@ -12,7 +12,7 @@
 import fs from 'fs';
 import chalk from 'chalk';
 import path from 'path';
-import { cleanup, downloadAssets } from '../utils/download-assets.js';
+import { cleanup, downloadAssets, getDownloadedPaths } from '../utils/download-assets.js';
 import { uploadAssets } from './upload-assets.js';
 import { installPackage } from './package-helper.js';
 import {
@@ -146,7 +146,8 @@ export const aemHandler = async (args) => {
     console.log(chalk.yellow(`Using local assets from: ${args['local-assets']}`));
   }
 
-  if (!fs.existsSync(args.output)) {
+  const outputCreated = !fs.existsSync(args.output);
+  if (outputCreated) {
     fs.mkdirSync(args.output);
   }
 
@@ -161,8 +162,12 @@ export const aemHandler = async (args) => {
     process.exit(1);
   }
 
+  // Paths to delete once the content package has been installed (or has failed to install).
+  // Cleanup runs last because --zip may live inside --output.
+  let cleanupPaths = [];
+  let exitCode = 0;
+
   try {
-    // Common options and mappings used below
     const imagesToPng = args['images-to-png'] !== false;
     const assetMappingJson = args['asset-mapping'] && fs.existsSync(args['asset-mapping'])
       ? JSON.parse(fs.readFileSync(args['asset-mapping'], 'utf-8'))
@@ -205,7 +210,10 @@ export const aemHandler = async (args) => {
         printUploadSummary(uploadResult);
 
         if (!args.keep) {
-          await cleanup(downloadFolder);
+          // Only delete what this command created: never the caller's --output folder or other files in it.
+          cleanupPaths = outputCreated
+            ? [downloadFolder]
+            : getDownloadedPaths(assetMapping, downloadFolder);
         }
       }
     }
@@ -217,7 +225,15 @@ export const aemHandler = async (args) => {
     await installPackage(args.target, token, modifiedZipPath);
   } catch (err) {
     console.error(chalk.red('Error during upload:', err));
-    process.exit(1);
+    exitCode = 1;
+  } finally {
+    for (const cleanupPath of cleanupPaths) {
+      await cleanup(cleanupPath);
+    }
+  }
+
+  if (exitCode !== 0) {
+    process.exit(exitCode);
   }
   console.log(chalk.green('Content uploaded successfully.'));
   process.exit(0)

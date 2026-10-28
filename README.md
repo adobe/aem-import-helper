@@ -148,7 +148,8 @@ to the asset mapping file (`asset-mapping.json`), which contains mappings for as
 
 **Optional:**
 * _output_ [default='aem-assets']: Absolute path to the output folder where the downloaded assets will be stored.
-* _keep_ [default=false]: Keep the downloaded assets in the output folder after execution.
+* _keep_ [default=false]: Keep the downloaded assets in the output folder after execution. Without it, only the downloaded
+  assets are deleted once the content package has been installed; other files in the output folder are left in place.
 * _skip-assets_ [default=false]: Skip uploading assets to AEM..
 * _asset-mapping_: Only optional if --skip-assets is true.
 * _images-to-png_ [default=true]: When true, converts downloaded image assets to PNG (except for JPEG, PNG, GIF, ICO, SVG, MP4) before upload.
