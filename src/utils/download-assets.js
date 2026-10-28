@@ -349,15 +349,24 @@ export async function downloadAssets(assetMapping, downloadFolder, maxRetries = 
 /**
  * Get the top-level paths inside the download folder that downloadAssets writes for the given
  * asset mapping, so that they can be removed without touching anything else in the folder.
- * Assets in a DAM sub-folder are covered by their top-level folder; assets directly under
- * /content/dam are covered by their file path, plus the PNG variant created by image conversion.
+ * Assets in a DAM sub-folder are covered by their whole top-level folder; assets directly under
+ * /content/dam are covered by their file path, plus the PNG variant when images are converted.
+ * Paths that would not resolve to a direct child of the download folder are ignored.
  * @param {Map<string, string>} assetMapping - The asset mapping passed to downloadAssets.
  * @param {string} downloadFolder - The folder the assets were downloaded to.
+ * @param {Object} [options={}] - Options for the function
+ * @param {boolean} [options.convertImagesToPng=false] - Whether downloadAssets converted images to PNG
  * @return {string[]} The absolute paths to remove.
  */
-export function getDownloadedPaths(assetMapping, downloadFolder) {
+export function getDownloadedPaths(assetMapping, downloadFolder, options = {}) {
   const root = path.resolve(downloadFolder);
   const paths = new Set();
+  const addIfDirectChild = (candidate) => {
+    const relative = path.relative(root, candidate);
+    if (relative && !path.isAbsolute(relative) && !relative.includes(path.sep) && relative !== '..') {
+      paths.add(candidate);
+    }
+  };
 
   for (const downloadPath of assetMapping.values()) {
     if (typeof downloadPath !== 'string') {
@@ -365,15 +374,15 @@ export function getDownloadedPaths(assetMapping, downloadFolder) {
     }
     const segments = downloadPath.replace(CONTENT_DAM_PREFIX, '').split('/').filter(Boolean);
     const [topLevel] = segments;
-    if (!topLevel || topLevel === '.' || topLevel === '..') {
+    if (!topLevel) {
       continue;
     }
 
-    const topLevelPath = path.join(root, topLevel);
-    paths.add(topLevelPath);
-    if (segments.length === 1) {
+    const topLevelPath = path.resolve(root, topLevel);
+    addIfDirectChild(topLevelPath);
+    if (segments.length === 1 && options.convertImagesToPng) {
       const parsed = path.parse(topLevelPath);
-      paths.add(path.join(parsed.dir, `${parsed.name}.png`));
+      addIfDirectChild(path.join(parsed.dir, `${parsed.name}.png`));
     }
   }
 

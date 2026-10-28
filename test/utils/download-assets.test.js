@@ -11,6 +11,7 @@
  */
 import { expect } from 'chai';
 import { cleanup, downloadAssets, getDownloadedPaths } from '../../src/utils/download-assets.js';
+import esmock from 'esmock';
 import nock from 'nock';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -394,14 +395,39 @@ describe('download assets', function () {
       ]);
     });
 
-    it('returns files under the DAM root and their PNG variant', () => {
+    it('returns files under the DAM root and their PNG variant when images are converted', () => {
+      const mapping = new Map([
+        ['http://www.aem.com/hero.webp', '/content/dam/hero.webp'],
+      ]);
+
+      expect(getDownloadedPaths(mapping, downloadFolder, { convertImagesToPng: true })).to.deep.equal([
+        path.join(downloadFolder, 'hero.webp'),
+        path.join(downloadFolder, 'hero.png'),
+      ]);
+    });
+
+    it('does not return a PNG variant when images are not converted', () => {
       const mapping = new Map([
         ['http://www.aem.com/hero.webp', '/content/dam/hero.webp'],
       ]);
 
       expect(getDownloadedPaths(mapping, downloadFolder)).to.deep.equal([
         path.join(downloadFolder, 'hero.webp'),
-        path.join(downloadFolder, 'hero.png'),
+      ]);
+    });
+
+    it('ignores paths that would escape the download folder on Windows', async () => {
+      const { getDownloadedPaths: getWin32DownloadedPaths } = await esmock('../../src/utils/download-assets.js', {
+        path: path.win32,
+      });
+      const mapping = new Map([
+        ['http://www.aem.com/a.jpg', '/content/dam/a\\..\\..\\Documents/a.jpg'],
+        ['http://www.aem.com/b.jpg', '/content/dam/..\\b.jpg'],
+        ['http://www.aem.com/c.jpg', '/content/dam/xwalk/c.jpg'],
+      ]);
+
+      expect(getWin32DownloadedPaths(mapping, 'C:\\work\\out', { convertImagesToPng: true })).to.deep.equal([
+        'C:\\work\\out\\xwalk',
       ]);
     });
 
