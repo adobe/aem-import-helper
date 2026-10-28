@@ -239,13 +239,14 @@ export async function uploadFlatDirInBatches({
         result,
       });
     } catch (error) {
-      console.error(chalk.red(`  Batch ${batchNumber}/${totalBatches} failed: ${error.message}`));
+      const message = String(error?.message || error);
+      console.error(chalk.red(`  Batch ${batchNumber}/${totalBatches} failed: ${message}`));
       results.push({
         batchNumber,
         filesInBatch: batch.length,
         filesUploaded: 0,
         filesFailed: batch.length,
-        errors: [error.message],
+        errors: [message],
       });
     }
   }

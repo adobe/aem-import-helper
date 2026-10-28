@@ -152,4 +152,50 @@ describe('aemHandler', function () {
     expect(fs.existsSync(path.join(outputDir, 'xwalk', 'image1.jpg'))).to.be.true;
     expect(console.error.calledWithMatch(/Content package installed, but some assets failed to upload/)).to.be.true;
   });
+
+  describe('with the default output folder', () => {
+    let originalCwd;
+
+    beforeEach(() => {
+      originalCwd = process.cwd();
+      process.chdir(testDir);
+    });
+
+    afterEach(() => {
+      process.chdir(originalCwd);
+    });
+
+    it('removes a default output folder left over from an earlier run once it is empty', async () => {
+      fs.mkdirSync(path.join(testDir, 'aem-assets', 'xwalk'), { recursive: true });
+      fs.writeFileSync(path.join(testDir, 'aem-assets', 'xwalk', 'old.jpg'), 'old');
+
+      await aemHandler(args({ output: 'aem-assets' }));
+
+      expect(exitStub.firstCall.args[0]).to.equal(0);
+      expect(fs.existsSync(path.join(testDir, 'aem-assets'))).to.be.false;
+    });
+
+    it('keeps a default output folder that still contains other files', async () => {
+      fs.mkdirSync(path.join(testDir, 'aem-assets'));
+      fs.writeFileSync(path.join(testDir, 'aem-assets', 'notes.txt'), 'keep');
+
+      await aemHandler(args({ output: 'aem-assets' }));
+
+      expect(exitStub.firstCall.args[0]).to.equal(0);
+      expect(fs.existsSync(path.join(testDir, 'aem-assets', 'xwalk'))).to.be.false;
+      expect(fs.existsSync(path.join(testDir, 'aem-assets', 'notes.txt'))).to.be.true;
+    });
+  });
+
+  it('keeps an output folder named by the caller even when it ends up empty', async () => {
+    fs.rmSync(zipPath);
+    zipPath = path.join(testDir, 'package.zip');
+    fs.writeFileSync(zipPath, 'zip');
+
+    await aemHandler(args());
+
+    expect(exitStub.firstCall.args[0]).to.equal(0);
+    expect(fs.existsSync(path.join(outputDir, 'xwalk'))).to.be.false;
+    expect(fs.existsSync(outputDir)).to.be.true;
+  });
 });

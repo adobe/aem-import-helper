@@ -197,6 +197,15 @@ describe('aem-upload-fallback', function () {
       });
     });
 
+    it('reports a batch that throws a non-Error value', async () => {
+      await fs.writeFile(path.join(rootDir, 'a.png'), 'a');
+      uploadFilesStub.callsFake(() => Promise.reject('connection reset'));
+
+      const [batch] = await uploadFlatDirInBatches({ localDir: rootDir, rootDir, urlPrefix: URL_PREFIX, headers: {} });
+
+      expect(batch.errors).to.deep.equal(['connection reset']);
+    });
+
     it('counts uploaded files whose names the upload result misreports', async () => {
       // Run the real DirectBinaryUpload against a mocked AEM: in @adobe/aem-upload 2.0.3, totalCompleted
       // misses names with characters like `,` `+` `=` `;` `@` or `$`.

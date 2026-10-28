@@ -85,6 +85,22 @@ async function validateLogin(url, token) {
   }
 }
 
+const DEFAULT_OUTPUT = 'aem-assets';
+
+/**
+ * Remove the given folder if it exists and is empty.
+ * @param {string} folder - The folder to remove.
+ */
+async function removeIfEmpty(folder) {
+  try {
+    await fs.promises.rmdir(folder);
+  } catch (err) {
+    if (err.code !== 'ENOENT' && err.code !== 'ENOTEMPTY' && err.code !== 'EEXIST') {
+      console.error(chalk.red(`Error deleting folder: ${folder}`, err));
+    }
+  }
+}
+
 export const aemBuilder = (yargs) => {
   return yargs
     .option('zip', {
@@ -109,7 +125,7 @@ export const aemBuilder = (yargs) => {
     .option('output', {
       describe: 'Output directory for downloaded assets',
       type: 'string',
-      default: 'aem-assets',
+      default: DEFAULT_OUTPUT,
     })
     .option('skip-assets', {
       describe: 'If skip-assets is true, the assets are not downloaded',
@@ -186,7 +202,7 @@ export const aemHandler = async (args) => {
       if (damRootFolder === null) {
         console.log(chalk.yellow('No DAM root folder in asset mapping (empty or no paths under /content/dam/...), skipping asset download/upload.'));
       } else {
-        const downloadFolder = args.output === 'aem-assets'
+        const downloadFolder = args.output === DEFAULT_OUTPUT
           ? path.join(process.cwd(), args.output)
           : args.output;
 
@@ -235,6 +251,11 @@ export const aemHandler = async (args) => {
   } finally {
     for (const cleanupPath of cleanupPaths) {
       await cleanup(cleanupPath);
+    }
+    // The default output folder belongs to this command: don't leave it behind empty, e.g. when it
+    // was left over from a --keep or failed run. A folder named by the caller is never removed here.
+    if (cleanupPaths.length > 0 && args.output === DEFAULT_OUTPUT) {
+      await removeIfEmpty(path.join(process.cwd(), DEFAULT_OUTPUT));
     }
   }
 
