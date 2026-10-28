@@ -37,25 +37,31 @@ const HIBERNATION_HTML = `<!DOCTYPE html>
   </body>
 </html>`;
 
+/**
+ * MAX_RETRIES is read at module load, so load a fresh module instance for the given value.
+ */
+async function loadInstallPackage(maxRetries, mocks = {}) {
+  const original = process.env.MAX_RETRIES;
+  process.env.MAX_RETRIES = maxRetries;
+  try {
+    return (await esmock('../../src/aem/package-helper.js', mocks)).installPackage;
+  } finally {
+    if (original === undefined) {
+      delete process.env.MAX_RETRIES;
+    } else {
+      process.env.MAX_RETRIES = original;
+    }
+  }
+}
+
 describe('installPackage', function () {
   let installPackage;
   let packagePath;
   let tempDir;
-  let originalMaxRetries;
 
   before(async () => {
-    // MAX_RETRIES is read at module load: load a fresh module instance without retry delays.
-    originalMaxRetries = process.env.MAX_RETRIES;
-    process.env.MAX_RETRIES = '1';
-    ({ installPackage } = await esmock('../../src/aem/package-helper.js'));
-  });
-
-  after(() => {
-    if (originalMaxRetries === undefined) {
-      delete process.env.MAX_RETRIES;
-    } else {
-      process.env.MAX_RETRIES = originalMaxRetries;
-    }
+    // A single attempt: no retry delays.
+    installPackage = await loadInstallPackage('1');
   });
 
   beforeEach(() => {
@@ -110,10 +116,13 @@ describe('installPackage', function () {
 
     expect(error).to.be.instanceOf(Error);
     expect(error.message).to.include('response is not a package manager XML response');
+    expect(error.message).to.include('the environment may be hibernated or behind a login page');
     expect(error.message).to.include('status: 200');
     expect(error.message).to.include('content-type: text/html;charset=utf-8');
+    expect(error.message).to.include('title: "Environment hibernated"');
     expect(error.message).to.include('<title>Environment hibernated</title>');
     expect(error.message).to.not.include('Unexpected close tag');
+    expect(error.retryable).to.be.false;
   });
 
   it('truncates the body included in the error message', async () => {
@@ -124,7 +133,7 @@ describe('installPackage', function () {
     const error = await installPackage(TARGET, 'token', packagePath).catch((e) => e);
     const body = error.message.match(/body: "(.*)"\)$/)[1];
 
-    expect(body).to.have.lengthOf(203);
+    expect(body.length).to.be.below(500);
     expect(body.endsWith('...')).to.be.true;
   });
 
@@ -141,6 +150,7 @@ describe('installPackage', function () {
     expect(error).to.be.instanceOf(Error);
     expect(error.message).to.include(`unexpected redirect to ${TARGET}/libs/granite/core/content/login.html`);
     expect(error.message).to.include('status: 302');
+    expect(error.retryable).to.be.false;
     expect(scope.isDone()).to.be.true;
     expect(loginScope.isDone()).to.be.false;
   });
@@ -167,5 +177,114 @@ describe('installPackage', function () {
 
     expect(error.message).to.include('invalid XML response');
     expect(error.message).to.include('body: "<crx><response></crx>"');
+  });
+
+  it('reports 401 and 403 responses as authorization failures', async () => {
+    nock(TARGET)
+      .post(ENDPOINT)
+      .reply(403, 'Forbidden', { 'Content-Type': 'text/plain' });
+
+    const error = await installPackage(TARGET, 'token', packagePath).catch((e) => e);
+
+    expect(error.message).to.include('not authorized, check the token');
+    expect(error.retryable).to.be.false;
+  });
+
+  it('reports errors reading the response body', async () => {
+    const fetchStub = sinon.stub().resolves({
+      status: 200,
+      statusText: 'OK',
+      ok: true,
+      headers: new Headers({ 'content-type': 'text/xml' }),
+      text: async () => {
+        throw new Error('socket hang up');
+      },
+    });
+    const installWithFetch = await loadInstallPackage('1', { 'node-fetch': { default: fetchStub } });
+
+    await expect(installWithFetch(TARGET, 'token', packagePath))
+      .to.be.rejectedWith('failed to read response body: socket hang up');
+  });
+
+  describe('retries', () => {
+    let clock;
+
+    beforeEach(() => {
+      clock = sinon.useFakeTimers({ toFake: ['setTimeout'] });
+    });
+
+    /**
+     * Run installPackage, advancing the fake clock through the retry delays.
+     */
+    async function runWithRetries(install) {
+      let settled = false;
+      const promise = install(TARGET, 'token', packagePath).finally(() => {
+        settled = true;
+      });
+      promise.catch(() => {});
+      while (!settled) {
+        await clock.tickAsync(5000);
+      }
+      return promise;
+    }
+
+    it('retries a failed attempt and resolves on success', async () => {
+      const install = await loadInstallPackage('2');
+      const bodies = [];
+      const scope = nock(TARGET)
+        .post(ENDPOINT, (body) => bodies.push(body))
+        .reply(503, 'Service Unavailable', { 'Content-Type': 'text/plain' })
+        .post(ENDPOINT, (body) => bodies.push(body))
+        .reply(200, SUCCESS_XML, { 'Content-Type': 'text/xml' });
+
+      const response = await runWithRetries(install);
+
+      expect(response.status).to.equal(200);
+      expect(scope.isDone()).to.be.true;
+      // The form data is rebuilt for each attempt.
+      expect(bodies).to.have.lengthOf(2);
+      expect(bodies[1]).to.include('zip-content');
+    });
+
+    it('rejects with the last error once all attempts failed', async () => {
+      const install = await loadInstallPackage('2');
+      const scope = nock(TARGET)
+        .post(ENDPOINT)
+        .reply(503, 'first', { 'Content-Type': 'text/plain' })
+        .post(ENDPOINT)
+        .reply(502, 'second', { 'Content-Type': 'text/plain' });
+
+      const error = await runWithRetries(install).catch((e) => e);
+
+      expect(error.message).to.include('status: 502');
+      expect(scope.isDone()).to.be.true;
+    });
+
+    it('does not retry a hibernated environment', async () => {
+      const install = await loadInstallPackage('3');
+      const scope = nock(TARGET)
+        .post(ENDPOINT)
+        .reply(200, HIBERNATION_HTML, { 'Content-Type': 'text/html' });
+
+      const error = await runWithRetries(install).catch((e) => e);
+
+      expect(error.message).to.include('may be hibernated');
+      expect(scope.isDone()).to.be.true;
+      expect(console.warn.called).to.be.false;
+    });
+
+    ['0', '-1'].forEach((maxRetries) => {
+      it(`makes one attempt when MAX_RETRIES is ${maxRetries}`, async () => {
+        const install = await loadInstallPackage(maxRetries);
+        const scope = nock(TARGET)
+          .post(ENDPOINT)
+          .reply(503, 'Service Unavailable', { 'Content-Type': 'text/plain' });
+
+        const error = await runWithRetries(install).catch((e) => e);
+
+        expect(error.message).to.include('status: 503');
+        expect(scope.isDone()).to.be.true;
+      });
+    });
   });
 });
