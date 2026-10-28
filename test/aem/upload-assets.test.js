@@ -108,9 +108,10 @@ describe('upload assets', function () {
       originalMaxUploadFiles = process.env.MAX_UPLOAD_FILES;
       // Keep the fallback upload off the network: folder creation and direct binary upload.
       sinon.stub(global, 'fetch').resolves({ ok: true, status: 201, text: async () => '' });
-      sinon.stub(DirectBinaryUpload.prototype, 'uploadFiles').callsFake(async (opts) => {
-        const count = opts.getUploadFiles().length;
-        return { totalFiles: count, totalCompleted: count, errors: [] };
+      sinon.stub(DirectBinaryUpload.prototype, 'uploadFiles').callsFake(async function (opts) {
+        const files = opts.getUploadFiles();
+        files.forEach((file) => this.emit('fileend', { targetFile: new URL(file.fileUrl).pathname }));
+        return { totalFiles: files.length, totalCompleted: files.length, errors: [] };
       });
     });
 

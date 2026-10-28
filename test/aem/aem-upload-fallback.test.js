@@ -13,6 +13,7 @@ import * as chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { DirectBinaryUpload } from '@adobe/aem-upload';
 import fs from 'node:fs/promises';
+import nock from 'nock';
 import os from 'node:os';
 import path from 'node:path';
 import sinon from 'sinon';
@@ -33,10 +34,11 @@ describe('aem-upload-fallback', function () {
     uploadOptions = [];
     fetchStub = sinon.stub(global, 'fetch').resolves({ ok: true, status: 201, text: async () => '' });
     // Stub the real API so the tests break if the pinned @adobe/aem-upload changes it.
-    uploadFilesStub = sinon.stub(DirectBinaryUpload.prototype, 'uploadFiles').callsFake(async (opts) => {
+    uploadFilesStub = sinon.stub(DirectBinaryUpload.prototype, 'uploadFiles').callsFake(async function (opts) {
       uploadOptions.push(opts);
-      const count = opts.getUploadFiles().length;
-      return { totalFiles: count, totalCompleted: count, errors: [] };
+      const files = opts.getUploadFiles();
+      files.forEach((file) => this.emit('fileend', { targetFile: new URL(file.fileUrl).pathname }));
+      return { totalFiles: files.length, totalCompleted: files.length, errors: [] };
     });
     sinon.stub(console, 'log');
     sinon.stub(console, 'error');
@@ -45,6 +47,7 @@ describe('aem-upload-fallback', function () {
 
   afterEach(async () => {
     sinon.restore();
+    nock.cleanAll();
     await fs.rm(testDir, { recursive: true, force: true });
   });
 
@@ -170,7 +173,11 @@ describe('aem-upload-fallback', function () {
       await fs.writeFile(path.join(rootDir, 'a.png'), 'a');
       await fs.writeFile(path.join(rootDir, 'b.png'), 'b');
       await fs.writeFile(path.join(rootDir, 'c.png'), 'c');
-      uploadFilesStub.resolves({ totalFiles: 1, totalCompleted: 1, errors: [{ message: 'initiate failed' }] });
+      uploadFilesStub.callsFake(async function () {
+        this.emit('fileend', { targetFile: '/content/dam/xwalk/a.png' });
+        this.emit('fileerror', { targetFile: '/content/dam/xwalk/b.png', errors: [{ message: 'failed' }] });
+        return { totalFiles: 3, totalCompleted: 1, errors: [{ message: 'initiate failed' }] };
+      });
 
       const [batch] = await uploadFlatDirInBatches({ localDir: rootDir, rootDir, urlPrefix: URL_PREFIX, headers: {} });
 
@@ -188,6 +195,50 @@ describe('aem-upload-fallback', function () {
       expect(batch).to.deep.equal({
         batchNumber: 1, filesInBatch: 1, filesUploaded: 0, filesFailed: 1, errors: ['network down'],
       });
+    });
+
+    it('counts uploaded files whose names the upload result misreports', async () => {
+      // Run the real DirectBinaryUpload against a mocked AEM: in @adobe/aem-upload 2.0.3, totalCompleted
+      // misses names with characters like `,` `+` `=` `;` `@` or `$`.
+      uploadFilesStub.restore();
+      const names = ['w_300,h_200.png', 'a+b=c;d@e$f.png', 'hero.png'];
+      for (const name of names) {
+        await fs.writeFile(path.join(rootDir, name), name);
+      }
+      let uploadIndex = 0;
+      nock('https://author.example.com')
+        .post('/content/dam/xwalk.initiateUpload.json')
+        .times(names.length)
+        .reply(200, (uri, body) => ({
+          completeURI: '/content/dam/xwalk.completeUpload.json',
+          folderPath: '/content/dam/xwalk',
+          files: new URLSearchParams(body).getAll('fileName').map((fileName) => {
+            uploadIndex += 1;
+            return {
+              fileName,
+              mimeType: 'image/png',
+              uploadToken: `token-${uploadIndex}`,
+              uploadURIs: [`https://blob.example.com/upload-${uploadIndex}`],
+              minPartSize: 1,
+              maxPartSize: 1000000,
+            };
+          }),
+        }))
+        .post('/content/dam/xwalk.completeUpload.json')
+        .times(names.length)
+        .reply(200, {});
+      const blob = nock('https://blob.example.com')
+        .put(/\/upload-\d/)
+        .times(names.length)
+        .reply(201);
+
+      const [batch] = await uploadFlatDirInBatches({ localDir: rootDir, rootDir, urlPrefix: URL_PREFIX, headers: {} });
+
+      expect(blob.isDone()).to.be.true;
+      expect(nock.pendingMocks().filter((m) => m.includes('completeUpload'))).to.deep.equal([]);
+      expect(batch.result.totalCompleted).to.be.below(names.length);
+      expect(batch).to.include({ filesInBatch: 3, filesUploaded: 3, filesFailed: 0 });
+      expect(batch.errors).to.deep.equal([]);
     });
   });
 });

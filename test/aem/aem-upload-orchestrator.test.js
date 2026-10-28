@@ -12,6 +12,7 @@
 import { expect } from 'chai';
 import { FileSystemUploadOptions } from '@adobe/aem-upload';
 import esmock from 'esmock';
+import { EventEmitter } from 'node:events';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -75,8 +76,11 @@ describe('uploadDirWithSplitAndFallback', function () {
   });
 
   it('reports files that FileSystemUpload failed to upload', async () => {
-    const fileUpload = {
-      upload: async () => ({ totalFiles: 4, totalCompleted: 1, errors: [{ message: 'folder creation failed' }] }),
+    // totalCompleted is ignored: successful files are counted from 'fileend' events.
+    const fileUpload = new EventEmitter();
+    fileUpload.upload = async () => {
+      fileUpload.emit('fileend', {});
+      return { totalFiles: 4, totalCompleted: 4, errors: [{ message: 'folder creation failed' }] };
     };
 
     const result = await uploadDirWithSplitAndFallback({
@@ -117,5 +121,23 @@ describe('uploadDirWithSplitAndFallback', function () {
       path: rootDir,
       message: 'batch 2: 2 of 2 file(s) failed to upload; network down',
     }]);
+  });
+
+  it('counts files that completed even when the upload result misreports them', async () => {
+    const fileUpload = new EventEmitter();
+    fileUpload.upload = async () => {
+      fileUpload.emit('fileend', { targetFile: '/content/dam/xwalk/w_300,h_200.png' });
+      fileUpload.emit('fileend', { targetFile: '/content/dam/xwalk/hero.png' });
+      return { totalFiles: 2, totalCompleted: 1, errors: [] };
+    };
+
+    const result = await uploadDirWithSplitAndFallback({
+      fileUpload, options: new FileSystemUploadOptions().withUrl(URL_PREFIX), urlPrefix: URL_PREFIX, headers: {},
+      assetRootDir: rootDir, dir: rootDir,
+    });
+
+    expect(result.ok).to.be.true;
+    expect(result.filesystemRuns[0]).to.include({ filesUploaded: 2, filesFailed: 0 });
+    expect(fileUpload.listenerCount('fileend')).to.equal(0);
   });
 });

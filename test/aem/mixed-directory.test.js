@@ -27,9 +27,10 @@ describe('Mixed directory scenario (files + subdirectories)', function () {
       status: 200,
       text: async () => '',
     });
-    sinon.stub(DirectBinaryUpload.prototype, 'uploadFiles').callsFake(async (opts) => {
-      const count = opts.getUploadFiles().length;
-      return { totalFiles: count, totalCompleted: count, errors: [] };
+    sinon.stub(DirectBinaryUpload.prototype, 'uploadFiles').callsFake(async function (opts) {
+      const files = opts.getUploadFiles();
+      files.forEach((file) => this.emit('fileend', { targetFile: new URL(file.fileUrl).pathname }));
+      return { totalFiles: files.length, totalCompleted: files.length, errors: [] };
     });
   });
 

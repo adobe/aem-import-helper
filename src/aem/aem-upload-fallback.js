@@ -33,6 +33,25 @@ function formatErrors(errors) {
   return errors.map((e) => e?.message || String(e)).join(', ');
 }
 
+/**
+ * Count the successful files of an @adobe/aem-upload upload by listening to its 'fileend' events.
+ * The upload result's totalCompleted can't be used: in @adobe/aem-upload 2.0.3 it misses files whose
+ * name contains characters like `,` `+` `=` or `&` (decodeURI vs decodeURIComponent lookup keys).
+ * @param {EventEmitter} emitter - The FileSystemUpload or DirectBinaryUpload instance.
+ * @return {{count: () => number, stop: () => void}}
+ */
+export function trackCompletedFiles(emitter) {
+  let completed = 0;
+  const onFileEnd = () => {
+    completed += 1;
+  };
+  emitter.on('fileend', onFileEnd);
+  return {
+    count: () => completed,
+    stop: () => emitter.removeListener('fileend', onFileEnd),
+  };
+}
+
 function folderApiUrl(urlPrefix, relativeFolderPosix) {
   // The Assets HTTP API lives at <origin>/api/assets, not under /content/dam.
   const { origin } = new URL(urlPrefix);
@@ -191,10 +210,16 @@ export async function uploadFlatDirInBatches({
         console.error(chalk.red(`    [${fileIndex}/${batchSize}] ✗ Failed: ${fileName} (${relPath}) - ${errorMsg}`));
       });
       
-      const result = await upload.uploadFiles(opts);
+      const completedFiles = trackCompletedFiles(upload);
+      let result;
+      try {
+        result = await upload.uploadFiles(opts);
+      } finally {
+        completedFiles.stop();
+      }
 
-      // totalCompleted only counts successful files; files that never started are failures too.
-      const filesUploaded = Number.isFinite(result?.totalCompleted) ? result.totalCompleted : 0;
+      // Files that never completed (errored, or skipped after an upload-level error) are failures.
+      const filesUploaded = completedFiles.count();
       const filesFailed = Math.max(batch.length - filesUploaded, 0);
       const errors = (result?.errors || []).map((e) => e?.message || String(e));
 

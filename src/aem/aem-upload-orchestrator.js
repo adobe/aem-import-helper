@@ -13,7 +13,9 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import chalk from 'chalk';
 import { FileSystemUploadOptions } from '@adobe/aem-upload';
-import { encodePathSegments, toPosix, uploadFlatDirInBatches } from './aem-upload-fallback.js';
+import {
+  encodePathSegments, toPosix, trackCompletedFiles, uploadFlatDirInBatches,
+} from './aem-upload-fallback.js';
 
 async function listImmediateSubdirs(dir) {
   const entries = await fs.readdir(dir, { withFileTypes: true });
@@ -44,16 +46,19 @@ function isTooLargeError(e) {
 
 /**
  * Normalize a FileSystemUpload result: FileSystemUpload does not throw when files fail, it reports
- * totalFiles, totalCompleted (successful files only) and upload-level errors.
+ * totalFiles and upload-level errors. Successful files are counted from 'fileend' events because
+ * the result's totalCompleted is unreliable (see trackCompletedFiles).
+ * @param {object} res - The FileSystemUpload result.
+ * @param {string} dirPath - The uploaded directory.
+ * @param {number|null} filesUploaded - Files that completed, or null if they could not be counted.
  * @return {{run: object, error: ({type: string, path: string, message: string}|null)}}
  */
-function checkFilesystemRun(res, dirPath) {
+function checkFilesystemRun(res, dirPath, filesUploaded) {
   const totalFiles = Number.isFinite(res?.totalFiles) ? res.totalFiles : null;
-  const filesUploaded = Number.isFinite(res?.totalCompleted) ? res.totalCompleted : null;
   const filesFailed = totalFiles !== null && filesUploaded !== null ? Math.max(totalFiles - filesUploaded, 0) : 0;
   const uploadErrors = (Array.isArray(res?.errors) ? res.errors : []).map((e) => e?.message || String(e));
 
-  const run = filesUploaded === null ? res : { ...res, filesUploaded, filesFailed };
+  const run = totalFiles === null || filesUploaded === null ? res : { ...res, filesUploaded, filesFailed };
   if (filesFailed === 0 && uploadErrors.length === 0) {
     return { run, error: null };
   }
@@ -113,8 +118,14 @@ export async function uploadDirWithSplitAndFallback({
     const displayPath = relPath || '/';
 
     try {
-      const res = await fileUpload.upload(uploadOptionsForDir(options, urlPrefix, assetRootDir, current), [current]);
-      const { run, error } = checkFilesystemRun(res, current);
+      const completedFiles = typeof fileUpload.on === 'function' ? trackCompletedFiles(fileUpload) : null;
+      let res;
+      try {
+        res = await fileUpload.upload(uploadOptionsForDir(options, urlPrefix, assetRootDir, current), [current]);
+      } finally {
+        completedFiles?.stop();
+      }
+      const { run, error } = checkFilesystemRun(res, current, completedFiles ? completedFiles.count() : null);
       filesystemRuns.push(run);
       if (error) {
         console.error(chalk.red(`✗ Some files failed to upload from: ${displayPath} - ${error.message}`));
