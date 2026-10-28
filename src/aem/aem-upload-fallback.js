@@ -14,11 +14,11 @@ import path from 'node:path';
 import chalk from 'chalk';
 import { DirectBinaryUpload, DirectBinaryUploadOptions } from '@adobe/aem-upload';
 
-function toPosix(p) {
+export function toPosix(p) {
   return p.replaceAll('\\', '/');
 }
 
-function encodePathSegments(posixPath) {
+export function encodePathSegments(posixPath) {
   return posixPath
     .split('/')
     .filter(Boolean)
@@ -27,8 +27,10 @@ function encodePathSegments(posixPath) {
 }
 
 function folderApiUrl(urlPrefix, relativeFolderPosix) {
+  // The Assets HTTP API lives at <origin>/api/assets, not under /content/dam.
+  const { origin } = new URL(urlPrefix);
   const rel = encodePathSegments(relativeFolderPosix);
-  return `${urlPrefix}/api/assets/${rel}`;
+  return `${origin}/api/assets/${rel}`;
 }
 
 /**
@@ -36,7 +38,7 @@ function folderApiUrl(urlPrefix, relativeFolderPosix) {
  * Treats HTTP 409 as "already exists".
  */
 export async function ensureAemFolderExists({
-  urlPrefix,              // e.g. https://host/content/dam
+  urlPrefix,              // e.g. https://host/content/dam (only the origin is used)
   relativeFolderPosix,    // e.g. "a/b/c" (no leading slash)
   headers,                // { Authorization: `Bearer ...` }
 }) {
@@ -79,7 +81,7 @@ export async function ensureAemFolderExists({
  */
 export async function uploadFlatDirInBatches({
   localDir,
-  rootDir,           // original assetFolder root used to preserve structure
+  rootDir,           // original assetFolder root (e.g. <output>/xwalk), uploaded as /content/dam/xwalk
   urlPrefix,         // https://host/content/dam
   headers,
   replace = true,
@@ -93,7 +95,8 @@ export async function uploadFlatDirInBatches({
 
   if (!files.length) return [];
 
-  const relDir = path.relative(rootDir, localDir);
+  // Like FileSystemUpload, the root folder itself is uploaded under urlPrefix, so keep its name in the path.
+  const relDir = path.relative(path.dirname(rootDir), localDir);
   const relDirPosix = toPosix(relDir);
 
   // Ensure the directory exists in AEM (and parents).
@@ -110,9 +113,11 @@ export async function uploadFlatDirInBatches({
     ? encodePathSegments(relDirPosix)
     : '';
 
+  // DirectBinaryUpload expects the target asset URL under /content/dam: it initiates the upload
+  // on the parent folder (<folder>.initiateUpload.json), so this must not be an Assets API URL.
   const baseFolderUrl = relEncoded
-    ? `${urlPrefix}/api/assets/${relEncoded}`
-    : `${urlPrefix}/api/assets`;
+    ? `${urlPrefix}/${relEncoded}`
+    : urlPrefix;
 
   // Build list of upload items with explicit destination URLs
   const uploadItems = [];

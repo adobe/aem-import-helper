@@ -12,13 +12,27 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import chalk from 'chalk';
-import { uploadFlatDirInBatches } from './aem-upload-fallback.js';
+import { FileSystemUploadOptions } from '@adobe/aem-upload';
+import { encodePathSegments, toPosix, uploadFlatDirInBatches } from './aem-upload-fallback.js';
 
 async function listImmediateSubdirs(dir) {
   const entries = await fs.readdir(dir, { withFileTypes: true });
   return entries
     .filter((e) => e.isDirectory())
     .map((e) => path.join(dir, e.name));
+}
+
+/**
+ * FileSystemUpload uploads a directory as a child of the options URL. The root directory targets
+ * urlPrefix; a sub-directory reached by splitting must target its parent folder under urlPrefix.
+ */
+function uploadOptionsForDir(options, urlPrefix, assetRootDir, dir) {
+  if (dir === assetRootDir) {
+    return options;
+  }
+  const parentRel = toPosix(path.relative(path.dirname(assetRootDir), path.dirname(dir)));
+  return FileSystemUploadOptions.fromOptions(options)
+    .withUrl(`${urlPrefix}/${encodePathSegments(parentRel)}`);
 }
 
 function isTooLargeError(e) {
@@ -63,7 +77,7 @@ export async function uploadDirWithSplitAndFallback({
     const displayPath = relPath || '/';
 
     try {
-      const res = await fileUpload.upload(options, [current]);
+      const res = await fileUpload.upload(uploadOptionsForDir(options, urlPrefix, assetRootDir, current), [current]);
       filesystemRuns.push(res);
       continue;
     } catch (e) {
