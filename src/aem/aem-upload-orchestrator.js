@@ -12,7 +12,10 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import chalk from 'chalk';
-import { uploadFlatDirInBatches } from './aem-upload-fallback.js';
+import { FileSystemUploadOptions } from '@adobe/aem-upload';
+import {
+  encodePathSegments, toPosix, trackCompletedFiles, uploadFlatDirInBatches,
+} from './aem-upload-fallback.js';
 
 async function listImmediateSubdirs(dir) {
   const entries = await fs.readdir(dir, { withFileTypes: true });
@@ -21,11 +24,63 @@ async function listImmediateSubdirs(dir) {
     .map((e) => path.join(dir, e.name));
 }
 
+/**
+ * FileSystemUpload uploads a directory as a child of the options URL. The root directory targets
+ * urlPrefix; a sub-directory reached by splitting must target its parent folder under urlPrefix.
+ */
+function uploadOptionsForDir(options, urlPrefix, assetRootDir, dir) {
+  if (dir === assetRootDir) {
+    return options;
+  }
+  const parentRel = toPosix(path.relative(path.dirname(assetRootDir), path.dirname(dir)));
+  return FileSystemUploadOptions.fromOptions(options)
+    .withUrl(`${urlPrefix}/${encodePathSegments(parentRel)}`);
+}
+
 function isTooLargeError(e) {
   if (!e) return false;
   if (e.code === 'TOO_LARGE') return true;
   const msg = String(e.message || '');
   return msg.includes('exceeded maximum') || msg.includes('Walked directory exceeded');
+}
+
+/**
+ * Normalize a FileSystemUpload result: FileSystemUpload does not throw when files fail, it reports
+ * totalFiles and upload-level errors. Successful files are counted from 'fileend' events because
+ * the result's totalCompleted is unreliable (see trackCompletedFiles).
+ * @param {object} res - The FileSystemUpload result.
+ * @param {string} dirPath - The uploaded directory.
+ * @param {number|null} filesUploaded - Files that completed, or null if they could not be counted.
+ * @return {{run: object, error: ({type: string, path: string, message: string}|null)}}
+ */
+function checkFilesystemRun(res, dirPath, filesUploaded) {
+  const totalFiles = Number.isFinite(res?.totalFiles) ? res.totalFiles : null;
+  const filesFailed = totalFiles !== null && filesUploaded !== null ? Math.max(totalFiles - filesUploaded, 0) : 0;
+  const uploadErrors = (Array.isArray(res?.errors) ? res.errors : []).map((e) => e?.message || String(e));
+
+  const run = totalFiles === null || filesUploaded === null ? res : { ...res, filesUploaded, filesFailed };
+  if (filesFailed === 0 && uploadErrors.length === 0) {
+    return { run, error: null };
+  }
+
+  const parts = [];
+  if (filesFailed > 0) parts.push(`${filesFailed} of ${totalFiles} file(s) failed to upload`);
+  parts.push(...uploadErrors);
+  return { run, error: { type: 'filesystem-upload', path: dirPath, message: parts.join('; ') } };
+}
+
+/**
+ * Collect the failed batches of uploadFlatDirInBatches as orchestrator errors.
+ */
+function fallbackBatchErrors(batches, dirPath, type) {
+  return (batches || [])
+    .filter((b) => b.filesFailed > 0 || b.errors?.length > 0)
+    .map((b) => ({
+      type,
+      path: dirPath,
+      message: `batch ${b.batchNumber}: ${b.filesFailed} of ${b.filesInBatch} file(s) failed to upload`
+        + `${b.errors?.length ? `; ${b.errors.join('; ')}` : ''}`,
+    }));
 }
 
 /**
@@ -63,8 +118,19 @@ export async function uploadDirWithSplitAndFallback({
     const displayPath = relPath || '/';
 
     try {
-      const res = await fileUpload.upload(options, [current]);
-      filesystemRuns.push(res);
+      const completedFiles = typeof fileUpload.on === 'function' ? trackCompletedFiles(fileUpload) : null;
+      let res;
+      try {
+        res = await fileUpload.upload(uploadOptionsForDir(options, urlPrefix, assetRootDir, current), [current]);
+      } finally {
+        completedFiles?.stop();
+      }
+      const { run, error } = checkFilesystemRun(res, current, completedFiles ? completedFiles.count() : null);
+      filesystemRuns.push(run);
+      if (error) {
+        console.error(chalk.red(`✗ Some files failed to upload from: ${displayPath} - ${error.message}`));
+        errors.push(error);
+      }
       continue;
     } catch (e) {
       if (isTooLargeError(e)) {
@@ -100,6 +166,7 @@ export async function uploadDirWithSplitAndFallback({
             // and returns undefined if no files, so check before pushing
             if (fallbackResult && fallbackResult.length > 0) {
               fallbackRuns.push(...fallbackResult);
+              errors.push(...fallbackBatchErrors(fallbackResult, current, 'fallback-parent-files'));
             }
           } catch (fallbackErr) {
             errors.push({ type: 'fallback-parent-files', path: current, message: String(fallbackErr?.message || fallbackErr) });
@@ -128,6 +195,7 @@ export async function uploadDirWithSplitAndFallback({
 
           // uploadFlatDirInBatches will return an array of per-batch results (see updated file below)
           fallbackRuns.push(...(fallbackResult || []));
+          errors.push(...fallbackBatchErrors(fallbackResult, current, 'fallback-flatdir'));
         } catch (fallbackErr) {
           errors.push({ type: 'fallback-flatdir', path: current, message: String(fallbackErr?.message || fallbackErr) });
           onError(fallbackErr, { path: current, type: 'fallback-flatdir' });

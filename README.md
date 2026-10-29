@@ -148,7 +148,11 @@ to the asset mapping file (`asset-mapping.json`), which contains mappings for as
 
 **Optional:**
 * _output_ [default='aem-assets']: Absolute path to the output folder where the downloaded assets will be stored.
-* _keep_ [default=false]: Keep the downloaded assets in the output folder after execution.
+* _keep_ [default=false]: Keep the downloaded assets in the output folder after execution. Without it, the folders under
+  the output folder that the asset download writes to (one per top-level DAM folder, e.g. `<output>/xwalk`) and the
+  assets downloaded directly under `/content/dam` are deleted once the content package has been installed. If the output
+  folder did not exist, it is deleted entirely. If some assets fail to upload, the content package is still installed,
+  the downloaded assets are kept so the upload can be retried, and the command exits with a non-zero status.
 * _skip-assets_ [default=false]: Skip uploading assets to AEM..
 * _asset-mapping_: Only optional if --skip-assets is true.
 * _images-to-png_ [default=true]: When true, converts downloaded image assets to PNG (except for JPEG, PNG, GIF, ICO, SVG, MP4) before upload.

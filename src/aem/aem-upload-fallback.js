@@ -14,11 +14,11 @@ import path from 'node:path';
 import chalk from 'chalk';
 import { DirectBinaryUpload, DirectBinaryUploadOptions } from '@adobe/aem-upload';
 
-function toPosix(p) {
+export function toPosix(p) {
   return p.replaceAll('\\', '/');
 }
 
-function encodePathSegments(posixPath) {
+export function encodePathSegments(posixPath) {
   return posixPath
     .split('/')
     .filter(Boolean)
@@ -26,9 +26,37 @@ function encodePathSegments(posixPath) {
     .join('/');
 }
 
+function formatErrors(errors) {
+  if (!Array.isArray(errors)) {
+    return errors ? String(errors) : '';
+  }
+  return errors.map((e) => e?.message || String(e)).join(', ');
+}
+
+/**
+ * Count the successful files of an @adobe/aem-upload upload by listening to its 'fileend' events.
+ * The upload result's totalCompleted can't be used: in @adobe/aem-upload 2.0.3 it misses files whose
+ * name contains characters like `,` `+` `=` or `&` (decodeURI vs decodeURIComponent lookup keys).
+ * @param {EventEmitter} emitter - The FileSystemUpload or DirectBinaryUpload instance.
+ * @return {{count: () => number, stop: () => void}}
+ */
+export function trackCompletedFiles(emitter) {
+  let completed = 0;
+  const onFileEnd = () => {
+    completed += 1;
+  };
+  emitter.on('fileend', onFileEnd);
+  return {
+    count: () => completed,
+    stop: () => emitter.removeListener('fileend', onFileEnd),
+  };
+}
+
 function folderApiUrl(urlPrefix, relativeFolderPosix) {
+  // The Assets HTTP API lives at <origin>/api/assets, not under /content/dam.
+  const { origin } = new URL(urlPrefix);
   const rel = encodePathSegments(relativeFolderPosix);
-  return `${urlPrefix}/api/assets/${rel}`;
+  return `${origin}/api/assets/${rel}`;
 }
 
 /**
@@ -36,7 +64,7 @@ function folderApiUrl(urlPrefix, relativeFolderPosix) {
  * Treats HTTP 409 as "already exists".
  */
 export async function ensureAemFolderExists({
-  urlPrefix,              // e.g. https://host/content/dam
+  urlPrefix,              // e.g. https://host/content/dam (only the origin is used)
   relativeFolderPosix,    // e.g. "a/b/c" (no leading slash)
   headers,                // { Authorization: `Bearer ...` }
 }) {
@@ -75,11 +103,13 @@ export async function ensureAemFolderExists({
  * Upload files directly inside localDir (non-recursive) into the matching AEM folder.
  * This is used only when FileSystemUpload can't proceed due to TOO_LARGE and there are no
  * subdirectories to split further.
- * @returns {Promise<any[]>} Array of batch results with metadata
+ * @returns {Promise<Array<{batchNumber: number, filesInBatch: number, filesUploaded: number,
+ *   filesFailed: number, errors: string[], result?: object}>>} One entry per batch. A batch failed
+ *   if filesFailed > 0 or errors is not empty.
  */
 export async function uploadFlatDirInBatches({
   localDir,
-  rootDir,           // original assetFolder root used to preserve structure
+  rootDir,           // original assetFolder root (e.g. <output>/xwalk), uploaded as /content/dam/xwalk
   urlPrefix,         // https://host/content/dam
   headers,
   replace = true,
@@ -93,7 +123,8 @@ export async function uploadFlatDirInBatches({
 
   if (!files.length) return [];
 
-  const relDir = path.relative(rootDir, localDir);
+  // Like FileSystemUpload, the root folder itself is uploaded under urlPrefix, so keep its name in the path.
+  const relDir = path.relative(path.dirname(rootDir), localDir);
   const relDirPosix = toPosix(relDir);
 
   // Ensure the directory exists in AEM (and parents).
@@ -110,9 +141,11 @@ export async function uploadFlatDirInBatches({
     ? encodePathSegments(relDirPosix)
     : '';
 
+  // DirectBinaryUpload expects the target asset URL under /content/dam: it initiates the upload
+  // on the parent folder (<folder>.initiateUpload.json), so this must not be an Assets API URL.
   const baseFolderUrl = relEncoded
-    ? `${urlPrefix}/api/assets/${relEncoded}`
-    : `${urlPrefix}/api/assets`;
+    ? `${urlPrefix}/${relEncoded}`
+    : urlPrefix;
 
   // Build list of upload items with explicit destination URLs
   const uploadItems = [];
@@ -173,29 +206,47 @@ export async function uploadFlatDirInBatches({
         const filePath = data.fileName || data.filePath || 'unknown';
         const fileName = path.basename(filePath);
         const relPath = path.relative(rootDir, filePath);
-        const errorMsg = data.errors?.join(', ') || 'Unknown error';
+        const errorMsg = formatErrors(data.errors) || 'Unknown error';
         console.error(chalk.red(`    [${fileIndex}/${batchSize}] ✗ Failed: ${fileName} (${relPath}) - ${errorMsg}`));
       });
       
-      const result = await upload.upload(opts);
-      
-      // Extract success/failure counts from result
-      const uploaded = result?.filesUploaded || result?.totalFiles || batch.length;
-      const failed = result?.filesFailed || 0;
-      
-      console.log(chalk.green(`  Batch ${batchNumber}/${totalBatches} complete: ${uploaded} successful${failed > 0 ? `, ${failed} failed` : ''}`));
-      
+      const completedFiles = trackCompletedFiles(upload);
+      let result;
+      try {
+        result = await upload.uploadFiles(opts);
+      } finally {
+        completedFiles.stop();
+      }
+
+      // Files that never completed (errored, or skipped after an upload-level error) are failures.
+      const filesUploaded = completedFiles.count();
+      const filesFailed = Math.max(batch.length - filesUploaded, 0);
+      const errors = (result?.errors || []).map((e) => e?.message || String(e));
+
+      const summary = `${filesUploaded} successful${filesFailed > 0 ? `, ${filesFailed} failed` : ''}`;
+      if (filesFailed > 0 || errors.length > 0) {
+        console.error(chalk.red(`  Batch ${batchNumber}/${totalBatches} complete: ${summary}${errors.length ? ` - ${errors.join(', ')}` : ''}`));
+      } else {
+        console.log(chalk.green(`  Batch ${batchNumber}/${totalBatches} complete: ${summary}`));
+      }
+
       results.push({
         batchNumber,
         filesInBatch: batch.length,
+        filesUploaded,
+        filesFailed,
+        errors,
         result,
       });
     } catch (error) {
-      console.error(chalk.red(`  Batch ${batchNumber}/${totalBatches} failed: ${error.message}`));
+      const message = String(error?.message || error);
+      console.error(chalk.red(`  Batch ${batchNumber}/${totalBatches} failed: ${message}`));
       results.push({
         batchNumber,
         filesInBatch: batch.length,
-        error: error.message,
+        filesUploaded: 0,
+        filesFailed: batch.length,
+        errors: [message],
       });
     }
   }

@@ -12,7 +12,7 @@
 import fs from 'fs';
 import chalk from 'chalk';
 import path from 'path';
-import { cleanup, downloadAssets } from '../utils/download-assets.js';
+import { cleanup, downloadAssets, getDownloadedPaths } from '../utils/download-assets.js';
 import { uploadAssets } from './upload-assets.js';
 import { installPackage } from './package-helper.js';
 import {
@@ -85,6 +85,22 @@ async function validateLogin(url, token) {
   }
 }
 
+const DEFAULT_OUTPUT = 'aem-assets';
+
+/**
+ * Remove the given folder if it exists and is empty.
+ * @param {string} folder - The folder to remove.
+ */
+async function removeIfEmpty(folder) {
+  try {
+    await fs.promises.rmdir(folder);
+  } catch (err) {
+    if (err.code !== 'ENOENT' && err.code !== 'ENOTEMPTY' && err.code !== 'EEXIST') {
+      console.error(chalk.red(`Error deleting folder: ${folder}`, err));
+    }
+  }
+}
+
 export const aemBuilder = (yargs) => {
   return yargs
     .option('zip', {
@@ -109,7 +125,7 @@ export const aemBuilder = (yargs) => {
     .option('output', {
       describe: 'Output directory for downloaded assets',
       type: 'string',
-      default: 'aem-assets',
+      default: DEFAULT_OUTPUT,
     })
     .option('skip-assets', {
       describe: 'If skip-assets is true, the assets are not downloaded',
@@ -146,7 +162,8 @@ export const aemHandler = async (args) => {
     console.log(chalk.yellow(`Using local assets from: ${args['local-assets']}`));
   }
 
-  if (!fs.existsSync(args.output)) {
+  const outputCreated = !fs.existsSync(args.output);
+  if (outputCreated) {
     fs.mkdirSync(args.output);
   }
 
@@ -161,8 +178,15 @@ export const aemHandler = async (args) => {
     process.exit(1);
   }
 
+  // Paths to delete once the content package has been installed (or has failed to install).
+  // Cleanup runs last because --zip may live inside --output.
+  let cleanupPaths = [];
+  let exitCode = 0;
+  // Set when some assets failed to upload: the package is still installed, but the run fails
+  // and the local assets are kept so the upload can be retried.
+  let assetUploadFailure = null;
+
   try {
-    // Common options and mappings used below
     const imagesToPng = args['images-to-png'] !== false;
     const assetMappingJson = args['asset-mapping'] && fs.existsSync(args['asset-mapping'])
       ? JSON.parse(fs.readFileSync(args['asset-mapping'], 'utf-8'))
@@ -178,7 +202,7 @@ export const aemHandler = async (args) => {
       if (damRootFolder === null) {
         console.log(chalk.yellow('No DAM root folder in asset mapping (empty or no paths under /content/dam/...), skipping asset download/upload.'));
       } else {
-        const downloadFolder = args.output === 'aem-assets'
+        const downloadFolder = args.output === DEFAULT_OUTPUT
           ? path.join(process.cwd(), args.output)
           : args.output;
 
@@ -204,8 +228,14 @@ export const aemHandler = async (args) => {
 
         printUploadSummary(uploadResult);
 
-        if (!args.keep) {
-          await cleanup(downloadFolder);
+        if (!uploadResult?.ok) {
+          const errorCount = uploadResult?.errors?.length || 0;
+          assetUploadFailure = `${errorCount} asset upload error(s) occurred. Local assets were kept in ${assetFolder} so the upload can be retried.`;
+        } else if (!args.keep) {
+          // Only delete what this command created: never the caller's --output folder or other files in it.
+          cleanupPaths = outputCreated
+            ? [downloadFolder]
+            : getDownloadedPaths(assetMapping, downloadFolder, { convertImagesToPng: imagesToPng });
         }
       }
     }
@@ -217,6 +247,23 @@ export const aemHandler = async (args) => {
     await installPackage(args.target, token, modifiedZipPath);
   } catch (err) {
     console.error(chalk.red('Error during upload:', err));
+    exitCode = 1;
+  } finally {
+    for (const cleanupPath of cleanupPaths) {
+      await cleanup(cleanupPath);
+    }
+    // The default output folder belongs to this command: don't leave it behind empty, e.g. when it
+    // was left over from a --keep or failed run. A folder named by the caller is never removed here.
+    if (cleanupPaths.length > 0 && args.output === DEFAULT_OUTPUT) {
+      await removeIfEmpty(path.join(process.cwd(), DEFAULT_OUTPUT));
+    }
+  }
+
+  if (exitCode !== 0) {
+    process.exit(exitCode);
+  }
+  if (assetUploadFailure) {
+    console.error(chalk.red(`Content package installed, but some assets failed to upload: ${assetUploadFailure}`));
     process.exit(1);
   }
   console.log(chalk.green('Content uploaded successfully.'));
