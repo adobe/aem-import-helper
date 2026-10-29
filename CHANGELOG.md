@@ -1,3 +1,10 @@
+## [1.6.2](https://github.com/adobe/aem-import-helper/compare/v1.6.1...v1.6.2) (2026-10-29)
+
+
+### Bug Fixes
+
+* package install, cleanup and fallback upload bugs behind XWalk upload failures ([#96](https://github.com/adobe/aem-import-helper/issues/96)) ([20f0d00](https://github.com/adobe/aem-import-helper/commit/20f0d00f3d4667342b4177150f833e83f580d363))
+
 ## [1.6.1](https://github.com/adobe/aem-import-helper/compare/v1.6.0...v1.6.1) (2026-10-21)
 
 
