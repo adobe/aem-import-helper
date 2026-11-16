@@ -39,7 +39,6 @@
   },
   "dependencies": {
     "@adobe/aem-upload": "2.0.3",
-    "aem-import-builder": "0.3.2",
     "archiver": "7.0.1",
     "chalk": "5.3.0",
     "esbuild": "0.28.1",
