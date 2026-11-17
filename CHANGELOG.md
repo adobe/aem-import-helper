@@ -1,3 +1,10 @@
+## [1.6.3](https://github.com/adobe/aem-import-helper/compare/v1.6.2...v1.6.3) (2026-11-17)
+
+
+### Bug Fixes
+
+* **deps:** remove aem-import-builder and stop shipping semantic-release at runtime ([#97](https://github.com/adobe/aem-import-helper/issues/97)) ([7a402c3](https://github.com/adobe/aem-import-helper/commit/7a402c3eecf7887d68b002da8759d5da5b9f31f0))
+
 ## [1.6.2](https://github.com/adobe/aem-import-helper/compare/v1.6.1...v1.6.2) (2026-10-29)
 
 
