@@ -35,7 +35,7 @@ function formatErrors(errors) {
 
 /**
  * Count the successful files of an @adobe/aem-upload upload by listening to its 'fileend' events.
- * The upload result's totalCompleted can't be used: in @adobe/aem-upload 2.0.3 it misses files whose
+ * The upload result's totalCompleted can't be used: in @adobe/aem-upload 2.0.3–2.0.5 it misses files whose
  * name contains characters like `,` `+` `=` or `&` (decodeURI vs decodeURIComponent lookup keys).
  * @param {EventEmitter} emitter - The FileSystemUpload or DirectBinaryUpload instance.
  * @return {{count: () => number, stop: () => void}}
