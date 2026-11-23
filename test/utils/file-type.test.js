@@ -106,6 +106,41 @@ describe('file-type', function () {
       expect(detectImageFormat(Buffer.from('RIFF'))).to.be.null;
       expect(detectImageFormat(Buffer.alloc(0))).to.be.null;
     });
+
+    it('rejects a bare truncated <svg tag while still allowing prologs near the scan limit', function () {
+      expect(detectImageFormat(Buffer.from('<svg'))).to.be.null;
+      expect(detectImageFormat(Buffer.from('<?xml version="1.0"?><svg'))).to.be.null;
+
+      // Place `<svg` right at the 64 KiB scan boundary so the scanned slice ends right after `<svg`
+      const commentOverhead = '<!--  -->'.length;
+      const paddingLength = (64 * 1024) - commentOverhead - '<svg'.length;
+      const longPrologSvg = Buffer.from(`<!-- ${'a'.repeat(paddingLength)} --><svg xmlns="http://www.w3.org/2000/svg"/>`);
+      expect(detectImageFormat(longPrologSvg)).to.equal('SVG');
+    });
+
+    it('handles ISO-BMFF ftyp box sizes safely', function () {
+      // boxSize === 0 means the box extends to EOF, so compatible brands are read
+      const zeroBoxSizeAvif = Buffer.from('\x00\x00\x00\x00ftypisom\x00\x00\x00\x00avif', 'latin1');
+      expect(detectImageFormat(zeroBoxSizeAvif)).to.equal('AVIF');
+
+      // boxSize < 16 (other than 0) is invalid
+      const tinyBoxSize8 = Buffer.from('\x00\x00\x00\x08ftypavif\x00\x00\x00\x00', 'latin1');
+      const tinyBoxSize12 = Buffer.from('\x00\x00\x00\x0Cftypavif\x00\x00\x00\x00', 'latin1');
+      expect(detectImageFormat(tinyBoxSize8)).to.be.null;
+      expect(detectImageFormat(tinyBoxSize12)).to.be.null;
+
+      // Compatible brands past boxEnd are ignored
+      const avifPastBoxEnd = Buffer.from('\x00\x00\x00\x14ftypisom\x00\x00\x00\x00isomavif', 'latin1');
+      expect(detectImageFormat(avifPastBoxEnd)).to.be.null;
+
+      // Compatible brands past the 4096-byte scan cap are ignored even with boxSize === 0xFFFFFFFF
+      const hugeBoxWithLateAvif = Buffer.concat([
+        Buffer.from('\xFF\xFF\xFF\xFFftypisom\x00\x00\x00\x00', 'latin1'),
+        Buffer.alloc(4096 - 16, 0x20),
+        Buffer.from('avif', 'latin1'),
+      ]);
+      expect(detectImageFormat(hugeBoxWithLateAvif)).to.be.null;
+    });
   });
 
   describe('matchesFileKind', function () {
@@ -120,13 +155,19 @@ describe('file-type', function () {
       expect(matchesFileKind(Buffer.from('<html><body>Not found</body></html>'), FILE_KIND.PDF)).to.be.false;
     });
 
-    it('matches an MP4 video by its ftyp box', function () {
+    it('matches an MP4 video by its ftyp box and excludes AVIF, HEIF and short text', function () {
       expect(matchesFileKind(MP4_HEADER, FILE_KIND.VIDEO)).to.be.true;
       expect(matchesFileKind(readImageFixture('sample.jpg'), FILE_KIND.VIDEO)).to.be.false;
+      expect(matchesFileKind(readImageFixture('sample.avif'), FILE_KIND.VIDEO)).to.be.false;
+      expect(matchesFileKind(readImageFixture('sample.heic'), FILE_KIND.VIDEO)).to.be.false;
+      expect(matchesFileKind(readImageFixture('sample.heif'), FILE_KIND.VIDEO)).to.be.false;
+      expect(matchesFileKind(Buffer.from('1234ftyp'), FILE_KIND.VIDEO)).to.be.false;
     });
 
-    it('throws for an unknown kind', function () {
+    it('throws for an unknown kind, including Object.prototype property names', function () {
       expect(() => matchesFileKind(Buffer.from('data'), 'spreadsheet')).to.throw('Unknown file kind: spreadsheet');
+      expect(() => matchesFileKind(Buffer.from('data'), 'toString')).to.throw('Unknown file kind: toString');
+      expect(() => matchesFileKind(Buffer.from('data'), 'constructor')).to.throw('Unknown file kind: constructor');
     });
   });
 
@@ -138,6 +179,7 @@ describe('file-type', function () {
         .to.equal('an XML document');
       expect(describeBytes(Buffer.from('{"error":"not found"}'))).to.equal('JSON');
       expect(describeBytes(Buffer.from('Not Found'))).to.equal('plain text of 9 bytes');
+      expect(describeBytes(Buffer.from('1234ftyp'))).to.equal('plain text of 8 bytes');
       expect(describeBytes(Buffer.from([0x00, 0x01, 0x02, 0x03]))).to.equal('unknown binary data of 4 bytes');
       expect(describeBytes(readImageFixture('sample.webp'))).to.equal('an image (WebP)');
       expect(describeBytes(MP4_HEADER)).to.equal('an MP4 video');
