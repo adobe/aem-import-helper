@@ -59,6 +59,14 @@ const FILE_KINDS_BY_EXTENSION = new Map([
 const FILE_KINDS_BY_CONTENT_TYPE = new Map([
   ['application/pdf', FILE_KIND.PDF],
   ['video/mp4', FILE_KIND.VIDEO],
+  // Only the image types detectImageFormat recognises: other image/* types (PSD, EPS, SVGZ, ...)
+  // are saved unchecked, as before
+  ...[
+    'image/jpeg', 'image/jpg', 'image/pjpeg', 'image/png', 'image/apng', 'image/gif', 'image/webp',
+    'image/avif', 'image/heic', 'image/heif', 'image/heic-sequence', 'image/heif-sequence',
+    'image/bmp', 'image/x-ms-bmp', 'image/tiff', 'image/x-icon', 'image/vnd.microsoft.icon',
+    'image/jxl', 'image/jp2', 'image/svg+xml',
+  ].map((type) => [type, FILE_KIND.IMAGE]),
 ]);
 
 const FILE_KIND_LABELS = {
@@ -81,11 +89,7 @@ function getExpectedFileKind(ext, mainType) {
   if (FILE_KINDS_BY_EXTENSION.has(ext)) {
     return FILE_KINDS_BY_EXTENSION.get(ext);
   }
-  const type = mainType.toLowerCase();
-  if (type.startsWith('image/')) {
-    return FILE_KIND.IMAGE;
-  }
-  return FILE_KINDS_BY_CONTENT_TYPE.get(type) || null;
+  return FILE_KINDS_BY_CONTENT_TYPE.get(mainType.toLowerCase()) || null;
 }
 
 /**
@@ -144,7 +148,17 @@ async function saveBlobToFile(blob, downloadPath, downloadFolder, contentType, u
     && !(mainType && DO_NOT_CONVERT_CONTENT_TYPES.has(mainType));
 
   const sourceBuffer = Buffer.from(await blob.arrayBuffer());
-  assertDownloadIsExpectedKind(url, sourceBuffer, currentExt, mainType);
+  try {
+    assertDownloadIsExpectedKind(url, sourceBuffer, currentExt, mainType);
+  } catch (error) {
+    // A file an earlier run left at this path would otherwise be uploaded in its place
+    fs.rmSync(assetPath, { force: true });
+    if (shouldConvert) {
+      const parsed = path.parse(assetPath);
+      fs.rmSync(path.join(parsed.dir, `${parsed.name}.png`), { force: true });
+    }
+    throw error;
+  }
 
   fs.mkdirSync(path.dirname(assetPath), { recursive: true });
 

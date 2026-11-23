@@ -498,18 +498,43 @@ describe('download assets', function () {
     });
 
     it('does not check downloads of a kind of file it cannot recognise', async () => {
+      const psd = Buffer.from('8BPS\u0000\u0001\u0000\u0000\u0000\u0000\u0000\u0000', 'latin1');
       const scope = nock('http://www.aem.com')
         .get('/terms.docx')
-        .reply(200, HTML_PAGE, { 'Content-Type': 'text/html' });
+        .reply(200, HTML_PAGE, { 'Content-Type': 'text/html' })
+        .get('/brand.psd')
+        .reply(200, psd, { 'Content-Type': 'image/vnd.adobe.photoshop' });
 
       const mapping = new Map([
         ['http://www.aem.com/terms.docx', '/content/dam/xwalk/terms.docx'],
+        ['http://www.aem.com/brand.psd', '/content/dam/xwalk/brand.psd'],
       ]);
 
       const results = await downloadAssets(mapping, downloadFolder, 1, 0);
 
-      expect(results[0].status).to.equal('fulfilled');
+      expect(results.map((result) => result.status)).to.deep.equal(['fulfilled', 'fulfilled']);
       expect(fs.readFileSync(path.join(downloadFolder, 'xwalk/terms.docx'), 'utf-8')).to.equal(HTML_PAGE);
+      expect(fs.readFileSync(path.join(downloadFolder, 'xwalk/brand.psd'))).to.deep.equal(psd);
+
+      await scope.done();
+    });
+
+    it('removes a file an earlier run left where a rejected download would go', async () => {
+      const scope = nock('http://www.aem.com')
+        .get('/hero.jpg')
+        .reply(200, HTML_PAGE, { 'Content-Type': 'text/html' });
+      const stale = path.join(downloadFolder, 'xwalk/hero.jpg');
+      fs.mkdirSync(path.dirname(stale), { recursive: true });
+      fs.writeFileSync(stale, 'Forbidden: request blocked by the WAF.');
+
+      const mapping = new Map([
+        ['http://www.aem.com/hero.jpg', '/content/dam/xwalk/hero.jpg'],
+      ]);
+
+      const results = await downloadAssets(mapping, downloadFolder, 1, 0);
+
+      expect(results[0].status).to.equal('rejected');
+      expect(fs.existsSync(stale)).to.be.false;
 
       await scope.done();
     });
