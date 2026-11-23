@@ -14,6 +14,7 @@ import fs from 'fs';
 import path from 'path';
 import chalk from 'chalk';
 import sharp from 'sharp';
+import { FILE_KIND, describeBytes, matchesFileKind } from './file-type.js';
 
 const CONTENT_DAM_PREFIX = '/content/dam';
 
@@ -50,19 +51,80 @@ export const DO_NOT_CONVERT_CONTENT_TYPES = new Set([
   'video/mp4',
 ]);
 
+// Kinds of file, other than images, whose downloads are checked, by extension and by content type
+const FILE_KINDS_BY_EXTENSION = new Map([
+  ['.pdf', FILE_KIND.PDF],
+  ['.mp4', FILE_KIND.VIDEO],
+]);
+const FILE_KINDS_BY_CONTENT_TYPE = new Map([
+  ['application/pdf', FILE_KIND.PDF],
+  ['video/mp4', FILE_KIND.VIDEO],
+]);
+
+const FILE_KIND_LABELS = {
+  [FILE_KIND.IMAGE]: 'an image',
+  [FILE_KIND.PDF]: 'a PDF',
+  [FILE_KIND.VIDEO]: 'an MP4 video',
+};
+
+/**
+ * Get the kind of file a download is expected to be, from the extension it is saved under or,
+ * when the extension does not tell, from the main type of its content type.
+ * @param {string} ext - The lower-case extension the download is saved under.
+ * @param {string} mainType - The main type of the response content type, without parameters.
+ * @return {string|null} One of the FILE_KIND values, or null when the download is not checked.
+ */
+function getExpectedFileKind(ext, mainType) {
+  if (IMAGE_EXTENSIONS.has(ext)) {
+    return FILE_KIND.IMAGE;
+  }
+  if (FILE_KINDS_BY_EXTENSION.has(ext)) {
+    return FILE_KINDS_BY_EXTENSION.get(ext);
+  }
+  const type = mainType.toLowerCase();
+  if (type.startsWith('image/')) {
+    return FILE_KIND.IMAGE;
+  }
+  return FILE_KINDS_BY_CONTENT_TYPE.get(type) || null;
+}
+
+/**
+ * Make sure the downloaded bytes are the kind of file they are saved as, so that an error page,
+ * bot-protection challenge or soft-404 served with a 2xx status is not saved and uploaded as an
+ * image, PDF or video.
+ * @param {string} url - The URL the bytes were downloaded from.
+ * @param {Buffer} bytes - The downloaded bytes.
+ * @param {string} ext - The lower-case extension the download is saved under.
+ * @param {string} mainType - The main type of the response content type, without parameters.
+ * @throws {Error} When the bytes are not the expected kind of file.
+ */
+function assertDownloadIsExpectedKind(url, bytes, ext, mainType) {
+  const expectedKind = getExpectedFileKind(ext, mainType);
+  if (!expectedKind || matchesFileKind(bytes, expectedKind)) {
+    return;
+  }
+  const actual = bytes.length === 0 ? 'the download is empty' : `the download looks like ${describeBytes(bytes)}`;
+  const message = `Rejected ${url}: expected ${FILE_KIND_LABELS[expectedKind]} but ${actual}`;
+  console.error(chalk.red(message));
+  throw new Error(message);
+}
+
 /**
  * Save the given blob to a file in the download folder.
  * For image blobs, convert to PNG and force a .png extension.
+ * Nothing is written when the blob is not the kind of file its path or content type says it is.
  * @param {Blob} blob - The blob to save.
  * @param {string} downloadPath - The path of the asset.
  * @param {string} downloadFolder - The folder to download assets to.
  * @param {string} contentType - The content type from the response headers.
+ * @param {string} url - The URL the blob was downloaded from.
  * @param {Object} [options={}] - Options for the function
  * @param {boolean} [options.convertImagesToPng=false] - Whether to convert images to PNG
  * @param {boolean} [options.useCache=false] - Whether to use local cache (skip if file exists)
  * @return {Promise<{cached: boolean}>} A promise that resolves when the blob is saved or skipped (if cached).
+ * @throws {Error} When the blob is not the expected kind of file.
  */
-async function saveBlobToFile(blob, downloadPath, downloadFolder, contentType, options = {}) {
+async function saveBlobToFile(blob, downloadPath, downloadFolder, contentType, url, options = {}) {
   let assetPath = path.join(downloadFolder, downloadPath.replace(CONTENT_DAM_PREFIX, ''));
   
   // Check if file exists and cache is enabled
@@ -81,9 +143,10 @@ async function saveBlobToFile(blob, downloadPath, downloadFolder, contentType, o
     && !DO_NOT_CONVERT_EXTENSIONS.has(currentExt)
     && !(mainType && DO_NOT_CONVERT_CONTENT_TYPES.has(mainType));
 
-  fs.mkdirSync(path.dirname(assetPath), { recursive: true });
-
   const sourceBuffer = Buffer.from(await blob.arrayBuffer());
+  assertDownloadIsExpectedKind(url, sourceBuffer, currentExt, mainType);
+
+  fs.mkdirSync(path.dirname(assetPath), { recursive: true });
 
   if (shouldConvert) {
     // Convert to PNG and force .png extension
@@ -100,7 +163,8 @@ async function saveBlobToFile(blob, downloadPath, downloadFolder, contentType, o
       fs.writeFileSync(assetPath, pngBuffer);
       return { cached: false };
     } catch (e) {
-      // If conversion fails, fall back to saving the original buffer
+      // If conversion fails, fall back to saving the original buffer, which the check above
+      // has confirmed is an image of its own type
       console.warn(chalk.yellow(`Warning: Failed to convert image to PNG for ${assetPath}. Saving original. ${e.message}`));
       // Check cache again with the updated path
       if (options.useCache && fs.existsSync(assetPath)) {
@@ -300,7 +364,7 @@ export async function downloadAssets(assetMapping, downloadFolder, maxRetries = 
       }
 
       const { blob, contentType } = await downloadAssetWithRetry(assetUrl, maxRetries, retryDelay, headers, assetIndex, totalAssets);
-      const result = await saveBlobToFile(blob, downloadPath, downloadFolder, contentType, options);
+      const result = await saveBlobToFile(blob, downloadPath, downloadFolder, contentType, assetUrl, options);
       return { downloadPath, cached: result?.cached || false };
     });
     

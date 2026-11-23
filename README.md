@@ -160,6 +160,11 @@ to the asset mapping file (`asset-mapping.json`), which contains mappings for as
 
 Once the command is executed, the content package and associated assets are uploaded to your AEM author environment. The content package is installed and the assets are uploaded to the DAM.
 
+Downloaded images, PDFs and MP4 videos are checked before they are saved: when the bytes are not that kind of file
+(for example an error page, a bot-protection challenge or a soft-404 served with a 200 status), the asset is reported
+as a failed download and is not uploaded, so it does not overwrite the asset in the DAM. An image is accepted in any
+image format, as servers often serve WebP or AVIF for a `.jpg` URL. Assets copied from `--local-assets` are not checked.
+
 ## Importing content into DA
 
 Add the following npm script entries to your Edge Delivery project's `package.json`:
@@ -212,6 +217,8 @@ npm run da-upload -- \
 ```
 
 **Note**: Images and non-image assets are handled differently. Images are stored in page-specific shadow (.dot) folders, while non-image media (PDFs, docs) are stored in `shared-media` folders under each page's parent directory.
+
+**Note**: Downloaded images, PDFs and MP4 videos are checked before they are saved: when the bytes are not that kind of file (for example an error page, a bot-protection challenge or a soft-404 served with a 200 status), the asset is reported as a failed download and is not uploaded to DA. An image is accepted in any image format, as servers often serve WebP or AVIF for a `.jpg` URL. Assets copied from `--local-assets` are not checked.
 
 **Optional:**
 * _token_: Absolute path to the file containing the IMS token for your DA environment, or the token value.

@@ -108,7 +108,7 @@ describe('download assets', function () {
   it('should save extensionless file without adding extension (extension added later before upload)', async () => {
     const scope = nock('http://www.aem.com')
       .get('/asset1')
-      .reply(200, 'image data', {
+      .replyWithFile(200, path.resolve(__dirname, '../aem/fixtures/image1.jpeg'), {
         'Content-Type': 'image/jpeg',
       });
 
@@ -126,7 +126,7 @@ describe('download assets', function () {
   it('should not add extension when file already has one', async () => {
     const scope = nock('http://www.aem.com')
       .get('/asset1.png')
-      .reply(200, 'image data', {
+      .replyWithFile(200, path.resolve(__dirname, '../aem/fixtures/image1.jpeg'), {
         'Content-Type': 'image/jpeg',
       });
 
@@ -161,7 +161,7 @@ describe('download assets', function () {
   it('should save extensionless file without extension even with content-type parameters (no conversion)', async () => {
     const scope = nock('http://www.aem.com')
       .get('/asset1')
-      .reply(200, 'image data', {
+      .replyWithFile(200, path.resolve(__dirname, '../aem/fixtures/image1.jpeg'), {
         'Content-Type': 'image/jpeg; charset=utf-8',
       });
 
@@ -364,6 +364,155 @@ describe('download assets', function () {
     });
 
     await scope.done();
+  });
+
+  describe('downloaded bytes check', () => {
+    const HTML_PAGE = '<!DOCTYPE html><html><head><title>Just a moment...</title></head><body></body></html>';
+    const imageFixture = (name) => path.resolve(__dirname, '../fixtures/images', name);
+
+    it('rejects an HTML page downloaded for an image and writes nothing', async () => {
+      const scope = nock('http://www.aem.com')
+        .get('/hero.jpg')
+        .reply(200, HTML_PAGE, { 'Content-Type': 'text/plain' })
+        .get('/banner.jpg')
+        .reply(200, HTML_PAGE)
+        .get('/teaser.webp')
+        .reply(200, HTML_PAGE, { 'Content-Type': 'image/webp' });
+
+      const mapping = new Map([
+        ['http://www.aem.com/hero.jpg', '/content/dam/xwalk/hero.jpg'],
+        ['http://www.aem.com/banner.jpg', '/content/dam/xwalk/banner.jpg'],
+        // .webp is converted to PNG, so this one goes through the conversion branch
+        ['http://www.aem.com/teaser.webp', '/content/dam/xwalk/teaser.webp'],
+      ]);
+
+      const results = await downloadAssets(mapping, downloadFolder, 1, 0, {}, { convertImagesToPng: true });
+
+      expect(results.map((result) => result.status)).to.deep.equal(['rejected', 'rejected', 'rejected']);
+      expect(results[0].reason.message).to.equal(
+        'Rejected http://www.aem.com/hero.jpg: expected an image but the download looks like an HTML page',
+      );
+      expect(fs.existsSync(path.join(downloadFolder, 'xwalk'))).to.be.false;
+
+      await scope.done();
+    });
+
+    it('rejects a short text body downloaded for an image', async () => {
+      const body = 'Forbidden: request blocked by the WAF.';
+      const scope = nock('http://www.aem.com')
+        .get('/logo.png')
+        .reply(200, body, { 'Content-Type': 'application/octet-stream' });
+
+      const mapping = new Map([
+        ['http://www.aem.com/logo.png', '/content/dam/xwalk/logo.png'],
+      ]);
+
+      const results = await downloadAssets(mapping, downloadFolder, 1, 0);
+
+      expect(results[0].status).to.equal('rejected');
+      expect(results[0].reason.message).to.equal(
+        'Rejected http://www.aem.com/logo.png: expected an image but the download looks like plain text of 38 bytes',
+      );
+      expect(fs.existsSync(path.join(downloadFolder, 'xwalk/logo.png'))).to.be.false;
+
+      await scope.done();
+    });
+
+    it('accepts an image in another format than its extension, as served by content negotiation', async () => {
+      const scope = nock('http://www.aem.com')
+        .get('/hero.jpg')
+        .replyWithFile(200, imageFixture('sample.webp'), { 'Content-Type': 'image/webp' });
+
+      const mapping = new Map([
+        ['http://www.aem.com/hero.jpg', '/content/dam/xwalk/hero.jpg'],
+      ]);
+
+      const results = await downloadAssets(mapping, downloadFolder, 1, 0, {}, { convertImagesToPng: true });
+
+      expect(results[0].status).to.equal('fulfilled');
+      expect(fs.readFileSync(path.join(downloadFolder, 'xwalk/hero.jpg')))
+        .to.deep.equal(fs.readFileSync(imageFixture('sample.webp')));
+
+      await scope.done();
+    });
+
+    it('accepts an SVG image', async () => {
+      const scope = nock('http://www.aem.com')
+        .get('/icon.svg')
+        .replyWithFile(200, imageFixture('sample-xml.svg'), { 'Content-Type': 'image/svg+xml' });
+
+      const mapping = new Map([
+        ['http://www.aem.com/icon.svg', '/content/dam/xwalk/icon.svg'],
+      ]);
+
+      const results = await downloadAssets(mapping, downloadFolder, 1, 0, {}, { convertImagesToPng: true });
+
+      expect(results[0].status).to.equal('fulfilled');
+      expect(fs.existsSync(path.join(downloadFolder, 'xwalk/icon.svg'))).to.be.true;
+
+      await scope.done();
+    });
+
+    it('accepts a PDF and rejects an HTML page downloaded for a PDF', async () => {
+      const scope = nock('http://www.aem.com')
+        .get('/brochure.pdf')
+        .reply(200, '%PDF-1.7\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n', { 'Content-Type': 'application/pdf' })
+        .get('/flyer.pdf')
+        .reply(200, HTML_PAGE, { 'Content-Type': 'text/html' });
+
+      const mapping = new Map([
+        ['http://www.aem.com/brochure.pdf', '/content/dam/xwalk/brochure.pdf'],
+        ['http://www.aem.com/flyer.pdf', '/content/dam/xwalk/flyer.pdf'],
+      ]);
+
+      const results = await downloadAssets(mapping, downloadFolder, 1, 0);
+
+      expect(results.map((result) => result.status)).to.deep.equal(['fulfilled', 'rejected']);
+      expect(results[1].reason.message).to.equal(
+        'Rejected http://www.aem.com/flyer.pdf: expected a PDF but the download looks like an HTML page',
+      );
+      expect(fs.existsSync(path.join(downloadFolder, 'xwalk/brochure.pdf'))).to.be.true;
+      expect(fs.existsSync(path.join(downloadFolder, 'xwalk/flyer.pdf'))).to.be.false;
+
+      await scope.done();
+    });
+
+    it('checks an extensionless download against its content type', async () => {
+      const scope = nock('http://www.aem.com')
+        .get('/media/hero')
+        .reply(200, HTML_PAGE, { 'Content-Type': 'image/png' });
+
+      const mapping = new Map([
+        ['http://www.aem.com/media/hero', '/content/dam/xwalk/hero'],
+      ]);
+
+      const results = await downloadAssets(mapping, downloadFolder, 1, 0);
+
+      expect(results[0].status).to.equal('rejected');
+      expect(results[0].reason.message).to.equal(
+        'Rejected http://www.aem.com/media/hero: expected an image but the download looks like an HTML page',
+      );
+      expect(fs.existsSync(path.join(downloadFolder, 'xwalk/hero'))).to.be.false;
+
+      await scope.done();
+    });
+
+    it('does not check downloads of a kind of file it cannot recognise', async () => {
+      const scope = nock('http://www.aem.com')
+        .get('/terms.docx')
+        .reply(200, HTML_PAGE, { 'Content-Type': 'text/html' });
+
+      const mapping = new Map([
+        ['http://www.aem.com/terms.docx', '/content/dam/xwalk/terms.docx'],
+      ]);
+
+      const results = await downloadAssets(mapping, downloadFolder, 1, 0);
+
+      expect(results[0].status).to.equal('fulfilled');
+      expect(fs.readFileSync(path.join(downloadFolder, 'xwalk/terms.docx'), 'utf-8')).to.equal(HTML_PAGE);
+
+      await scope.done();
+    });
   });
 
   describe('cleanup', () => {
