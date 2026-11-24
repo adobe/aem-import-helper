@@ -212,9 +212,12 @@ async function saveBlobToFile(blob, downloadPath, downloadFolder, contentType, u
   try {
     assertDownloadIsExpectedKind(url, sourceBuffer, currentExt, mainType);
   } catch (error) {
-    // A file an earlier run left at this path would otherwise be uploaded in its place
-    removeStaleFile(assetPath);
-    if (pngPath && !options.claimedPaths?.has(pngPath)) {
+    // A file an earlier run left at this path would otherwise be uploaded in its place,
+    // but do not remove a file written earlier in the same run.
+    if (!options.writtenPaths?.has(assetPath)) {
+      removeStaleFile(assetPath);
+    }
+    if (pngPath && !options.claimedPaths?.has(pngPath) && !options.writtenPaths?.has(pngPath)) {
       removeStaleFile(pngPath);
     }
     throw error;
@@ -234,6 +237,7 @@ async function saveBlobToFile(blob, downloadPath, downloadFolder, contentType, u
       }
       
       fs.writeFileSync(assetPath, pngBuffer);
+      options.writtenPaths?.add(assetPath);
       return { cached: false };
     } catch (e) {
       // If conversion fails, fall back to saving the original buffer, which the check above
@@ -245,6 +249,7 @@ async function saveBlobToFile(blob, downloadPath, downloadFolder, contentType, u
       }
       
       fs.writeFileSync(assetPath, sourceBuffer);
+      options.writtenPaths?.add(assetPath);
       return { cached: false };
     }
   }
@@ -255,6 +260,7 @@ async function saveBlobToFile(blob, downloadPath, downloadFolder, contentType, u
   }
   
   fs.writeFileSync(assetPath, sourceBuffer);
+  options.writtenPaths?.add(assetPath);
   return { cached: false };
 }
 
@@ -371,7 +377,8 @@ export async function downloadAssets(assetMapping, downloadFolder, maxRetries = 
       }
     }
   }
-  const saveOptions = { ...options, claimedPaths };
+  const writtenPaths = new Set();
+  const saveOptions = { ...options, claimedPaths, writtenPaths };
   const allResults = [];
   
   // Process downloads in batches to control concurrency
@@ -438,12 +445,15 @@ export async function downloadAssets(assetMapping, downloadFolder, maxRetries = 
               const parsed = path.parse(destPath);
               const pngDest = path.join(parsed.dir, `${parsed.name}.png`);
               fs.writeFileSync(pngDest, pngBuffer);
+              writtenPaths.add(path.resolve(pngDest));
             } catch (e) {
               console.warn(chalk.yellow(`Warning: Failed to convert local image to PNG: ${localFile}. Copying original. ${e.message}`));
               fs.copyFileSync(localFile, destPath);
+              writtenPaths.add(path.resolve(destPath));
             }
           } else {
             fs.copyFileSync(localFile, destPath);
+            writtenPaths.add(path.resolve(destPath));
           }
           return { downloadPath, cached: false, local: true };
         }

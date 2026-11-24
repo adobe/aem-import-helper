@@ -1032,6 +1032,57 @@ describe('download assets', function () {
         logStub.restore();
       }
     });
+
+    it('keeps a file written earlier in the same run when another URL mapping to the same path is rejected', async () => {
+      const jpegBytes = fs.readFileSync(imageFixture('sample.jpg'));
+      const scope = nock('http://www.aem.com')
+        .get('/hero.jpg?w=1500')
+        .reply(200, jpegBytes, { 'Content-Type': 'image/jpeg' })
+        .get('/hero.jpg?w=750')
+        .reply(200, HTML_PAGE, { 'Content-Type': 'text/html' });
+
+      const mapping = new Map([
+        ['http://www.aem.com/hero.jpg?w=1500', '/content/dam/xwalk/hero.jpg'],
+        ['http://www.aem.com/hero.jpg?w=750', '/content/dam/xwalk/hero.jpg'],
+      ]);
+
+      const results = await downloadAssets(mapping, downloadFolder, 1, 0, {}, {
+        maxConcurrentDownloads: 1,
+      });
+
+      expect(results.map((result) => result.status)).to.deep.equal(['fulfilled', 'rejected']);
+      expect(fs.readFileSync(path.join(downloadFolder, 'xwalk/hero.jpg'))).to.deep.equal(jpegBytes);
+
+      await scope.done();
+    });
+
+    it('keeps a converted .png written earlier in the same run when another URL mapping to the same path is rejected', async () => {
+      const webpBytes = fs.readFileSync(imageFixture('sample.webp'));
+      const scope = nock('http://www.aem.com')
+        .get('/hero.webp?w=1500')
+        .reply(200, webpBytes, { 'Content-Type': 'image/webp' })
+        .get('/hero.webp?w=750')
+        .reply(200, HTML_PAGE, { 'Content-Type': 'text/html' });
+
+      const mapping = new Map([
+        ['http://www.aem.com/hero.webp?w=1500', '/content/dam/xwalk/hero.webp'],
+        ['http://www.aem.com/hero.webp?w=750', '/content/dam/xwalk/hero.webp'],
+      ]);
+
+      const results = await downloadAssets(mapping, downloadFolder, 1, 0, {}, {
+        convertImagesToPng: true,
+        maxConcurrentDownloads: 1,
+      });
+
+      const convertedPath = path.join(downloadFolder, 'xwalk/hero.png');
+      expect(results.map((result) => result.status)).to.deep.equal(['fulfilled', 'rejected']);
+      expect(fs.existsSync(convertedPath)).to.be.true;
+      expect(fs.readFileSync(convertedPath).subarray(0, 8)).to.deep.equal(
+        Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      );
+
+      await scope.done();
+    });
   });
 
   describe('cleanup', () => {
