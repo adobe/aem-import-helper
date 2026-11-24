@@ -50,6 +50,9 @@ const FTYP = Buffer.from('ftyp');
 const AVIF_BRANDS = new Set(['avif', 'avis']);
 const HEIF_BRANDS = new Set(['heic', 'heix', 'heim', 'heis', 'hevc', 'hevx', 'hevm', 'hevs', 'mif1', 'msf1']);
 
+// Cap how far into an ISO-BMFF `ftyp` box we scan for compatible brands
+const FTYP_SCAN_LIMIT = 4096;
+
 // Size of the DIB header that follows the 14 byte BMP file header, one per BMP header version
 const BMP_DIB_HEADER_SIZES = new Set([12, 16, 40, 52, 56, 64, 108, 124]);
 
@@ -82,12 +85,17 @@ function hasBytesAt(bytes, signature, offset) {
  * @return {string[]} The brands, or an empty array when the bytes do not start with an `ftyp` box.
  */
 function getFtypBrands(bytes) {
-  if (bytes.length < 12 || !hasBytesAt(bytes, FTYP, 4)) {
+  if (!bytes || bytes.length < 16 || !hasBytesAt(bytes, FTYP, 4)) {
+    return [];
+  }
+  const boxSize = bytes.readUInt32BE(0);
+  if (boxSize !== 0 && boxSize < 16) {
     return [];
   }
   const brands = [bytes.toString('latin1', 8, 12)];
-  // Compatible brands follow the major brand (8) and the minor version (12)
-  const boxEnd = Math.min(bytes.length, bytes.readUInt32BE(0));
+  // Compatible brands follow the major brand (8) and the minor version (12);
+  // a box size of 0 means the box extends to the end of the file
+  const boxEnd = Math.min(bytes.length, FTYP_SCAN_LIMIT, boxSize === 0 ? FTYP_SCAN_LIMIT : boxSize);
   for (let offset = 16; offset + 4 <= boxEnd; offset += 4) {
     brands.push(bytes.toString('latin1', offset, offset + 4));
   }
@@ -145,8 +153,15 @@ function skipXmlProlog(text) {
  * @return {boolean} True when the bytes are an SVG document.
  */
 function isSvg(bytes) {
+  const truncated = bytes.length > SVG_SCAN_LIMIT;
   const rest = skipXmlProlog(bytes.toString('utf8', 0, Math.min(bytes.length, SVG_SCAN_LIMIT)));
-  return rest !== null && /^<(?:[A-Za-z_][\w.-]*:)?svg(?:[\s/>]|$)/.test(rest);
+  if (rest === null) {
+    return false;
+  }
+  const pattern = truncated
+    ? /^<(?:[A-Za-z_][\w.-]*:)?svg(?:[\s/>]|$)/
+    : /^<(?:[A-Za-z_][\w.-]*:)?svg[\s/>]/;
+  return pattern.test(rest);
 }
 
 /**
@@ -208,19 +223,22 @@ export function isPdf(bytes) {
 }
 
 /**
- * Check whether the given bytes are an MP4 video: an ISO-BMFF `ftyp` box at the start.
+ * Check whether the given bytes are an MP4 video: an ISO-BMFF `ftyp` box at the start
+ * whose brands are not AVIF or HEIF image brands.
  * @param {Buffer} bytes - The bytes to check.
  * @return {boolean} True when the bytes are an MP4 video.
  */
 export function isMp4(bytes) {
-  return Boolean(bytes) && hasBytesAt(bytes, FTYP, 4);
+  const brands = getFtypBrands(bytes);
+  return brands.length > 0
+    && !brands.some((brand) => AVIF_BRANDS.has(brand) || HEIF_BRANDS.has(brand));
 }
 
-const FILE_KIND_MATCHERS = {
-  [FILE_KIND.IMAGE]: (bytes) => detectImageFormat(bytes) !== null,
-  [FILE_KIND.PDF]: isPdf,
-  [FILE_KIND.VIDEO]: isMp4,
-};
+const FILE_KIND_MATCHERS = new Map([
+  [FILE_KIND.IMAGE, (bytes) => detectImageFormat(bytes) !== null],
+  [FILE_KIND.PDF, isPdf],
+  [FILE_KIND.VIDEO, isMp4],
+]);
 
 /**
  * Check whether the given bytes are the given kind of file. An image matches any recognised
@@ -229,9 +247,10 @@ const FILE_KIND_MATCHERS = {
  * @param {Buffer} bytes - The bytes to check.
  * @param {string} kind - One of the FILE_KIND values.
  * @return {boolean} True when the bytes are that kind of file.
+ * @throws {Error} When kind is not one of the FILE_KIND values.
  */
 export function matchesFileKind(bytes, kind) {
-  const matcher = FILE_KIND_MATCHERS[kind];
+  const matcher = FILE_KIND_MATCHERS.get(kind);
   if (!matcher) {
     throw new Error(`Unknown file kind: ${kind}`);
   }
