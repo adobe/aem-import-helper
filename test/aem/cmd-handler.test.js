@@ -10,11 +10,24 @@
  * governing permissions and limitations under the License.
  */
 import { expect } from 'chai';
+import archiver from 'archiver';
 import esmock from 'esmock';
+import nock from 'nock';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import sinon from 'sinon';
+import unzipper from 'unzipper';
+import { downloadAssets } from '../../src/utils/download-assets.js';
+import { addExtensionsToFiles } from '../../src/utils/mime-utils.js';
+import {
+  buildDetectedExtensionReplacementMap,
+  buildExtensionReplacementMap,
+  prepareModifiedPackage,
+} from '../../src/aem/package-modifier.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const ASSET_MAPPING = {
   'https://origin.example.com/image1.jpg': '/content/dam/xwalk/image1.jpg',
@@ -187,6 +200,42 @@ describe('aemHandler', function () {
     });
   });
 
+  it('skips asset upload when all downloads are rejected and no asset folder is created', async () => {
+    downloadAssetsStub.callsFake(async () => [
+      { status: 'rejected', reason: new Error('Rejected https://origin.example.com/image1.jpg: expected an image') },
+    ]);
+    const warnStub = sinon.stub(console, 'warn');
+
+    await aemHandler(args());
+
+    expect(uploadAssetsStub.called).to.be.false;
+    expect(warnStub.calledWithMatch(/skipping asset upload/i)).to.be.true;
+    expect(prepareModifiedPackageStub.calledOnce).to.be.true;
+    expect(installPackageStub.calledOnce).to.be.true;
+    expect(exitStub.firstCall.args[0]).to.equal(0);
+    expect(fs.existsSync(outputDir)).to.be.true;
+    expect(fs.existsSync(zipPath)).to.be.true;
+  });
+
+  it('cleans up a command-created output folder when all downloads are rejected unless --keep is set', async () => {
+    downloadAssetsStub.callsFake(async () => [
+      { status: 'rejected', reason: new Error('Rejected https://origin.example.com/image1.jpg: expected an image') },
+    ]);
+    sinon.stub(console, 'warn');
+
+    const cleanedOutput = path.join(testDir, 'rejected-output');
+    await aemHandler(args({ output: cleanedOutput, keep: false }));
+    expect(uploadAssetsStub.called).to.be.false;
+    expect(exitStub.firstCall.args[0]).to.equal(0);
+    expect(fs.existsSync(cleanedOutput)).to.be.false;
+
+    const keptOutput = path.join(testDir, 'rejected-output-kept');
+    await aemHandler(args({ output: keptOutput, keep: true }));
+    expect(uploadAssetsStub.called).to.be.false;
+    expect(exitStub.secondCall.args[0]).to.equal(0);
+    expect(fs.existsSync(keptOutput)).to.be.true;
+  });
+
   it('keeps an output folder named by the caller even when it ends up empty', async () => {
     fs.rmSync(zipPath);
     zipPath = path.join(testDir, 'package.zip');
@@ -197,5 +246,86 @@ describe('aemHandler', function () {
     expect(exitStub.firstCall.args[0]).to.equal(0);
     expect(fs.existsSync(path.join(outputDir, 'xwalk'))).to.be.false;
     expect(fs.existsSync(outputDir)).to.be.true;
+  });
+});
+
+describe('AEM download -> rename -> package modification pipeline', function () {
+  let tempRoot;
+
+  beforeEach(() => {
+    tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'aem-pipeline-test-'));
+  });
+
+  afterEach(() => {
+    nock.cleanAll();
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  });
+
+  it('converts valid images, renames extensionless assets, removes stale rejected files and rewrites package XML', async () => {
+    const downloadDir = path.join(tempRoot, 'downloads');
+    const assetRootDir = path.join(downloadDir, 'site');
+    const staleBlocked = path.join(assetRootDir, 'blocked.jpg');
+    fs.mkdirSync(assetRootDir, { recursive: true });
+    fs.writeFileSync(staleBlocked, 'stale WAF body from previous run');
+
+    const scope = nock('https://origin.example.com')
+      .get('/hero.webp')
+      .replyWithFile(200, path.resolve(__dirname, '../fixtures/images/sample.webp'), { 'Content-Type': 'image/webp' })
+      .get('/media/photo')
+      .replyWithFile(200, path.resolve(__dirname, '../fixtures/images/sample.jpg'), { 'Content-Type': 'image/jpeg' })
+      .get('/blocked.jpg')
+      .reply(200, '<!DOCTYPE html><html><body>Access Denied</body></html>', { 'Content-Type': 'text/html' });
+
+    const assetMapping = new Map([
+      ['https://origin.example.com/hero.webp', '/content/dam/site/hero.webp'],
+      ['https://origin.example.com/media/photo', '/content/dam/site/photo'],
+      ['https://origin.example.com/blocked.jpg', '/content/dam/site/blocked.jpg'],
+    ]);
+
+    const downloadResults = await downloadAssets(assetMapping, downloadDir, 1, 0, {}, { convertImagesToPng: true });
+    expect(downloadResults.map((r) => r.status)).to.deep.equal(['fulfilled', 'fulfilled', 'rejected']);
+    expect(fs.existsSync(path.join(assetRootDir, 'hero.png'))).to.be.true;
+    expect(fs.existsSync(staleBlocked)).to.be.false;
+
+    const renamedFiles = await addExtensionsToFiles(assetRootDir);
+    expect(fs.existsSync(path.join(assetRootDir, 'photo.jpg'))).to.be.true;
+
+    const extensionReplacements = buildDetectedExtensionReplacementMap(assetMapping, assetRootDir);
+    for (const [from, to] of buildExtensionReplacementMap(renamedFiles, assetRootDir).entries()) {
+      extensionReplacements.set(from, to);
+    }
+
+    // Build a minimal content package referencing all three assets
+    const pkgSrcDir = path.join(tempRoot, 'pkg-src');
+    const xmlDir = path.join(pkgSrcDir, 'jcr_root', 'content', 'site');
+    fs.mkdirSync(xmlDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(xmlDir, '.content.xml'),
+      '<?xml version="1.0" encoding="UTF-8"?>\n'
+        + '<jcr:root hero="/content/dam/site/hero.webp" photo="/content/dam/site/photo" blocked="/content/dam/site/blocked.jpg"/>\n',
+    );
+    const inputZip = path.join(tempRoot, 'input.zip');
+    await new Promise((resolve, reject) => {
+      const out = fs.createWriteStream(inputZip);
+      const archive = archiver('zip', { zlib: { level: 9 } });
+      out.on('close', resolve);
+      archive.on('error', reject);
+      archive.pipe(out);
+      archive.directory(pkgSrcDir, false);
+      archive.finalize();
+    });
+
+    const { modifiedZipPath } = await prepareModifiedPackage(inputZip, assetMapping, true, extensionReplacements);
+    const extractedDir = path.join(tempRoot, 'pkg-out');
+    const directory = await unzipper.Open.file(modifiedZipPath);
+    await directory.extract({ path: extractedDir });
+
+    const updatedXml = fs.readFileSync(path.join(extractedDir, 'jcr_root', 'content', 'site', '.content.xml'), 'utf8');
+    expect(updatedXml).to.include('hero="/content/dam/site/hero.png"');
+    expect(updatedXml).to.include('photo="/content/dam/site/photo.jpg"');
+    expect(updatedXml).to.include('blocked="/content/dam/site/blocked.jpg"');
+
+    await scope.done();
+    fs.rmSync(path.dirname(modifiedZipPath), { recursive: true, force: true });
   });
 });

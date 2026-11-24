@@ -14,6 +14,7 @@ import fs from 'fs';
 import path from 'path';
 import chalk from 'chalk';
 import sharp from 'sharp';
+import { FILE_KIND, describeBytes, matchesFileKind } from './file-type.js';
 
 const CONTENT_DAM_PREFIX = '/content/dam';
 
@@ -50,47 +51,185 @@ export const DO_NOT_CONVERT_CONTENT_TYPES = new Set([
   'video/mp4',
 ]);
 
+// Additional extensions whose downloads are checked (or explicitly opted out with null)
+const FILE_KINDS_BY_EXTENSION = new Map([
+  ['.svg', FILE_KIND.SVG],
+  ['.pdf', FILE_KIND.PDF],
+  ['.mp4', FILE_KIND.VIDEO],
+  ['.tif', FILE_KIND.IMAGE],
+  ['.jxl', FILE_KIND.IMAGE],
+  ['.jp2', FILE_KIND.IMAGE],
+  // .svgz is served with Content-Type: image/svg+xml even when its bytes are raw gzip,
+  // so opt it out before falling back to FILE_KINDS_BY_CONTENT_TYPE
+  ['.svgz', null],
+]);
+const FILE_KINDS_BY_CONTENT_TYPE = new Map([
+  ['application/pdf', FILE_KIND.PDF],
+  ['video/mp4', FILE_KIND.VIDEO],
+  ['image/svg+xml', FILE_KIND.SVG],
+  // Only the image types detectImageFormat recognises: other image/* types (PSD, EPS, SVGZ, ...)
+  // are saved unchecked, as before
+  ...[
+    'image/jpeg', 'image/jpg', 'image/pjpeg', 'image/png', 'image/apng', 'image/gif', 'image/webp',
+    'image/avif', 'image/heic', 'image/heif', 'image/heic-sequence', 'image/heif-sequence',
+    'image/bmp', 'image/x-ms-bmp', 'image/tiff', 'image/x-icon', 'image/vnd.microsoft.icon',
+    'image/jxl', 'image/jp2',
+  ].map((type) => [type, FILE_KIND.IMAGE]),
+]);
+
+const FILE_KIND_LABELS = {
+  [FILE_KIND.IMAGE]: 'an image',
+  [FILE_KIND.SVG]: 'an SVG image',
+  [FILE_KIND.PDF]: 'a PDF',
+  [FILE_KIND.VIDEO]: 'an MP4 video',
+};
+
+/**
+ * Get the kind of file a download is expected to be, from the extension it is saved under or,
+ * when the extension does not tell, from the main type of its content type.
+ * @param {string} ext - The lower-case extension the download is saved under.
+ * @param {string} mainType - The main type of the response content type, without parameters.
+ * @return {string|null} One of the FILE_KIND values, or null when the download is not checked.
+ */
+function getExpectedFileKind(ext, mainType) {
+  if (FILE_KINDS_BY_EXTENSION.has(ext)) {
+    return FILE_KINDS_BY_EXTENSION.get(ext);
+  }
+  if (IMAGE_EXTENSIONS.has(ext)) {
+    return FILE_KIND.IMAGE;
+  }
+  return FILE_KINDS_BY_CONTENT_TYPE.get(mainType.toLowerCase()) || null;
+}
+
+/**
+ * Make sure the downloaded bytes are the kind of file they are saved as, so that an error page,
+ * bot-protection challenge or soft-404 served with a 2xx status is not saved and uploaded as an
+ * image, PDF or video.
+ * @param {string} url - The URL the bytes were downloaded from.
+ * @param {Buffer} bytes - The downloaded bytes.
+ * @param {string} ext - The lower-case extension the download is saved under.
+ * @param {string} mainType - The main type of the response content type, without parameters.
+ * @throws {Error} When the bytes are not the expected kind of file.
+ */
+function assertDownloadIsExpectedKind(url, bytes, ext, mainType) {
+  const expectedKind = getExpectedFileKind(ext, mainType);
+  if (!expectedKind || matchesFileKind(bytes, expectedKind)) {
+    return;
+  }
+  const actual = bytes.length === 0 ? 'the download is empty' : `the download looks like ${describeBytes(bytes)}`;
+  const message = `Rejected ${url}: expected ${FILE_KIND_LABELS[expectedKind]} but ${actual}`;
+  console.error(chalk.red(message));
+  throw new Error(message);
+}
+
+function resolveAssetPathWithin(downloadPath, downloadFolder) {
+  const root = path.resolve(downloadFolder);
+  const relativeInput = downloadPath.replace(CONTENT_DAM_PREFIX, '').replace(/^[/\\]+/, '');
+  const resolved = path.resolve(root, relativeInput);
+  const relative = path.relative(root, resolved);
+  if (!relative || relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+    return null;
+  }
+  return resolved;
+}
+
+/**
+ * Resolve a DAM download path inside the download folder, rejecting paths that escape it.
+ * @param {string} downloadPath - The DAM path from the asset mapping.
+ * @param {string} downloadFolder - The folder to download assets to.
+ * @return {string} The resolved path strictly inside downloadFolder.
+ * @throws {Error} When downloadPath resolves to or outside downloadFolder.
+ */
+function resolveAssetPath(downloadPath, downloadFolder) {
+  const resolved = resolveAssetPathWithin(downloadPath, downloadFolder);
+  if (!resolved) {
+    const message = `Invalid download path "${downloadPath}": resolves outside download folder`;
+    console.error(chalk.red(message));
+    throw new Error(message);
+  }
+  return resolved;
+}
+
+/**
+ * Get the sibling `.png` path that an asset would be saved to when converted to PNG.
+ * @param {string} assetPath - The original asset path.
+ * @return {string} The sibling `.png` path.
+ */
+function getConvertedPngPath(assetPath) {
+  const parsed = path.parse(assetPath);
+  return path.join(parsed.dir, `${parsed.name}.png`);
+}
+
+/**
+ * Remove a stale file if present, ignoring directory and non-directory-parent paths so a rejection
+ * error is not masked.
+ * @param {string} filePath - The file path to remove.
+ */
+function removeStaleFile(filePath) {
+  try {
+    fs.rmSync(filePath, { force: true });
+  } catch (error) {
+    if (error.code !== 'EISDIR' && error.code !== 'ERR_FS_EISDIR' && error.code !== 'ENOTDIR') {
+      console.error(chalk.red(`Failed to remove stale file ${filePath}: ${error.message}`));
+    }
+  }
+}
+
 /**
  * Save the given blob to a file in the download folder.
  * For image blobs, convert to PNG and force a .png extension.
+ * Nothing is written when the blob is not the kind of file its path or content type says it is.
  * @param {Blob} blob - The blob to save.
  * @param {string} downloadPath - The path of the asset.
  * @param {string} downloadFolder - The folder to download assets to.
  * @param {string} contentType - The content type from the response headers.
+ * @param {string} url - The URL the blob was downloaded from.
  * @param {Object} [options={}] - Options for the function
  * @param {boolean} [options.convertImagesToPng=false] - Whether to convert images to PNG
  * @param {boolean} [options.useCache=false] - Whether to use local cache (skip if file exists)
  * @return {Promise<{cached: boolean}>} A promise that resolves when the blob is saved or skipped (if cached).
+ * @throws {Error} When the blob is not the expected kind of file.
  */
-async function saveBlobToFile(blob, downloadPath, downloadFolder, contentType, options = {}) {
-  let assetPath = path.join(downloadFolder, downloadPath.replace(CONTENT_DAM_PREFIX, ''));
-  
-  // Check if file exists and cache is enabled
-  if (options.useCache && fs.existsSync(assetPath)) {
+async function saveBlobToFile(blob, downloadPath, downloadFolder, contentType, url, options = {}) {
+  let assetPath = resolveAssetPath(downloadPath, downloadFolder);
+  const currentExt = path.extname(assetPath).toLowerCase();
+  const canConvertExt = Boolean(options.convertImagesToPng) && !DO_NOT_CONVERT_EXTENSIONS.has(currentExt);
+
+  // Determine if this is a recognised image either from content-type or the current extension
+  const mainType = (contentType || '').split(';')[0].trim().toLowerCase();
+  const expectedKind = getExpectedFileKind(currentExt, mainType);
+  const pngPath = canConvertExt && expectedKind === FILE_KIND.IMAGE
+    ? getConvertedPngPath(assetPath)
+    : null;
+  const shouldConvert = Boolean(pngPath) && !DO_NOT_CONVERT_CONTENT_TYPES.has(mainType);
+
+  // Check if file (or its converted PNG variant) exists and cache is enabled
+  if (options.useCache && (fs.existsSync(assetPath) || (shouldConvert && fs.existsSync(pngPath)))) {
     return { cached: true };
   }
 
-  // Determine if this is an image either from content-type or the current extension
-  const mainType = (contentType || '').split(';')[0].trim();
-  const isImageByContentType = mainType.startsWith('image/');
-  const currentExt = path.extname(assetPath).toLowerCase();
-  const isImageByExt = IMAGE_EXTENSIONS.has(currentExt);
-
-  const shouldConvert = options.convertImagesToPng
-    && (isImageByContentType || isImageByExt)
-    && !DO_NOT_CONVERT_EXTENSIONS.has(currentExt)
-    && !(mainType && DO_NOT_CONVERT_CONTENT_TYPES.has(mainType));
+  const sourceBuffer = Buffer.from(await blob.arrayBuffer());
+  try {
+    assertDownloadIsExpectedKind(url, sourceBuffer, currentExt, mainType);
+  } catch (error) {
+    // A file an earlier run left at this path would otherwise be uploaded in its place,
+    // but do not remove a file written earlier in the same run.
+    if (!options.writtenPaths?.has(assetPath)) {
+      removeStaleFile(assetPath);
+    }
+    if (pngPath && !options.claimedPaths?.has(pngPath) && !options.writtenPaths?.has(pngPath)) {
+      removeStaleFile(pngPath);
+    }
+    throw error;
+  }
 
   fs.mkdirSync(path.dirname(assetPath), { recursive: true });
-
-  const sourceBuffer = Buffer.from(await blob.arrayBuffer());
 
   if (shouldConvert) {
     // Convert to PNG and force .png extension
     try {
       const pngBuffer = await sharp(sourceBuffer).png().toBuffer();
-      const parsed = path.parse(assetPath);
-      assetPath = path.join(parsed.dir, `${parsed.name}.png`);
+      assetPath = pngPath;
       
       // Check cache again with the updated .png path
       if (options.useCache && fs.existsSync(assetPath)) {
@@ -98,9 +237,11 @@ async function saveBlobToFile(blob, downloadPath, downloadFolder, contentType, o
       }
       
       fs.writeFileSync(assetPath, pngBuffer);
+      options.writtenPaths?.add(assetPath);
       return { cached: false };
     } catch (e) {
-      // If conversion fails, fall back to saving the original buffer
+      // If conversion fails, fall back to saving the original buffer, which the check above
+      // has confirmed has a recognised image signature
       console.warn(chalk.yellow(`Warning: Failed to convert image to PNG for ${assetPath}. Saving original. ${e.message}`));
       // Check cache again with the updated path
       if (options.useCache && fs.existsSync(assetPath)) {
@@ -108,6 +249,7 @@ async function saveBlobToFile(blob, downloadPath, downloadFolder, contentType, o
       }
       
       fs.writeFileSync(assetPath, sourceBuffer);
+      options.writtenPaths?.add(assetPath);
       return { cached: false };
     }
   }
@@ -118,6 +260,7 @@ async function saveBlobToFile(blob, downloadPath, downloadFolder, contentType, o
   }
   
   fs.writeFileSync(assetPath, sourceBuffer);
+  options.writtenPaths?.add(assetPath);
   return { cached: false };
 }
 
@@ -161,12 +304,6 @@ async function downloadAssetWithRetry(url, maxRetries = 3, retryDelay = 5000, he
       }
       const contentType = response.headers.get('content-type');
       const blob = await response.blob();
-      
-      // Log successful download
-      if (assetIndex !== undefined && totalAssets !== undefined) {
-        console.log(chalk.green(`[${assetIndex}/${totalAssets}] ✓ Downloaded successfully`));
-      }
-      
       return { blob, contentType };
     } catch (error) {
       if (error.message.includes('404')) {
@@ -231,6 +368,17 @@ export async function downloadAssets(assetMapping, downloadFolder, maxRetries = 
   console.log('');
   
   const entries = Array.from(assetMapping.entries());
+  const claimedPaths = new Set();
+  for (const [, targetPath] of entries) {
+    if (typeof targetPath === 'string') {
+      const resolved = resolveAssetPathWithin(targetPath, downloadFolder);
+      if (resolved) {
+        claimedPaths.add(resolved);
+      }
+    }
+  }
+  const writtenPaths = new Set();
+  const saveOptions = { ...options, claimedPaths, writtenPaths };
   const allResults = [];
   
   // Process downloads in batches to control concurrency
@@ -249,9 +397,18 @@ export async function downloadAssets(assetMapping, downloadFolder, maxRetries = 
 
       // Check cache before downloading
       if (options.useCache) {
-        const tempPath = path.join(downloadFolder, downloadPath.replace(CONTENT_DAM_PREFIX, ''));
-        if (fs.existsSync(tempPath)) {
-          console.log(chalk.gray(`[${assetIndex}/${totalAssets}] cached: ${path.basename(tempPath)}`));
+        const tempPath = resolveAssetPath(downloadPath, downloadFolder);
+        const tempExt = path.extname(tempPath).toLowerCase();
+        const cachedPngPath = options.convertImagesToPng
+          && !DO_NOT_CONVERT_EXTENSIONS.has(tempExt)
+          && getExpectedFileKind(tempExt, '') === FILE_KIND.IMAGE
+          ? getConvertedPngPath(tempPath)
+          : null;
+        const cachedPath = fs.existsSync(tempPath)
+          ? tempPath
+          : (cachedPngPath && fs.existsSync(cachedPngPath) ? cachedPngPath : null);
+        if (cachedPath) {
+          console.log(chalk.gray(`[${assetIndex}/${totalAssets}] cached: ${path.basename(cachedPath)}`));
           return { downloadPath, cached: true };
         }
       }
@@ -288,19 +445,25 @@ export async function downloadAssets(assetMapping, downloadFolder, maxRetries = 
               const parsed = path.parse(destPath);
               const pngDest = path.join(parsed.dir, `${parsed.name}.png`);
               fs.writeFileSync(pngDest, pngBuffer);
+              writtenPaths.add(path.resolve(pngDest));
             } catch (e) {
               console.warn(chalk.yellow(`Warning: Failed to convert local image to PNG: ${localFile}. Copying original. ${e.message}`));
               fs.copyFileSync(localFile, destPath);
+              writtenPaths.add(path.resolve(destPath));
             }
           } else {
             fs.copyFileSync(localFile, destPath);
+            writtenPaths.add(path.resolve(destPath));
           }
           return { downloadPath, cached: false, local: true };
         }
       }
 
       const { blob, contentType } = await downloadAssetWithRetry(assetUrl, maxRetries, retryDelay, headers, assetIndex, totalAssets);
-      const result = await saveBlobToFile(blob, downloadPath, downloadFolder, contentType, options);
+      const result = await saveBlobToFile(blob, downloadPath, downloadFolder, contentType, assetUrl, saveOptions);
+      if (!result?.cached) {
+        console.log(chalk.green(`[${assetIndex}/${totalAssets}] ✓ Downloaded successfully`));
+      }
       return { downloadPath, cached: result?.cached || false };
     });
     
