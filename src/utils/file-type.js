@@ -15,6 +15,7 @@
  */
 export const FILE_KIND = Object.freeze({
   IMAGE: 'image',
+  SVG: 'svg',
   PDF: 'pdf',
   VIDEO: 'video',
 });
@@ -49,6 +50,15 @@ const FTYP = Buffer.from('ftyp');
 // ISO-BMFF brands of AVIF and HEIF/HEIC images and image sequences
 const AVIF_BRANDS = new Set(['avif', 'avis']);
 const HEIF_BRANDS = new Set(['heic', 'heix', 'heim', 'heis', 'hevc', 'hevx', 'hevm', 'hevs', 'mif1', 'msf1']);
+// ISO-BMFF brands used by MP4, QuickTime, 3GP and DASH video files
+const MP4_BRANDS = new Set([
+  'isom', 'iso2', 'iso3', 'iso4', 'iso5', 'iso6', 'iso7', 'iso8', 'iso9',
+  'mp41', 'mp42', 'mp71',
+  'avc1', 'av01', 'hvc1', 'hev1', 'vp09', 'dby1',
+  'M4V ', 'M4VH', 'M4VP', 'M4A ', 'M4B ', 'f4v ', 'f4p ',
+  'dash', 'dsms', 'msdh', 'msix', 'lmsg', 'cmfc', 'cmf2', 'piff',
+  'qt  ', '3gp4', '3gp5', '3gp6', '3gp7', '3gp8', '3gp9', '3g2a', '3g2b', '3g2c',
+]);
 
 // Cap how far into an ISO-BMFF `ftyp` box we scan for compatible brands
 const FTYP_SCAN_LIMIT = 4096;
@@ -89,7 +99,7 @@ function getFtypBrands(bytes) {
     return [];
   }
   const boxSize = bytes.readUInt32BE(0);
-  if (boxSize !== 0 && boxSize < 16) {
+  if (boxSize !== 0 && (boxSize < 16 || boxSize > bytes.length || boxSize % 4 !== 0)) {
     return [];
   }
   const brands = [bytes.toString('latin1', 8, 12)];
@@ -103,11 +113,109 @@ function getFtypBrands(bytes) {
 }
 
 /**
+ * Scan past a quoted XML string or non-angle-bracket characters until `>` (or `[` when allowed).
+ * @param {string} text - The text to scan.
+ * @param {number} start - The starting index.
+ * @param {boolean} allowBracket - Whether `[` terminates the scan.
+ * @return {number} The index of the terminator (`>` or `[`), or -1 on malformed input / EOF.
+ */
+function scanXmlMarkupEnd(text, start, allowBracket) {
+  let quote = null;
+  for (let i = start; i < text.length; i += 1) {
+    const ch = text[i];
+    if (quote) {
+      if (ch === quote) {
+        quote = null;
+      }
+      continue;
+    }
+    if (ch === '"' || ch === '\'') {
+      quote = ch;
+    } else if (ch === '>' || (allowBracket && ch === '[')) {
+      return i;
+    } else if (ch === '<') {
+      return -1;
+    }
+  }
+  return -1;
+}
+
+/**
+ * Skip an XML DOCTYPE declaration whose root element is `svg`, validating any `[...]` internal
+ * subset so HTML5 polyglots (e.g. `<!DOCTYPE svg [><html>...`) are rejected.
+ * @param {string} rest - The document text starting at `<!DOCTYPE`.
+ * @return {string|null} The text after the DOCTYPE, or null when invalid or unterminated.
+ */
+function skipSvgDoctype(rest) {
+  const match = /^<!doctype\s+svg(?=[\s[>])/i.exec(rest);
+  if (!match) {
+    return null;
+  }
+  const headerEnd = scanXmlMarkupEnd(rest, match[0].length, true);
+  if (headerEnd === -1) {
+    return null;
+  }
+  if (rest[headerEnd] === '>') {
+    return rest.slice(headerEnd + 1);
+  }
+
+  // Parse the DTD internal subset between `[` and `]`
+  let pos = headerEnd + 1;
+  while (pos < rest.length) {
+    while (pos < rest.length && (rest[pos] === ' ' || rest[pos] === '\t' || rest[pos] === '\r' || rest[pos] === '\n')) {
+      pos += 1;
+    }
+    if (pos >= rest.length) {
+      return null;
+    }
+    if (rest[pos] === ']') {
+      pos += 1;
+      while (pos < rest.length && (rest[pos] === ' ' || rest[pos] === '\t' || rest[pos] === '\r' || rest[pos] === '\n')) {
+        pos += 1;
+      }
+      return rest[pos] === '>' ? rest.slice(pos + 1) : null;
+    }
+    if (rest.startsWith('<!--', pos)) {
+      const end = rest.indexOf('-->', pos + 4);
+      if (end === -1) {
+        return null;
+      }
+      pos = end + 3;
+    } else if (rest.startsWith('<?', pos)) {
+      const end = rest.indexOf('?>', pos + 2);
+      if (end === -1) {
+        return null;
+      }
+      pos = end + 2;
+    } else if (rest.startsWith('<!', pos)) {
+      const decl = /^<!(?:ENTITY|ELEMENT|ATTLIST|NOTATION)(?=[\s])/i.exec(rest.slice(pos, pos + 12));
+      if (!decl) {
+        return null;
+      }
+      const end = scanXmlMarkupEnd(rest, pos + decl[0].length, false);
+      if (end === -1) {
+        return null;
+      }
+      pos = end + 1;
+    } else if (rest[pos] === '%') {
+      const peEnd = rest.indexOf(';', pos + 1);
+      if (peEnd === -1 || !/^%[A-Za-z_:][\w.:-]*;$/.test(rest.slice(pos, peEnd + 1))) {
+        return null;
+      }
+      pos = peEnd + 1;
+    } else {
+      return null;
+    }
+  }
+  return null;
+}
+
+/**
  * Skip what can come before the root element of an XML document: a byte order mark, whitespace,
- * the XML declaration and other processing instructions, comments and the doctype.
+ * the XML declaration and other processing instructions, comments and an SVG doctype.
  * @param {string} text - The document text.
  * @return {string|null} The text from the root element on, or null when the prolog is not
- * terminated or declares an HTML doctype.
+ * terminated or declares a non-SVG doctype.
  */
 function skipXmlProlog(text) {
   let rest = text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text;
@@ -126,24 +234,23 @@ function skipXmlProlog(text) {
       }
       rest = rest.slice(end + 3);
     } else if (/^<!doctype/i.test(rest)) {
-      if (/^<!doctype\s+html/i.test(rest)) {
+      rest = skipSvgDoctype(rest);
+      if (rest === null) {
         return null;
       }
-      // The doctype can have an internal subset in brackets, which contains '>' characters
-      const bracket = rest.indexOf('[');
-      let end = rest.indexOf('>');
-      if (bracket !== -1 && bracket < end) {
-        const subsetEnd = rest.indexOf(']', bracket);
-        end = subsetEnd === -1 ? -1 : rest.indexOf('>', subsetEnd);
-      }
-      if (end === -1) {
-        return null;
-      }
-      rest = rest.slice(end + 1);
     } else {
       return rest;
     }
   }
+}
+
+/**
+ * Check whether the given bytes contain C0 control characters disallowed in XML 1.0.
+ * @param {Buffer} sample - The bytes to check.
+ * @return {boolean} True when illegal XML control characters are present.
+ */
+function hasDisallowedXmlControlChars(sample) {
+  return sample.some((byte) => byte < 0x20 && byte !== 0x09 && byte !== 0x0A && byte !== 0x0D);
 }
 
 /**
@@ -154,7 +261,11 @@ function skipXmlProlog(text) {
  */
 function isSvg(bytes) {
   const truncated = bytes.length > SVG_SCAN_LIMIT;
-  const rest = skipXmlProlog(bytes.toString('utf8', 0, Math.min(bytes.length, SVG_SCAN_LIMIT)));
+  const slice = bytes.subarray(0, Math.min(bytes.length, SVG_SCAN_LIMIT));
+  if (hasDisallowedXmlControlChars(slice)) {
+    return false;
+  }
+  const rest = skipXmlProlog(slice.toString('utf8'));
   if (rest === null) {
     return false;
   }
@@ -224,18 +335,23 @@ export function isPdf(bytes) {
 
 /**
  * Check whether the given bytes are an MP4 video: an ISO-BMFF `ftyp` box at the start
- * whose brands are not AVIF or HEIF image brands.
+ * containing a known MP4/video brand and no AVIF or HEIF image brands.
  * @param {Buffer} bytes - The bytes to check.
  * @return {boolean} True when the bytes are an MP4 video.
  */
 export function isMp4(bytes) {
   const brands = getFtypBrands(bytes);
   return brands.length > 0
-    && !brands.some((brand) => AVIF_BRANDS.has(brand) || HEIF_BRANDS.has(brand));
+    && !brands.some((brand) => AVIF_BRANDS.has(brand) || HEIF_BRANDS.has(brand))
+    && brands.some((brand) => MP4_BRANDS.has(brand));
 }
 
 const FILE_KIND_MATCHERS = new Map([
-  [FILE_KIND.IMAGE, (bytes) => detectImageFormat(bytes) !== null],
+  [FILE_KIND.IMAGE, (bytes) => {
+    const format = detectImageFormat(bytes);
+    return format !== null && format !== 'SVG';
+  }],
+  [FILE_KIND.SVG, (bytes) => detectImageFormat(bytes) === 'SVG'],
   [FILE_KIND.PDF, isPdf],
   [FILE_KIND.VIDEO, isMp4],
 ]);

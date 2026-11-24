@@ -70,6 +70,14 @@ describe('file-type', function () {
       }
     });
 
+    it('detects a JPEG XL codestream and container', function () {
+      const codestream = Buffer.from([0xFF, 0x0A, 0x00, 0x00]);
+      const container = Buffer.from([0x00, 0x00, 0x00, 0x0C, 0x4A, 0x58, 0x4C, 0x20, 0x0D, 0x0A, 0x87, 0x0A, 0x00]);
+
+      expect(detectImageFormat(codestream)).to.equal('JPEG XL');
+      expect(detectImageFormat(container)).to.equal('JPEG XL');
+    });
+
     it('detects a JPEG 2000 codestream and JP2 container', function () {
       const codestream = Buffer.from([0xFF, 0x4F, 0xFF, 0x51, 0x00, 0x2F]);
       const container = Buffer.from([0x00, 0x00, 0x00, 0x0C, 0x6A, 0x50, 0x20, 0x20, 0x0D, 0x0A, 0x87, 0x0A, 0x00]);
@@ -93,11 +101,23 @@ describe('file-type', function () {
       const pages = [
         '<!DOCTYPE html><svg xmlns="http://www.w3.org/2000/svg"></svg>',
         '<?xml version="1.0"?>\n<!-- page --><html><body><svg></svg></body></html>',
+        '<!DOCTYPE x [><html><body><script>alert(1)</script><!-- ]><svg> --></body></html>',
+        '<!DOCTYPE svg [><html><body><script>alert(1)</script><!-- ]><svg> --></body></html>',
+        '<!DOCTYPE\x00html><svg><script>alert(1)</script></svg>',
       ];
 
       for (const page of pages) {
         expect(detectImageFormat(Buffer.from(page)), page).to.be.null;
       }
+    });
+
+    it('handles SVG namespace prefixes, non-svg element names and unterminated prologs', function () {
+      expect(detectImageFormat(Buffer.from('<svg:svg xmlns:svg="http://www.w3.org/2000/svg"/>'))).to.equal('SVG');
+      expect(detectImageFormat(Buffer.from('<svgfoo/>'))).to.be.null;
+      expect(detectImageFormat(Buffer.from('<?xml version="1.0"'))).to.be.null;
+      expect(detectImageFormat(Buffer.from('<!-- unterminated comment'))).to.be.null;
+      expect(detectImageFormat(Buffer.from('<!DOCTYPE svg ['))).to.be.null;
+      expect(detectImageFormat(Buffer.from('<!DOCTYPE svg'))).to.be.null;
     });
 
     it('does not take text, an MP4 video or a truncated header for an image', function () {
@@ -133,13 +153,25 @@ describe('file-type', function () {
       const avifPastBoxEnd = Buffer.from('\x00\x00\x00\x14ftypisom\x00\x00\x00\x00isomavif', 'latin1');
       expect(detectImageFormat(avifPastBoxEnd)).to.be.null;
 
-      // Compatible brands past the 4096-byte scan cap are ignored even with boxSize === 0xFFFFFFFF
+      // Compatible brands past the 4096-byte scan cap are ignored even with a valid boxSize covering them
+      const boxSize = 4100;
+      const hugeBoxHeader = Buffer.alloc(16);
+      hugeBoxHeader.writeUInt32BE(boxSize, 0);
+      hugeBoxHeader.write('ftypisom', 4, 'latin1');
       const hugeBoxWithLateAvif = Buffer.concat([
-        Buffer.from('\xFF\xFF\xFF\xFFftypisom\x00\x00\x00\x00', 'latin1'),
+        hugeBoxHeader,
         Buffer.alloc(4096 - 16, 0x20),
         Buffer.from('avif', 'latin1'),
       ]);
       expect(detectImageFormat(hugeBoxWithLateAvif)).to.be.null;
+
+      // Rejects ftyp boxSize exceeding buffer length, non-multiple-of-4 sizes, and HTML comments
+      const oversizedBox = Buffer.from('\x00\x00\x02\x00ftypavif\x00\x00\x00\x00', 'latin1');
+      const unalignedBox = Buffer.from('\x00\x00\x00\x12ftypavif\x00\x00\x00\x00\x00\x00', 'latin1');
+      const htmlAvif = Buffer.from('<!--ftypavif--><html><body><script>alert(1)</script></body></html>');
+      expect(detectImageFormat(oversizedBox)).to.be.null;
+      expect(detectImageFormat(unalignedBox)).to.be.null;
+      expect(detectImageFormat(htmlAvif)).to.be.null;
     });
   });
 
@@ -150,18 +182,30 @@ describe('file-type', function () {
       }
     });
 
+    it('keeps raster images and SVG separate', function () {
+      const svg = readImageFixture('sample.svg');
+      const png = readImageFixture('sample.png');
+      expect(matchesFileKind(svg, FILE_KIND.SVG)).to.be.true;
+      expect(matchesFileKind(svg, FILE_KIND.IMAGE)).to.be.false;
+      expect(matchesFileKind(png, FILE_KIND.IMAGE)).to.be.true;
+      expect(matchesFileKind(png, FILE_KIND.SVG)).to.be.false;
+    });
+
     it('matches a PDF whose marker comes after some leading bytes', function () {
       expect(matchesFileKind(Buffer.concat([Buffer.alloc(16, 0x20), Buffer.from('%PDF-1.7\n')]), FILE_KIND.PDF)).to.be.true;
       expect(matchesFileKind(Buffer.from('<html><body>Not found</body></html>'), FILE_KIND.PDF)).to.be.false;
     });
 
-    it('matches an MP4 video by its ftyp box and excludes AVIF, HEIF and short text', function () {
+    it('matches an MP4 video by its ftyp box and excludes AVIF, HEIF, unknown brands and HTML/text', function () {
       expect(matchesFileKind(MP4_HEADER, FILE_KIND.VIDEO)).to.be.true;
       expect(matchesFileKind(readImageFixture('sample.jpg'), FILE_KIND.VIDEO)).to.be.false;
       expect(matchesFileKind(readImageFixture('sample.avif'), FILE_KIND.VIDEO)).to.be.false;
       expect(matchesFileKind(readImageFixture('sample.heic'), FILE_KIND.VIDEO)).to.be.false;
       expect(matchesFileKind(readImageFixture('sample.heif'), FILE_KIND.VIDEO)).to.be.false;
       expect(matchesFileKind(Buffer.from('1234ftyp'), FILE_KIND.VIDEO)).to.be.false;
+      expect(matchesFileKind(Buffer.from('1234ftyp56789012'), FILE_KIND.VIDEO)).to.be.false;
+      expect(matchesFileKind(Buffer.from('<!--ftyp--><html><body>Error</body></html>'), FILE_KIND.VIDEO)).to.be.false;
+      expect(matchesFileKind(Buffer.from('\x00\x00\x00\x14ftypXXXX\x00\x00\x00\x00YYYY', 'latin1'), FILE_KIND.VIDEO)).to.be.false;
     });
 
     it('throws for an unknown kind, including Object.prototype property names', function () {
