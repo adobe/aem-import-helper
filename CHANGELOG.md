@@ -1,3 +1,10 @@
+## [1.6.4](https://github.com/adobe/aem-import-helper/compare/v1.6.3...v1.6.4) (2026-11-24)
+
+
+### Bug Fixes
+
+* reject downloaded assets whose bytes are not the file they claim to be ([#98](https://github.com/adobe/aem-import-helper/issues/98)) ([3a8eab0](https://github.com/adobe/aem-import-helper/commit/3a8eab073e3c15f9df3ab4339d9538a28a00f44e))
+
 ## [1.6.3](https://github.com/adobe/aem-import-helper/compare/v1.6.2...v1.6.3) (2026-11-17)
 
 
