@@ -187,6 +187,21 @@ describe('aemHandler', function () {
     });
   });
 
+  it('skips asset upload when all downloads are rejected and no asset folder is created', async () => {
+    downloadAssetsStub.callsFake(async () => [
+      { status: 'rejected', reason: new Error('Rejected https://origin.example.com/image1.jpg: expected an image') },
+    ]);
+    const warnStub = sinon.stub(console, 'warn');
+
+    await aemHandler(args());
+
+    expect(uploadAssetsStub.called).to.be.false;
+    expect(warnStub.calledWithMatch(/skipping asset upload/i)).to.be.true;
+    expect(prepareModifiedPackageStub.calledOnce).to.be.true;
+    expect(installPackageStub.calledOnce).to.be.true;
+    expect(exitStub.firstCall.args[0]).to.equal(0);
+  });
+
   it('keeps an output folder named by the caller even when it ends up empty', async () => {
     fs.rmSync(zipPath);
     zipPath = path.join(testDir, 'package.zip');

@@ -211,31 +211,40 @@ export const aemHandler = async (args) => {
 
         const assetFolder = path.join(downloadFolder, damRootFolder);
 
-        console.log(chalk.yellow(`Uploading downloaded assets to ${args.target}...`));
-        const { uploadResult, renamedFiles } = await uploadAssets(args.target, token, assetFolder);
-
-        // Build JCR-level replacement map for extensionless references based on files present
-        // on disk after download/conversion.
-        extensionReplacements = buildDetectedExtensionReplacementMap(assetMapping, assetFolder);
-
-        // Merge in explicit rename-based replacements from addExtensionsToFiles.
-        if (renamedFiles && renamedFiles.size > 0) {
-          const renameBasedReplacements = buildExtensionReplacementMap(renamedFiles, assetFolder);
-          for (const [from, to] of renameBasedReplacements.entries()) {
-            extensionReplacements.set(from, to);
+        if (!fs.existsSync(assetFolder)) {
+          console.warn(chalk.yellow(`No assets were downloaded to ${assetFolder}; skipping asset upload.`));
+          if (!args.keep) {
+            cleanupPaths = outputCreated
+              ? [downloadFolder]
+              : getDownloadedPaths(assetMapping, downloadFolder, { convertImagesToPng: imagesToPng });
           }
-        }
+        } else {
+          console.log(chalk.yellow(`Uploading downloaded assets to ${args.target}...`));
+          const { uploadResult, renamedFiles } = await uploadAssets(args.target, token, assetFolder);
 
-        printUploadSummary(uploadResult);
+          // Build JCR-level replacement map for extensionless references based on files present
+          // on disk after download/conversion.
+          extensionReplacements = buildDetectedExtensionReplacementMap(assetMapping, assetFolder);
 
-        if (!uploadResult?.ok) {
-          const errorCount = uploadResult?.errors?.length || 0;
-          assetUploadFailure = `${errorCount} asset upload error(s) occurred. Local assets were kept in ${assetFolder} so the upload can be retried.`;
-        } else if (!args.keep) {
-          // Only delete what this command created: never the caller's --output folder or other files in it.
-          cleanupPaths = outputCreated
-            ? [downloadFolder]
-            : getDownloadedPaths(assetMapping, downloadFolder, { convertImagesToPng: imagesToPng });
+          // Merge in explicit rename-based replacements from addExtensionsToFiles.
+          if (renamedFiles && renamedFiles.size > 0) {
+            const renameBasedReplacements = buildExtensionReplacementMap(renamedFiles, assetFolder);
+            for (const [from, to] of renameBasedReplacements.entries()) {
+              extensionReplacements.set(from, to);
+            }
+          }
+
+          printUploadSummary(uploadResult);
+
+          if (!uploadResult?.ok) {
+            const errorCount = uploadResult?.errors?.length || 0;
+            assetUploadFailure = `${errorCount} asset upload error(s) occurred. Local assets were kept in ${assetFolder} so the upload can be retried.`;
+          } else if (!args.keep) {
+            // Only delete what this command created: never the caller's --output folder or other files in it.
+            cleanupPaths = outputCreated
+              ? [downloadFolder]
+              : getDownloadedPaths(assetMapping, downloadFolder, { convertImagesToPng: imagesToPng });
+          }
         }
       }
     }

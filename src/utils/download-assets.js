@@ -53,6 +53,7 @@ export const DO_NOT_CONVERT_CONTENT_TYPES = new Set([
 
 // Additional extensions whose downloads are checked (or explicitly opted out with null)
 const FILE_KINDS_BY_EXTENSION = new Map([
+  ['.svg', FILE_KIND.SVG],
   ['.pdf', FILE_KIND.PDF],
   ['.mp4', FILE_KIND.VIDEO],
   ['.tif', FILE_KIND.IMAGE],
@@ -65,18 +66,20 @@ const FILE_KINDS_BY_EXTENSION = new Map([
 const FILE_KINDS_BY_CONTENT_TYPE = new Map([
   ['application/pdf', FILE_KIND.PDF],
   ['video/mp4', FILE_KIND.VIDEO],
+  ['image/svg+xml', FILE_KIND.SVG],
   // Only the image types detectImageFormat recognises: other image/* types (PSD, EPS, SVGZ, ...)
   // are saved unchecked, as before
   ...[
     'image/jpeg', 'image/jpg', 'image/pjpeg', 'image/png', 'image/apng', 'image/gif', 'image/webp',
     'image/avif', 'image/heic', 'image/heif', 'image/heic-sequence', 'image/heif-sequence',
     'image/bmp', 'image/x-ms-bmp', 'image/tiff', 'image/x-icon', 'image/vnd.microsoft.icon',
-    'image/jxl', 'image/jp2', 'image/svg+xml',
+    'image/jxl', 'image/jp2',
   ].map((type) => [type, FILE_KIND.IMAGE]),
 ]);
 
 const FILE_KIND_LABELS = {
   [FILE_KIND.IMAGE]: 'an image',
+  [FILE_KIND.SVG]: 'an SVG image',
   [FILE_KIND.PDF]: 'a PDF',
   [FILE_KIND.VIDEO]: 'an MP4 video',
 };
@@ -89,11 +92,11 @@ const FILE_KIND_LABELS = {
  * @return {string|null} One of the FILE_KIND values, or null when the download is not checked.
  */
 function getExpectedFileKind(ext, mainType) {
-  if (IMAGE_EXTENSIONS.has(ext)) {
-    return FILE_KIND.IMAGE;
-  }
   if (FILE_KINDS_BY_EXTENSION.has(ext)) {
     return FILE_KINDS_BY_EXTENSION.get(ext);
+  }
+  if (IMAGE_EXTENSIONS.has(ext)) {
+    return FILE_KIND.IMAGE;
   }
   return FILE_KINDS_BY_CONTENT_TYPE.get(mainType.toLowerCase()) || null;
 }
@@ -119,6 +122,17 @@ function assertDownloadIsExpectedKind(url, bytes, ext, mainType) {
   throw new Error(message);
 }
 
+function resolveAssetPathWithin(downloadPath, downloadFolder) {
+  const root = path.resolve(downloadFolder);
+  const relativeInput = downloadPath.replace(CONTENT_DAM_PREFIX, '').replace(/^[/\\]+/, '');
+  const resolved = path.resolve(root, relativeInput);
+  const relative = path.relative(root, resolved);
+  if (!relative || relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+    return null;
+  }
+  return resolved;
+}
+
 /**
  * Resolve a DAM download path inside the download folder, rejecting paths that escape it.
  * @param {string} downloadPath - The DAM path from the asset mapping.
@@ -127,12 +141,11 @@ function assertDownloadIsExpectedKind(url, bytes, ext, mainType) {
  * @throws {Error} When downloadPath resolves to or outside downloadFolder.
  */
 function resolveAssetPath(downloadPath, downloadFolder) {
-  const root = path.resolve(downloadFolder);
-  const relativeInput = downloadPath.replace(CONTENT_DAM_PREFIX, '').replace(/^[/\\]+/, '');
-  const resolved = path.resolve(root, relativeInput);
-  const relative = path.relative(root, resolved);
-  if (!relative || relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
-    throw new Error(`Invalid download path "${downloadPath}": resolves outside download folder`);
+  const resolved = resolveAssetPathWithin(downloadPath, downloadFolder);
+  if (!resolved) {
+    const message = `Invalid download path "${downloadPath}": resolves outside download folder`;
+    console.error(chalk.red(message));
+    throw new Error(message);
   }
   return resolved;
 }
@@ -148,15 +161,16 @@ function getConvertedPngPath(assetPath) {
 }
 
 /**
- * Remove a stale file if present, ignoring directory paths so a rejection error is not masked.
+ * Remove a stale file if present, ignoring directory and non-directory-parent paths so a rejection
+ * error is not masked.
  * @param {string} filePath - The file path to remove.
  */
 function removeStaleFile(filePath) {
   try {
     fs.rmSync(filePath, { force: true });
   } catch (error) {
-    if (error.code !== 'EISDIR' && error.code !== 'ERR_FS_EISDIR') {
-      throw error;
+    if (error.code !== 'EISDIR' && error.code !== 'ERR_FS_EISDIR' && error.code !== 'ENOTDIR') {
+      console.error(chalk.red(`Failed to remove stale file ${filePath}: ${error.message}`));
     }
   }
 }
@@ -180,18 +194,19 @@ async function saveBlobToFile(blob, downloadPath, downloadFolder, contentType, u
   let assetPath = resolveAssetPath(downloadPath, downloadFolder);
   const currentExt = path.extname(assetPath).toLowerCase();
   const canConvertExt = Boolean(options.convertImagesToPng) && !DO_NOT_CONVERT_EXTENSIONS.has(currentExt);
-  const pngPath = canConvertExt ? getConvertedPngPath(assetPath) : null;
-
-  // Check if file (or its converted PNG variant) exists and cache is enabled
-  if (options.useCache && (fs.existsSync(assetPath) || (pngPath && fs.existsSync(pngPath)))) {
-    return { cached: true };
-  }
 
   // Determine if this is a recognised image either from content-type or the current extension
   const mainType = (contentType || '').split(';')[0].trim().toLowerCase();
-  const shouldConvert = canConvertExt
-    && getExpectedFileKind(currentExt, mainType) === FILE_KIND.IMAGE
-    && !DO_NOT_CONVERT_CONTENT_TYPES.has(mainType);
+  const expectedKind = getExpectedFileKind(currentExt, mainType);
+  const pngPath = canConvertExt && expectedKind === FILE_KIND.IMAGE
+    ? getConvertedPngPath(assetPath)
+    : null;
+  const shouldConvert = Boolean(pngPath) && !DO_NOT_CONVERT_CONTENT_TYPES.has(mainType);
+
+  // Check if file (or its converted PNG variant) exists and cache is enabled
+  if (options.useCache && (fs.existsSync(assetPath) || (shouldConvert && fs.existsSync(pngPath)))) {
+    return { cached: true };
+  }
 
   const sourceBuffer = Buffer.from(await blob.arrayBuffer());
   try {
@@ -199,7 +214,7 @@ async function saveBlobToFile(blob, downloadPath, downloadFolder, contentType, u
   } catch (error) {
     // A file an earlier run left at this path would otherwise be uploaded in its place
     removeStaleFile(assetPath);
-    if (pngPath) {
+    if (pngPath && !options.claimedPaths?.has(pngPath)) {
       removeStaleFile(pngPath);
     }
     throw error;
@@ -347,6 +362,16 @@ export async function downloadAssets(assetMapping, downloadFolder, maxRetries = 
   console.log('');
   
   const entries = Array.from(assetMapping.entries());
+  const claimedPaths = new Set();
+  for (const [, targetPath] of entries) {
+    if (typeof targetPath === 'string') {
+      const resolved = resolveAssetPathWithin(targetPath, downloadFolder);
+      if (resolved) {
+        claimedPaths.add(resolved);
+      }
+    }
+  }
+  const saveOptions = { ...options, claimedPaths };
   const allResults = [];
   
   // Process downloads in batches to control concurrency
@@ -367,7 +392,9 @@ export async function downloadAssets(assetMapping, downloadFolder, maxRetries = 
       if (options.useCache) {
         const tempPath = resolveAssetPath(downloadPath, downloadFolder);
         const tempExt = path.extname(tempPath).toLowerCase();
-        const cachedPngPath = options.convertImagesToPng && !DO_NOT_CONVERT_EXTENSIONS.has(tempExt)
+        const cachedPngPath = options.convertImagesToPng
+          && !DO_NOT_CONVERT_EXTENSIONS.has(tempExt)
+          && getExpectedFileKind(tempExt, '') === FILE_KIND.IMAGE
           ? getConvertedPngPath(tempPath)
           : null;
         const cachedPath = fs.existsSync(tempPath)
@@ -423,7 +450,7 @@ export async function downloadAssets(assetMapping, downloadFolder, maxRetries = 
       }
 
       const { blob, contentType } = await downloadAssetWithRetry(assetUrl, maxRetries, retryDelay, headers, assetIndex, totalAssets);
-      const result = await saveBlobToFile(blob, downloadPath, downloadFolder, contentType, assetUrl, options);
+      const result = await saveBlobToFile(blob, downloadPath, downloadFolder, contentType, assetUrl, saveOptions);
       if (!result?.cached) {
         console.log(chalk.green(`[${assetIndex}/${totalAssets}] ✓ Downloaded successfully`));
       }

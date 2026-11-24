@@ -17,6 +17,7 @@ import path from 'path';
 import sinon from 'sinon';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import os from 'node:os';
 import zlib from 'node:zlib';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -29,6 +30,7 @@ describe('download assets', function () {
   });
 
   afterEach(async () => {
+    nock.cleanAll();
     await cleanup(downloadFolder);
   });
 
@@ -641,10 +643,13 @@ describe('download assets', function () {
     });
 
     it('rejects download paths that escape downloadFolder without touching external files', async () => {
-      const outsideFile = path.resolve(downloadFolder, '../victim.jpg');
-      const outsidePng = path.resolve(downloadFolder, '../victim.png');
+      const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'download-assets-traversal-'));
+      const isolatedDownloadFolder = path.join(tempRoot, 'assets');
+      const outsideFile = path.join(tempRoot, 'victim.jpg');
+      const outsidePng = path.join(tempRoot, 'victim.png');
       fs.writeFileSync(outsideFile, 'do not delete');
       fs.writeFileSync(outsidePng, 'do not delete png');
+      const errorStub = sinon.stub(console, 'error');
       try {
         const scope = nock('http://www.aem.com')
           .get('/evil.jpg')
@@ -654,17 +659,18 @@ describe('download assets', function () {
           ['http://www.aem.com/evil.jpg', '/content/dam/../victim.jpg'],
         ]);
 
-        const results = await downloadAssets(mapping, downloadFolder, 1, 0, {}, { convertImagesToPng: true });
+        const results = await downloadAssets(mapping, isolatedDownloadFolder, 1, 0, {}, { convertImagesToPng: true });
 
         expect(results[0].status).to.equal('rejected');
         expect(results[0].reason.message).to.include('resolves outside download folder');
+        expect(errorStub.calledWithMatch(/resolves outside download folder/)).to.be.true;
         expect(fs.readFileSync(outsideFile, 'utf-8')).to.equal('do not delete');
         expect(fs.readFileSync(outsidePng, 'utf-8')).to.equal('do not delete png');
 
         await scope.done();
       } finally {
-        fs.rmSync(outsideFile, { force: true });
-        fs.rmSync(outsidePng, { force: true });
+        errorStub.restore();
+        fs.rmSync(tempRoot, { recursive: true, force: true });
       }
     });
 
@@ -820,6 +826,133 @@ describe('download assets', function () {
       expect(results.map((result) => result.status)).to.deep.equal(['rejected', 'rejected', 'rejected']);
       expect(fs.existsSync(path.join(downloadFolder, 'xwalk'))).to.be.false;
 
+      await scope.done();
+    });
+
+    it('preserves a sibling .png when rejecting an extensionless PDF/MP4 or a same-run .png mapping', async () => {
+      const pngBytes = fs.readFileSync(imageFixture('sample.png'));
+      const scope = nock('http://www.aem.com')
+        .get('/report.png')
+        .reply(200, pngBytes, { 'Content-Type': 'image/png' })
+        .get('/media/report')
+        .reply(200, HTML_PAGE, { 'Content-Type': 'application/pdf' })
+        .get('/hero.png')
+        .reply(200, pngBytes, { 'Content-Type': 'image/png' })
+        .get('/hero.webp')
+        .reply(200, HTML_PAGE, { 'Content-Type': 'text/html' });
+
+      const mapping = new Map([
+        ['http://www.aem.com/report.png', '/content/dam/xwalk/report.png'],
+        ['http://www.aem.com/media/report', '/content/dam/xwalk/report'],
+        ['http://www.aem.com/hero.png', '/content/dam/xwalk/hero.png'],
+        ['http://www.aem.com/hero.webp', '/content/dam/xwalk/hero.webp'],
+      ]);
+
+      const results = await downloadAssets(mapping, downloadFolder, 1, 0, {}, { convertImagesToPng: true });
+
+      expect(results.map((result) => result.status)).to.deep.equal(['fulfilled', 'rejected', 'fulfilled', 'rejected']);
+      expect(fs.readFileSync(path.join(downloadFolder, 'xwalk/report.png'))).to.deep.equal(pngBytes);
+      expect(fs.readFileSync(path.join(downloadFolder, 'xwalk/hero.png'))).to.deep.equal(pngBytes);
+
+      await scope.done();
+    });
+
+    it('does not skip non-image downloads as cached when a sibling .png exists under useCache', async () => {
+      const pngBytes = fs.readFileSync(imageFixture('sample.png'));
+      const psdBytes = Buffer.from('8BPS\u0000\u0001\u0000\u0000\u0000\u0000\u0000\u0000', 'latin1');
+      const svgzBytes = zlib.gzipSync(fs.readFileSync(imageFixture('sample.svg')));
+      const zipBytes = Buffer.from('PK\x03\x04zipdata', 'latin1');
+      const existingPng = path.join(downloadFolder, 'xwalk/brand.png');
+      fs.mkdirSync(path.dirname(existingPng), { recursive: true });
+      fs.writeFileSync(existingPng, pngBytes);
+
+      const scope = nock('http://www.aem.com')
+        .get('/brand.zip')
+        .reply(200, zipBytes, { 'Content-Type': 'application/zip' })
+        .get('/brand.psd')
+        .reply(200, psdBytes, { 'Content-Type': 'image/vnd.adobe.photoshop' })
+        .get('/brand.svgz')
+        .reply(200, svgzBytes, { 'Content-Type': 'image/svg+xml' });
+
+      const mapping = new Map([
+        ['http://www.aem.com/brand.zip', '/content/dam/xwalk/brand.zip'],
+        ['http://www.aem.com/brand.psd', '/content/dam/xwalk/brand.psd'],
+        ['http://www.aem.com/brand.svgz', '/content/dam/xwalk/brand.svgz'],
+      ]);
+
+      const results = await downloadAssets(mapping, downloadFolder, 1, 0, {}, {
+        convertImagesToPng: true,
+        useCache: true,
+      });
+
+      expect(results.map((result) => ({ status: result.status, cached: result.value?.cached }))).to.deep.equal([
+        { status: 'fulfilled', cached: false },
+        { status: 'fulfilled', cached: false },
+        { status: 'fulfilled', cached: false },
+      ]);
+      expect(fs.readFileSync(path.join(downloadFolder, 'xwalk/brand.zip'))).to.deep.equal(zipBytes);
+      expect(fs.readFileSync(path.join(downloadFolder, 'xwalk/brand.psd'))).to.deep.equal(psdBytes);
+      expect(fs.readFileSync(path.join(downloadFolder, 'xwalk/brand.svgz'))).to.deep.equal(svgzBytes);
+
+      await scope.done();
+    });
+
+    it('rejects SVG bytes served for a raster image extension or raster content type', async () => {
+      const svg = '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>';
+      const scope = nock('http://www.aem.com')
+        .get('/hero.jpg')
+        .reply(200, svg, { 'Content-Type': 'image/svg+xml' })
+        .get('/media/hero')
+        .reply(200, svg, { 'Content-Type': 'image/jpeg' });
+
+      const mapping = new Map([
+        ['http://www.aem.com/hero.jpg', '/content/dam/xwalk/hero.jpg'],
+        ['http://www.aem.com/media/hero', '/content/dam/xwalk/hero'],
+      ]);
+
+      const results = await downloadAssets(mapping, downloadFolder, 1, 0, {}, { convertImagesToPng: true });
+
+      expect(results.map((result) => result.status)).to.deep.equal(['rejected', 'rejected']);
+      expect(fs.existsSync(path.join(downloadFolder, 'xwalk'))).to.be.false;
+
+      await scope.done();
+    });
+
+    it('preserves the rejection error when a parent path component is a regular file (ENOTDIR)', async () => {
+      fs.mkdirSync(downloadFolder, { recursive: true });
+      fs.writeFileSync(path.join(downloadFolder, 'xwalk'), 'not a directory');
+
+      const scope = nock('http://www.aem.com')
+        .get('/hero.jpg')
+        .reply(200, HTML_PAGE, { 'Content-Type': 'text/html' });
+
+      const mapping = new Map([
+        ['http://www.aem.com/hero.jpg', '/content/dam/xwalk/hero.jpg'],
+      ]);
+
+      const results = await downloadAssets(mapping, downloadFolder, 1, 0);
+
+      expect(results[0].status).to.equal('rejected');
+      expect(results[0].reason.message).to.equal(
+        'Rejected http://www.aem.com/hero.jpg: expected an image but the download looks like an HTML page',
+      );
+
+      await scope.done();
+    });
+
+    it('does not retry a 200 response rejected by byte validation', async () => {
+      const scope = nock('http://www.aem.com')
+        .get('/blocked.jpg')
+        .once()
+        .reply(200, HTML_PAGE, { 'Content-Type': 'text/html' });
+
+      const mapping = new Map([
+        ['http://www.aem.com/blocked.jpg', '/content/dam/xwalk/blocked.jpg'],
+      ]);
+
+      const results = await downloadAssets(mapping, downloadFolder, 3, 0);
+
+      expect(results[0].status).to.equal('rejected');
       await scope.done();
     });
   });
