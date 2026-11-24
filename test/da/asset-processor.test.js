@@ -10,8 +10,13 @@
  * governing permissions and limitations under the License.
  */
 
-import { describe, it } from 'mocha';
+import { describe, it, beforeEach, afterEach } from 'mocha';
 import { expect } from 'chai';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import nock from 'nock';
 
 import {
   isImageAsset,
@@ -24,6 +29,8 @@ import {
 import { IMAGE_EXTENSIONS, DOWNLOAD_STATUS } from '../../src/utils/download-assets.js';
 
 import { createMockDependencies } from './test-setup.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 describe('asset-processor.js', () => {
   describe('isImageAsset', () => {
@@ -677,6 +684,112 @@ describe('asset-processor.js', () => {
       // Verify error logging (should not include success message)
       expect(logs).to.include('YELLOW: Uploading assets to 1 different folder(s)...');
       expect(logs).to.not.include('GREEN: Successfully uploaded all page assets');
+    });
+  });
+
+  describe('downloadPageAssets -> uploadPageAssets integration (real fs)', () => {
+    let tempDir;
+
+    beforeEach(() => {
+      tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'da-asset-pipeline-'));
+    });
+
+    afterEach(() => {
+      nock.cleanAll();
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    });
+
+    it('skips uploading when all page assets are rejected by byte validation', async () => {
+      const htmlError = '<!DOCTYPE html><html><body>WAF Challenge</body></html>';
+      const scope = nock('https://origin.example.com')
+        .get('/hero.jpg')
+        .reply(200, htmlError, { 'Content-Type': 'text/html' })
+        .get('/brochure.pdf')
+        .reply(200, htmlError, { 'Content-Type': 'text/html' });
+
+      const uploadedFolders = [];
+      const deps = createMockDependencies({
+        fs,
+        path,
+        downloadAssets: undefined,
+        uploadFolder: async (folder) => {
+          uploadedFolders.push(folder);
+        },
+      });
+
+      const urls = [
+        'https://origin.example.com/hero.jpg',
+        'https://origin.example.com/brochure.pdf',
+      ];
+      const { downloadResults, assetMapping } = await downloadPageAssets(
+        urls,
+        'products/.overview',
+        tempDir,
+        { maxRetries: 1, retryDelay: 0, convertImagesToPng: true },
+        deps,
+      );
+
+      expect(downloadResults.map((r) => r.status)).to.deep.equal([
+        DOWNLOAD_STATUS.REJECTED,
+        DOWNLOAD_STATUS.REJECTED,
+      ]);
+
+      await uploadPageAssets(assetMapping, 'https://admin.da.live/source/org/site', 'token', {}, tempDir, deps);
+
+      expect(uploadedFolders).to.deep.equal([]);
+      expect(fs.existsSync(path.join(tempDir, 'products/.overview'))).to.be.false;
+      expect(fs.existsSync(path.join(tempDir, 'products/shared-media'))).to.be.false;
+
+      await scope.done();
+    });
+
+    it('uploads only valid assets when a page mixes valid images with rejected downloads', async () => {
+      const scope = nock('https://origin.example.com')
+        .get('/valid.jpg')
+        .replyWithFile(200, path.resolve(__dirname, '../fixtures/images/sample.jpg'), { 'Content-Type': 'image/jpeg' })
+        .get('/blocked.jpg')
+        .reply(200, '<!DOCTYPE html><html><body>Blocked</body></html>', { 'Content-Type': 'text/html' })
+        .get('/blocked.pdf')
+        .reply(200, '<!DOCTYPE html><html><body>Blocked</body></html>', { 'Content-Type': 'text/html' });
+
+      const uploadedFolders = [];
+      const deps = createMockDependencies({
+        fs,
+        path,
+        downloadAssets: undefined,
+        uploadFolder: async (folder) => {
+          uploadedFolders.push({ folder, files: fs.readdirSync(folder) });
+        },
+      });
+
+      const urls = [
+        'https://origin.example.com/valid.jpg',
+        'https://origin.example.com/blocked.jpg',
+        'https://origin.example.com/blocked.pdf',
+      ];
+      const { downloadResults, assetMapping } = await downloadPageAssets(
+        urls,
+        'products/.overview',
+        tempDir,
+        { maxRetries: 1, retryDelay: 0, convertImagesToPng: true },
+        deps,
+      );
+
+      expect(downloadResults.map((r) => r.status)).to.deep.equal([
+        DOWNLOAD_STATUS.FULFILLED,
+        DOWNLOAD_STATUS.REJECTED,
+        DOWNLOAD_STATUS.REJECTED,
+      ]);
+
+      await uploadPageAssets(assetMapping, 'https://admin.da.live/source/org/site', 'token', {}, tempDir, deps);
+
+      expect(uploadedFolders).to.have.length(1);
+      expect(uploadedFolders[0].folder).to.equal(path.join(tempDir, 'products/.overview'));
+      expect(uploadedFolders[0].files).to.have.length(1);
+      expect(uploadedFolders[0].files[0]).to.match(/^valid-[a-f0-9]{8}\.jpg$/);
+      expect(fs.existsSync(path.join(tempDir, 'products/shared-media'))).to.be.false;
+
+      await scope.done();
     });
   });
 });

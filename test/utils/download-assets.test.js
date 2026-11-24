@@ -848,7 +848,10 @@ describe('download assets', function () {
         ['http://www.aem.com/hero.webp', '/content/dam/xwalk/hero.webp'],
       ]);
 
-      const results = await downloadAssets(mapping, downloadFolder, 1, 0, {}, { convertImagesToPng: true });
+      const results = await downloadAssets(mapping, downloadFolder, 1, 0, {}, {
+        convertImagesToPng: true,
+        maxConcurrentDownloads: 1,
+      });
 
       expect(results.map((result) => result.status)).to.deep.equal(['fulfilled', 'rejected', 'fulfilled', 'rejected']);
       expect(fs.readFileSync(path.join(downloadFolder, 'xwalk/report.png'))).to.deep.equal(pngBytes);
@@ -954,6 +957,80 @@ describe('download assets', function () {
 
       expect(results[0].status).to.equal('rejected');
       await scope.done();
+    });
+
+    it('rejects non-SVG bytes for .svg and extensionless image/svg+xml while preserving valid SVGs', async () => {
+      const pngBytes = fs.readFileSync(imageFixture('sample.png'));
+      const svgBytes = fs.readFileSync(imageFixture('sample-xml.svg'));
+      const existingSiblingPng = path.join(downloadFolder, 'xwalk/bad-vector.png');
+      fs.mkdirSync(path.dirname(existingSiblingPng), { recursive: true });
+      fs.writeFileSync(existingSiblingPng, pngBytes);
+
+      const scope = nock('http://www.aem.com')
+        .get('/icon.svg')
+        .reply(200, pngBytes, { 'Content-Type': 'image/png' })
+        .get('/media/good-vector')
+        .reply(200, svgBytes, { 'Content-Type': 'image/svg+xml' })
+        .get('/media/bad-vector')
+        .reply(200, HTML_PAGE, { 'Content-Type': 'image/svg+xml' });
+
+      const mapping = new Map([
+        ['http://www.aem.com/icon.svg', '/content/dam/xwalk/icon.svg'],
+        ['http://www.aem.com/media/good-vector', '/content/dam/xwalk/good-vector'],
+        ['http://www.aem.com/media/bad-vector', '/content/dam/xwalk/bad-vector'],
+      ]);
+
+      const results = await downloadAssets(mapping, downloadFolder, 1, 0, {}, { convertImagesToPng: true });
+
+      expect(results.map((result) => result.status)).to.deep.equal(['rejected', 'fulfilled', 'rejected']);
+      expect(results[0].reason.message).to.equal(
+        'Rejected http://www.aem.com/icon.svg: expected an SVG image but the download looks like an image (PNG)',
+      );
+      expect(results[2].reason.message).to.equal(
+        'Rejected http://www.aem.com/media/bad-vector: expected an SVG image but the download looks like an HTML page',
+      );
+      expect(fs.readFileSync(path.join(downloadFolder, 'xwalk/good-vector'))).to.deep.equal(svgBytes);
+      expect(fs.existsSync(path.join(downloadFolder, 'xwalk/good-vector.png'))).to.be.false;
+      expect(fs.existsSync(path.join(downloadFolder, 'xwalk/icon.svg'))).to.be.false;
+      expect(fs.existsSync(path.join(downloadFolder, 'xwalk/bad-vector'))).to.be.false;
+      // Rejecting an extensionless SVG must not delete an unrelated sibling .png
+      expect(fs.readFileSync(existingSiblingPng)).to.deep.equal(pngBytes);
+
+      await scope.done();
+    });
+
+    it('uses a cached converted .png for an extensionless convertible image under useCache', async () => {
+      const cachedPng = path.join(downloadFolder, 'xwalk/banner.png');
+      const cachedBytes = fs.readFileSync(imageFixture('sample.png'));
+      fs.mkdirSync(path.dirname(cachedPng), { recursive: true });
+      fs.writeFileSync(cachedPng, cachedBytes);
+
+      const logStub = sinon.stub(console, 'log');
+      try {
+        const scope = nock('http://www.aem.com')
+          .get('/media/banner')
+          .replyWithFile(200, imageFixture('sample.webp'), { 'Content-Type': 'image/webp' });
+
+        const mapping = new Map([
+          ['http://www.aem.com/media/banner', '/content/dam/xwalk/banner'],
+        ]);
+
+        const results = await downloadAssets(mapping, downloadFolder, 1, 0, {}, {
+          convertImagesToPng: true,
+          useCache: true,
+        });
+
+        expect(results[0].status).to.equal('fulfilled');
+        expect(results[0].value.cached).to.be.true;
+        expect(fs.readFileSync(cachedPng)).to.deep.equal(cachedBytes);
+        expect(fs.existsSync(path.join(downloadFolder, 'xwalk/banner'))).to.be.false;
+        const logged = logStub.args.map((args) => args.join(' '));
+        expect(logged.some((line) => line.includes('Downloaded successfully'))).to.be.false;
+
+        await scope.done();
+      } finally {
+        logStub.restore();
+      }
     });
   });
 

@@ -97,6 +97,18 @@ describe('file-type', function () {
       expect(detectImageFormat(Buffer.from(svg))).to.equal('SVG');
     });
 
+    it('detects an SVG with a plain DOCTYPE without an internal subset', function () {
+      const svgs = [
+        '<!DOCTYPE svg><svg xmlns="http://www.w3.org/2000/svg"/>',
+        '<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">'
+          + '<svg xmlns="http://www.w3.org/2000/svg"/>',
+      ];
+
+      for (const svg of svgs) {
+        expect(detectImageFormat(Buffer.from(svg)), svg).to.equal('SVG');
+      }
+    });
+
     it('does not take an HTML page containing an SVG for an SVG image', function () {
       const pages = [
         '<!DOCTYPE html><svg xmlns="http://www.w3.org/2000/svg"></svg>',
@@ -111,9 +123,10 @@ describe('file-type', function () {
       }
     });
 
-    it('handles SVG namespace prefixes, non-svg element names and unterminated prologs', function () {
+    it('handles SVG namespace prefixes, non-svg element names, control bytes and unterminated prologs', function () {
       expect(detectImageFormat(Buffer.from('<svg:svg xmlns:svg="http://www.w3.org/2000/svg"/>'))).to.equal('SVG');
       expect(detectImageFormat(Buffer.from('<svgfoo/>'))).to.be.null;
+      expect(detectImageFormat(Buffer.from('<svg>\x00</svg>'))).to.be.null;
       expect(detectImageFormat(Buffer.from('<?xml version="1.0"'))).to.be.null;
       expect(detectImageFormat(Buffer.from('<!-- unterminated comment'))).to.be.null;
       expect(detectImageFormat(Buffer.from('<!DOCTYPE svg ['))).to.be.null;
@@ -202,6 +215,13 @@ describe('file-type', function () {
       expect(matchesFileKind(readImageFixture('sample.avif'), FILE_KIND.VIDEO)).to.be.false;
       expect(matchesFileKind(readImageFixture('sample.heic'), FILE_KIND.VIDEO)).to.be.false;
       expect(matchesFileKind(readImageFixture('sample.heif'), FILE_KIND.VIDEO)).to.be.false;
+      // Real-world AVIF/HEIF containers frequently list `isom` or `mp41` as compatible brands
+      const avifWithIsom = Buffer.from('\x00\x00\x00\x18ftypavif\x00\x00\x00\x00avifisom', 'latin1');
+      const heicWithMp41 = Buffer.from('\x00\x00\x00\x18ftypheic\x00\x00\x00\x00mif1mp41', 'latin1');
+      expect(detectImageFormat(avifWithIsom)).to.equal('AVIF');
+      expect(detectImageFormat(heicWithMp41)).to.equal('HEIF');
+      expect(matchesFileKind(avifWithIsom, FILE_KIND.VIDEO)).to.be.false;
+      expect(matchesFileKind(heicWithMp41, FILE_KIND.VIDEO)).to.be.false;
       expect(matchesFileKind(Buffer.from('1234ftyp'), FILE_KIND.VIDEO)).to.be.false;
       expect(matchesFileKind(Buffer.from('1234ftyp56789012'), FILE_KIND.VIDEO)).to.be.false;
       expect(matchesFileKind(Buffer.from('<!--ftyp--><html><body>Error</body></html>'), FILE_KIND.VIDEO)).to.be.false;
